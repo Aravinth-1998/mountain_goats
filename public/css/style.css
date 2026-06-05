@@ -224,6 +224,7 @@ input:focus { border-color: var(--primary); background: rgba(79,124,255,0.1); }
 .pp-tops { font-size: 11px; font-weight: 800; color: var(--text); white-space: nowrap; }
 .pp-bonus { font-size: 11px; font-weight: 800; color: var(--gold); white-space: nowrap; }
 .pp-sets { font-size: 11px; font-weight: 800; color: var(--green); white-space: nowrap; }
+.pp-auto { font-size: 10px; font-weight: 700; color: var(--muted); background: rgba(255,255,255,0.07); border-radius: 6px; padding: 1px 5px; white-space: nowrap; }
 .pp-mtns { display: flex; gap: 4px; }
 .pp-chip {
   position: relative;
@@ -347,12 +348,23 @@ input:focus { border-color: var(--primary); background: rgba(79,124,255,0.1); }
 .overlay-card .btn { margin-top: 10px; }
 .scoreboard { display: flex; flex-direction: column; gap: 6px; margin: 12px 0 8px; text-align: left; }
 .score-row {
-  display: flex; justify-content: space-between; gap: 8px;
+  display: flex; justify-content: space-between; align-items: center; gap: 8px;
   background: rgba(255,255,255,0.05); border: 1px solid var(--card-border);
   border-radius: 10px; padding: 8px 12px; font-size: 14px; font-weight: 600;
 }
 .score-row.win { background: rgba(255,209,102,0.15); border-color: rgba(255,209,102,0.4); color: var(--gold); }
+.sb-left { display: flex; align-items: center; gap: 6px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sb-right { flex: 0 0 auto; white-space: nowrap; color: var(--muted); font-size: 13px; }
+.score-row.win .sb-right { color: inherit; }
+.sb-bonus { font-size: 12px; font-weight: 700; color: var(--gold); background: rgba(255,209,102,0.15); border-radius: 6px; padding: 1px 5px; white-space: nowrap; }
 .tiebreak { font-size: 11px; color: var(--muted); margin-top: 4px; }
+.end-reason {
+  display: flex; align-items: flex-start; gap: 8px;
+  margin-top: 12px; padding: 10px 12px;
+  background: rgba(255,255,255,0.05); border: 1px solid var(--card-border);
+  border-radius: 12px; font-size: 13px; color: var(--muted); text-align: left;
+}
+.er-icon { font-size: 20px; flex: 0 0 auto; line-height: 1.2; }
 
 /* Toast */
 .toast {

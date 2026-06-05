@@ -140,6 +140,8 @@ function createRoom() {
     adjustable: [], // die indices the player may re-face (extra 1s)
     rolled: false,
     log: [],
+    botTimer: null,
+    watchdog: null,
   };
   rooms[code] = room;
   return room;
@@ -180,6 +182,7 @@ function resetForNewGame(room) {
   room.mountains = buildMountains(count);
   room.bonusTokens = [...BONUS_DEFS];
   room.lastRound = false;
+  room.endReason = null;
   room.finished = false;
   room.winnerId = null;
   room.currentIndex = 0;
@@ -204,6 +207,7 @@ function publicState(room) {
     winnerId: room.winnerId,
     emptyMountains: emptyMountainCount(room),
     lastRound: room.lastRound,
+    endReason: room.endReason || null,
     bonusTokens: room.bonusTokens,
     numDice: NUM_DICE,
     currentIndex: room.currentIndex,
@@ -252,7 +256,9 @@ function advanceTurn(room) {
   let next = room.currentIndex;
   for (let i = 0; i < room.players.length; i++) {
     next = (next + 1) % room.players.length;
-    if (room.players[next].connected) break;
+    if (room.players[next].connected || room.players[next].isBot) break;
+    // disconnected non-bot: still valid (bot will substitute)
+    break;
   }
   room.currentIndex = next;
 
@@ -262,6 +268,16 @@ function advanceTurn(room) {
     if (counts.length && Math.max(...counts) === Math.min(...counts)) {
       endGame(room);
     }
+  }
+
+  // Always schedule the next bot turn from inside advanceTurn —
+  // this guarantees no turn is ever silently dropped regardless of call site.
+  if (!room.finished) {
+    setImmediate(() => {
+      if (!room.finished && shouldBotPlay(room) && !room.botTimer) {
+        scheduleBot(room);
+      }
+    });
   }
 }
 
@@ -278,6 +294,7 @@ function checkEndgameTrigger(room) {
   const allBonus = room.bonusTokens.length === 0;
   if (allBonus || emptyMountainCount(room) >= 3) {
     room.lastRound = true;
+    room.endReason = allBonus ? 'bonus' : 'empty';
     const reason = allBonus ? 'all Bonus Tokens claimed' : '3 mountains emptied';
     pushLog(room, `Final round! (${reason}) - everyone gets equal turns. 🔔`);
   }
@@ -345,10 +362,27 @@ function rankedPlayers(room) {
 
 function endGame(room) {
   room.finished = true;
+  if (room.watchdog) { clearInterval(room.watchdog); room.watchdog = null; }
   const ranked = rankedPlayers(room);
   const winner = ranked[0] ? ranked[0].p : null;
   room.winnerId = winner ? winner.id : null;
   if (winner) pushLog(room, `Game over! ${winner.name} wins with ${ranked[0].score} points! 🏆`);
+}
+
+// Watchdog: every 8s, if it's a bot/disconnected turn and no timer is running, kick it.
+function startWatchdog(room) {
+  if (room.watchdog) clearInterval(room.watchdog);
+  room.watchdog = setInterval(() => {
+    if (!rooms[room.code] || room.finished || !room.started) {
+      clearInterval(room.watchdog);
+      room.watchdog = null;
+      return;
+    }
+    if (shouldBotPlay(room) && !room.botTimer && hasHuman(room)) {
+      console.warn(`[watchdog] room ${room.code}: bot turn stuck, kicking.`);
+      botAct(room);
+    }
+  }, 8000);
 }
 
 // ----------------------------------------------------------------------------
@@ -435,11 +469,19 @@ function botChooseGroup(room, bot) {
   return best && best.score > -Infinity ? best : null;
 }
 
-function scheduleBot(room, delay = 850) {
-  if (!room || !room.started || room.finished) return;
+// Returns true if the current player should be auto-played (bot or disconnected human).
+function shouldBotPlay(room) {
+  if (!room || !room.started || room.finished) return false;
   const cur = room.players[room.currentIndex];
-  if (!cur || !cur.isBot) return;
-  if (!hasHuman(room)) return; // pause bots if no humans are watching
+  if (!cur) return false;
+  if (cur.isBot) return true;
+  if (!cur.connected) return true; // disconnected human → substitute
+  return false;
+}
+
+function scheduleBot(room, delay = 850) {
+  if (!shouldBotPlay(room)) return;
+  if (!hasHuman(room)) return; // pause if no humans are watching
   if (room.botTimer) clearTimeout(room.botTimer);
   room.botTimer = setTimeout(() => {
     room.botTimer = null;
@@ -448,41 +490,57 @@ function scheduleBot(room, delay = 850) {
 }
 
 function botAct(room) {
-  if (!room || !room.started || room.finished) return;
-  const cur = room.players[room.currentIndex];
-  if (!cur || !cur.isBot) return;
+  try {
+    if (!room || !room.started || room.finished) return;
+    const cur = room.players[room.currentIndex];
+    if (!cur) return;
+    if (cur.connected && !cur.isBot) return;
 
-  if (!room.rolled) {
-    room.dice = Array.from({ length: NUM_DICE }, () => 1 + Math.floor(Math.random() * 6));
-    room.diceUsed = room.dice.map(() => false);
-    room.adjustable = []; // bots play the dice as rolled
-    room.rolled = true;
-    pushLog(room, `${cur.name} rolled ${room.dice.join(', ')}.`);
-    broadcast(room);
-    scheduleBot(room, 850);
-    return;
-  }
+    const label = cur.isBot ? cur.name : `Bot (for ${cur.name})`;
 
-  const group = botChooseGroup(room, cur);
-  if (group) {
-    applyClimb(room, cur, group.mountainIndex);
-    group.indices.forEach((idx) => (room.diceUsed[idx] = true));
-    room.adjustable = [];
-    if (!room.finished && room.diceUsed.every((u) => u)) {
-      advanceTurn(room);
+    if (!room.rolled) {
+      room.dice = Array.from({ length: NUM_DICE }, () => 1 + Math.floor(Math.random() * 6));
+      room.diceUsed = room.dice.map(() => false);
+      room.adjustable = [];
+      room.rolled = true;
+      pushLog(room, `${label} rolled ${room.dice.join(', ')}.`);
       broadcast(room);
       scheduleBot(room, 850);
-    } else {
-      broadcast(room);
-      scheduleBot(room, 650);
+      return;
     }
-    return;
-  }
 
-  // No useful group: end the turn.
-  advanceTurn(room);
-  broadcast(room);
-  scheduleBot(room, 850);
+    const group = botChooseGroup(room, cur);
+    if (group) {
+      applyClimb(room, cur, group.mountainIndex);
+      group.indices.forEach((idx) => (room.diceUsed[idx] = true));
+      room.adjustable = [];
+      if (!room.finished && room.diceUsed.every((u) => u)) {
+        advanceTurn(room);
+        broadcast(room);
+        // advanceTurn's setImmediate handles rescheduling
+      } else {
+        broadcast(room);
+        scheduleBot(room, 650);
+      }
+      return;
+    }
+
+    // No useful group: end the turn.
+    advanceTurn(room);
+    broadcast(room);
+    // advanceTurn's setImmediate handles rescheduling
+
+  } catch (err) {
+    console.error('[botAct] unexpected error — recovering:', err);
+    try {
+      if (room && room.started && !room.finished) {
+        advanceTurn(room);
+        broadcast(room);
+      }
+    } catch (e2) {
+      console.error('[botAct] recovery also failed:', e2);
+    }
+  }
 }
 
 // ----------------------------------------------------------------------------
@@ -507,17 +565,37 @@ io.on('connection', (socket) => {
     if (!room) return cb && cb({ error: 'Room not found.' });
     if (!name) return cb && cb({ error: 'Please enter your name.' });
 
-    const existing = room.players.find((p) => p.name === name && !p.connected);
+    // Reconnect path:
+    // In a started game we match by name even if still marked connected —
+    // this handles the page-refresh race where the new socket arrives before
+    // the server fires the disconnect event for the old socket.
+    const existing = room.started
+      ? room.players.find((p) => p.name === name && !p.isBot)
+      : room.players.find((p) => p.name === name && !p.connected && !p.isBot);
+
     if (existing) {
+      const wasMyTurn = room.players[room.currentIndex] &&
+        room.players[room.currentIndex].id === existing.id;
+      const wasDisconnected = !existing.connected;
       existing.id = socket.id;
       existing.connected = true;
       if (!room.hostId || !room.players.some((p) => p.id === room.hostId && p.connected)) {
         room.hostId = socket.id;
       }
       socket.join(room.code);
-      pushLog(room, `${name} reconnected.`);
+      if (room.started && wasDisconnected) {
+        // Cancel any pending bot-substitution timer for this player.
+        if (room.botTimer) {
+          clearTimeout(room.botTimer);
+          room.botTimer = null;
+        }
+        pushLog(room, `${name} reconnected. 👋`);
+      }
       cb && cb({ ok: true, code: room.code, youId: socket.id });
       broadcast(room);
+      // If it was their turn when they reconnected (and they're now live), let them play;
+      // otherwise schedule the next bot turn normally.
+      if (!wasMyTurn || wasDisconnected) scheduleBot(room, 100);
       return;
     }
 
@@ -560,6 +638,7 @@ io.on('connection', (socket) => {
     resetForNewGame(room);
     room.started = true;
     pushLog(room, 'The climb begins! 🐐');
+    startWatchdog(room);
     broadcast(room);
     scheduleBot(room);
   });
@@ -644,19 +723,31 @@ io.on('connection', (socket) => {
     room.started = true;
     room.log = [];
     pushLog(room, 'New game started! 🐐');
+    startWatchdog(room);
     broadcast(room);
     scheduleBot(room);
   });
 
-  socket.on('leaveRoom', () => handleDisconnect(socket));
-  socket.on('disconnect', () => handleDisconnect(socket));
+  socket.on('leaveRoom', () => handleDisconnect(socket, true));
+  socket.on('disconnect', () => {
+    // Small grace period so a page refresh can reconnect before we act on
+    // the disconnect (avoids skipping the player's turn on refresh).
+    setTimeout(() => handleDisconnect(socket, false), 3000);
+  });
 });
 
-function handleDisconnect(socket) {
+function handleDisconnect(socket, immediate = false) {
   const room = findRoomBySocket(socket.id);
   if (!room) return;
   const player = room.players.find((p) => p.id === socket.id);
   if (!player) return;
+
+  // If not immediate (page refresh grace period), the player may have already
+  // reconnected with a new socket id — if so, ignore this stale disconnect.
+  if (!immediate && player.id !== socket.id) return;
+  // Also skip if the player is already marked disconnected (reconnected and this
+  // fired for the OLD socket).
+  if (!immediate && !player.connected) return;
 
   if (!room.started) {
     room.players = room.players.filter((p) => p.id !== socket.id);
@@ -667,28 +758,28 @@ function handleDisconnect(socket) {
     }
     if (!hasHuman(room)) {
       if (room.botTimer) clearTimeout(room.botTimer);
+      if (room.watchdog) clearInterval(room.watchdog);
       delete rooms[room.code];
       return;
     }
     if (room.currentIndex >= room.players.length) room.currentIndex = 0;
   } else {
     player.connected = false;
-    pushLog(room, `${player.name} disconnected.`);
-    if (room.players[room.currentIndex] && room.players[room.currentIndex].id === socket.id) {
-      advanceTurn(room);
-    }
+    pushLog(room, `${player.name} disconnected. Bot will play until they return.`);
+    // Do NOT advance the turn — scheduleBot will handle playing their turn.
     if (room.hostId === socket.id) {
       const nextHost = room.players.find((p) => p.connected && !p.isBot);
       room.hostId = nextHost ? nextHost.id : room.hostId;
     }
     if (!hasHuman(room)) {
       if (room.botTimer) clearTimeout(room.botTimer);
+      if (room.watchdog) clearInterval(room.watchdog);
       delete rooms[room.code];
       return;
     }
   }
   broadcast(room);
-  scheduleBot(room);
+  scheduleBot(room, 1200); // slight extra delay so the disconnect message is visible
 }
 
 server.listen(PORT, () => {

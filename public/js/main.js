@@ -36,8 +36,8 @@
     socket.emit('createRoom', { name }, (res) => {
       if (res.error) return ($('home-error').textContent = res.error);
       myId = res.youId;
-      sessionStorage.setItem('mg_name', name);
-      sessionStorage.setItem('mg_code', res.code);
+      localStorage.setItem('mg_name', name);
+      localStorage.setItem('mg_code', res.code);
     });
   });
   $('btn-join').addEventListener('click', () => {
@@ -48,8 +48,8 @@
     socket.emit('joinRoom', { name, code }, (res) => {
       if (res.error) return ($('home-error').textContent = res.error);
       myId = res.youId;
-      sessionStorage.setItem('mg_name', name);
-      sessionStorage.setItem('mg_code', res.code);
+      localStorage.setItem('mg_name', name);
+      localStorage.setItem('mg_code', res.code);
     });
   });
 
@@ -99,7 +99,8 @@
   function leaveToHome() {
     socket.emit('leaveRoom');
     state = null;
-    sessionStorage.removeItem('mg_code');
+    localStorage.removeItem('mg_code');
+    localStorage.removeItem('mg_name');
     show('home');
   }
 
@@ -118,12 +119,18 @@
 
   // ===================== SOCKET =====================
   socket.on('connect', () => {
-    const code = sessionStorage.getItem('mg_code');
-    const name = sessionStorage.getItem('mg_name');
-    if (code && name && !state) {
+    const code = localStorage.getItem('mg_code');
+    const name = localStorage.getItem('mg_name');
+    if (code && name) {
       socket.emit('joinRoom', { name, code }, (res) => {
-        if (res && res.ok) myId = res.youId;
-        else sessionStorage.removeItem('mg_code');
+        if (res && res.ok) {
+          myId = res.youId;
+        } else {
+          // Room gone (server restarted etc.) — clear and stay on home
+          localStorage.removeItem('mg_code');
+          localStorage.removeItem('mg_name');
+          show('home');
+        }
       });
     }
   });
@@ -240,9 +247,19 @@
     const cur = state.players[state.currentIndex];
     if (!cur) { banner.textContent = '—'; return; }
     const finalTag = state.lastRound ? '🔔 Final · ' : '';
-    banner.textContent = isMyTurn() ? finalTag + '🎯 Your turn!' : `${finalTag}${cur.name}'s turn`;
-    banner.classList.toggle('my-turn', isMyTurn());
-    banner.classList.toggle('final', !!state.lastRound);
+    if (isMyTurn()) {
+      banner.textContent = finalTag + '🎯 Your turn!';
+      banner.classList.add('my-turn');
+      banner.classList.remove('final');
+    } else if (!cur.connected && !cur.isBot) {
+      banner.textContent = `${finalTag}🤖 Auto-playing for ${cur.name}…`;
+      banner.classList.remove('my-turn');
+      banner.classList.toggle('final', !!state.lastRound);
+    } else {
+      banner.textContent = `${finalTag}${cur.name}${cur.isBot ? ' 🤖' : ''}'s turn`;
+      banner.classList.remove('my-turn');
+      banner.classList.toggle('final', !!state.lastRound);
+    }
   }
 
   function renderStats() {
@@ -254,8 +271,8 @@
       panel.className = 'pp' + (idx === state.currentIndex ? ' active' : '') + (p.connected ? '' : ' off');
       let chips = '';
       state.mountains.forEach((m, mi) => {
-        const n = p.collected[mi] || 0;
         const onTop = p.pos[mi] >= m.height;
+        const n = p.collected[mi] || 0;
         chips += `<span class="pp-chip${n > 0 ? ' has' : ''}${onTop ? ' top' : ''}" style="--c:${m.color}">${m.value}<b>×${n}</b></span>`;
       });
       const leadTag = p.score === lead && lead > 0 ? '<span class="pp-lead">▲</span>' : '';
@@ -266,7 +283,7 @@
         <div class="pp-head">
           <span class="pp-dot" style="background:${p.color}"></span>
           <span class="pp-name">${escapeHtml(p.name)}${p.id === myId ? ' (You)' : ''}</span>
-          ${setsTag}${topsTag}${bonusTag}<span class="pp-score">${leadTag}⭐ ${p.score}</span>
+          ${offTag}${setsTag}${topsTag}${bonusTag}<span class="pp-score">${leadTag}⭐ ${p.score}</span>
         </div>
         <div class="pp-mtns">${chips}</div>`;
       strip.appendChild(panel);
@@ -415,6 +432,21 @@
     else hint.textContent = tMi >= 0 ? 'Tap the glowing mountain to climb 🐐' : 'This group is not 5–10. Adjust your selection.';
   }
 
+  function endReasonBadge(reason) {
+    if (!reason) return '';
+    if (reason === 'bonus') {
+      return `<div class="end-reason">
+        <span class="er-icon">✨</span>
+        <span>All 4 Bonus Tokens were claimed — the final round was triggered.</span>
+      </div>`;
+    }
+    // 'empty'
+    return `<div class="end-reason">
+      <span class="er-icon">🏔️</span>
+      <span>3 mountains ran out of Point Tokens — the final round was triggered.</span>
+    </div>`;
+  }
+
   function showWin() {
     const winner = state.players.find((p) => p.id === state.winnerId);
     if (!winner) return;
@@ -422,13 +454,15 @@
     const sorted = [...state.players].sort((a, b) => b.score - a.score || b.tops - a.tops);
     const rows = sorted.map((p, i) => {
       const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '•';
-      const bonus = p.bonus && p.bonus.length ? ` · ✨${p.bonusPoints}` : '';
+      const bonusTag = p.bonus && p.bonus.length ? ` <span class="sb-bonus">✨+${p.bonusPoints}</span>` : '';
       return `<div class="score-row${p.id === winner.id ? ' win' : ''}">
-        <span>${medal} ${escapeHtml(p.name)}</span>
-        <span>${p.score} pts · 👑${p.tops}${bonus}</span></div>`;
+        <span class="sb-left">${medal} ${escapeHtml(p.name)}${p.isBot ? ' 🤖' : ''}${bonusTag}</span>
+        <span class="sb-right">${p.score} pts · 👑${p.tops}</span>
+      </div>`;
     }).join('');
     $('win-sub').innerHTML = `<div class="scoreboard">${rows}</div>
-      <div class="tiebreak">Ties: most goats on tops, then a goat on the higher mountain.</div>`;
+      <div class="tiebreak">Ties: most goats on tops, then a goat on the higher mountain.</div>
+      ${endReasonBadge(state.endReason)}`;
     $('btn-playagain').style.display = state.hostId === myId ? 'block' : 'none';
     $('win-overlay').classList.add('show');
   }
