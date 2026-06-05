@@ -354,11 +354,65 @@ function endGame(room) {
 // ----------------------------------------------------------------------------
 // Bot AI
 // ----------------------------------------------------------------------------
-// Choose the best dice group (subset of unused dice) for the bot, or null.
+// Score a single possible group (indices + target mountain) for the bot.
+function scoreGroup(room, bot, indices, mi) {
+  const m = room.mountains[mi];
+  const pos = bot.pos[mi];
+  const atTop = pos >= m.height;
+  const stepsLeft = m.height - pos;
+
+  // Simulate collecting a token and check if that yields a new set.
+  const currentSets = bot.collected.reduce((mn, c) => Math.min(mn, c), Infinity);
+  const newCollected = bot.collected.map((c, i) => (i === mi ? c + 1 : c));
+  const newSets = newCollected.reduce((mn, c) => Math.min(mn, c), Infinity);
+  const bonusValue = newSets > currentSets && room.bonusTokens.length > 0
+    ? room.bonusTokens[0]  // the highest remaining bonus token
+    : 0;
+
+  // Count opponents on this top (bumping them is valuable).
+  const oppsOnTop = room.players.filter(
+    (o) => o.id !== bot.id && o.pos[mi] >= m.height
+  ).length;
+
+  let value;
+
+  if (m.chips <= 0) {
+    // Empty mountain: only useful if we can bump someone off the top.
+    if (!atTop && stepsLeft === 1 && oppsOnTop > 0) {
+      value = 2 * oppsOnTop; // mild reward
+    } else {
+      return -Infinity; // waste of dice
+    }
+  } else if (atTop) {
+    // Already on top: harvest another token.
+    value = m.value + bonusValue;
+    // Slightly prefer mountains where chips are scarce (closing soon).
+    value += Math.max(0, 3 - m.chips);
+  } else if (stepsLeft === 1) {
+    // This move reaches the top → collect a token + optional bump + optional set.
+    value = m.value + 4 + bonusValue + oppsOnTop * 3;
+    // Urgency: fewer chips left = close it before someone else does.
+    value += Math.max(0, 4 - m.chips) * 1.5;
+  } else {
+    // Intermediate step — progress value, weighted by mountain value and urgency.
+    const progressFactor = 1 / stepsLeft; // closer to top = more valuable
+    value = m.value * 0.4 * progressFactor;
+    // Chips running low means competition is heating up for this mountain.
+    if (m.chips <= 3) value += 1.5;
+  }
+
+  // Penalty for using more dice in one group — leaves fewer dice for other moves.
+  value -= (indices.length - 1) * 0.8;
+
+  return value;
+}
+
+// Enumerate all subsets of unused dice, evaluate each valid group, pick the best.
 function botChooseGroup(room, bot) {
   const unused = room.dice.map((_, i) => i).filter((i) => !room.diceUsed[i]);
   const n = unused.length;
   let best = null;
+
   for (let mask = 1; mask < (1 << n); mask++) {
     let sum = 0;
     const indices = [];
@@ -369,35 +423,16 @@ function botChooseGroup(room, bot) {
       }
     }
     if (sum < 5 || sum > 10) continue;
-    const mi = sum - 5; // mountains are ordered 5..10
-    const m = room.mountains[mi];
-    if (!m) continue;
+    const mi = room.mountains.findIndex((m) => m.value === sum);
+    if (mi < 0) continue;
 
-    // Heuristic value of climbing this mountain once.
-    const pos = bot.pos[mi];
-    const atTop = pos >= m.height;
-    let value;
-    if (m.chips <= 0) {
-      // No tokens: only useful to bump an opponent off the top.
-      const oppOnTop = room.players.some((o) => o.id !== bot.id && o.pos[mi] >= m.height);
-      value = !atTop && pos + 1 >= m.height && oppOnTop ? 1.5 : -1;
-    } else if (atTop) {
-      value = m.value; // harvest a token
-    } else if (pos + 1 >= m.height) {
-      // reach the top + collect; bonus if it helps complete a set
-      const sets = Math.min(...bot.collected);
-      const helpsSet = bot.collected[mi] === sets ? 4 : 0;
-      value = m.value + 2 + helpsSet;
-    } else {
-      value = 0.3; // progress only
+    const score = scoreGroup(room, bot, indices, mi);
+    if (!best || score > best.score) {
+      best = { indices, mountainIndex: mi, score };
     }
-    if (value <= 0) continue;
-
-    // Prefer higher value, then fewer dice (keep dice free for more groups).
-    const score = value * 100 - indices.length;
-    if (!best || score > best.score) best = { indices, mountainIndex: mi, score };
   }
-  return best;
+
+  return best && best.score > -Infinity ? best : null;
 }
 
 function scheduleBot(room, delay = 850) {

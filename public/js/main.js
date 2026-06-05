@@ -56,9 +56,38 @@
   // ===================== LOBBY / NAV =====================
   $('btn-start').addEventListener('click', () => socket.emit('startGame'));
   $('btn-addbot').addEventListener('click', () => socket.emit('addBot'));
-  $('lobby-leave').addEventListener('click', leaveToHome);
+
+  // Leave buttons open the confirm popup
+  $('lobby-leave').addEventListener('click', () => askLeave(false));
+  $('game-leave').addEventListener('click', () => askLeave(true));
+
+  // Room code copy on tap
+  $('lobby-pill').addEventListener('click', copyRoomCode);
   $('lobby-share').addEventListener('click', shareRoom);
-  $('game-leave').addEventListener('click', leaveToHome);
+
+  // Leave confirm popup
+  $('btn-leave-cancel').addEventListener('click', () => $('leave-overlay').classList.remove('show'));
+  $('btn-leave-confirm').addEventListener('click', () => {
+    $('leave-overlay').classList.remove('show');
+    leaveToHome();
+  });
+
+  function askLeave(inGame) {
+    $('leave-msg').textContent = inGame
+      ? 'Your goats will stay put, but your turn will be skipped.'
+      : 'You will leave the lobby.';
+    $('leave-overlay').classList.add('show');
+  }
+
+  function copyRoomCode() {
+    if (!state) return;
+    const code = state.code;
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(code).then(() => toast(`Room code ${code} copied!`));
+    } else {
+      toast('Room code: ' + code);
+    }
+  }
 
   function shareRoom() {
     if (!state) return;

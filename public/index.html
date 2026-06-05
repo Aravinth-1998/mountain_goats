@@ -45,7 +45,7 @@
   <section id="screen-lobby" class="screen">
     <div class="topbar">
       <button class="icon-btn" id="lobby-leave">‹ Leave</button>
-      <div class="room-pill">Room <strong id="lobby-code">----</strong></div>
+      <div class="room-pill" id="lobby-pill" title="Tap to copy room code">Room <strong id="lobby-code">----</strong> 📋</div>
       <button class="icon-btn" id="lobby-share">Share</button>
     </div>
 
@@ -54,6 +54,7 @@
       <p class="muted">Share the room code with friends. The host starts the game.</p>
       <ul id="lobby-players" class="player-list"></ul>
       <button id="btn-addbot" class="btn btn-ghost btn-block">+ Add Bot 🤖</button>
+      <div style="height:10px"></div>
       <button id="btn-start" class="btn btn-primary btn-block">Start Game</button>
       <p id="lobby-hint" class="muted center">Waiting for players…</p>
     </div>
@@ -112,6 +113,17 @@
   </div>
 
   <div id="toast" class="toast"></div>
+
+  <!-- LEAVE CONFIRM POPUP -->
+  <div id="leave-overlay" class="overlay">
+    <div class="overlay-card" style="max-width:320px">
+      <div style="font-size:40px;margin-bottom:8px">🚪</div>
+      <h2 style="margin:0 0 8px">Leave the game?</h2>
+      <p class="muted" id="leave-msg">You will lose your progress.</p>
+      <button id="btn-leave-confirm" class="btn btn-danger btn-block">Yes, Leave</button>
+      <button id="btn-leave-cancel" class="btn btn-ghost btn-block">Stay</button>
+    </div>
+  </div>
 
   <script src="/socket.io/socket.io.js"></script>
   <script src="/js/main.js"></script>
