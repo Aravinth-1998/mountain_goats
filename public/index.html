@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#0b1220" />
+  <title>Mountain Goats 🐐</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <div class="bg-mountains" aria-hidden="true"></div>
+
+  <!-- HOME -->
+  <section id="screen-home" class="screen active">
+    <div class="brand">
+      <div class="goat-emoji">🐐</div>
+      <h1>Mountain Goats</h1>
+      <p class="tagline">Race your herd over the peaks. Play live with friends.</p>
+    </div>
+
+    <div class="card">
+      <label class="field">
+        <span>Your name</span>
+        <input id="home-name" type="text" maxlength="16" placeholder="e.g. Mahesh" autocomplete="off" />
+      </label>
+
+      <button id="btn-create" class="btn btn-primary btn-block">Create Room</button>
+
+      <div class="divider"><span>or join a room</span></div>
+
+      <label class="field">
+        <span>Room code</span>
+        <input id="home-code" type="text" maxlength="4" placeholder="ABCD" autocomplete="off" class="code-input" />
+      </label>
+      <button id="btn-join" class="btn btn-ghost btn-block">Join Room</button>
+
+      <p id="home-error" class="error-msg"></p>
+    </div>
+    <p class="footnote">Best on mobile • 2–6 players</p>
+  </section>
+
+  <!-- LOBBY -->
+  <section id="screen-lobby" class="screen">
+    <div class="topbar">
+      <button class="icon-btn" id="lobby-leave">‹ Leave</button>
+      <div class="room-pill">Room <strong id="lobby-code">----</strong></div>
+      <button class="icon-btn" id="lobby-share">Share</button>
+    </div>
+
+    <div class="card">
+      <h2>Lobby</h2>
+      <p class="muted">Share the room code with friends. The host starts the game.</p>
+      <ul id="lobby-players" class="player-list"></ul>
+      <button id="btn-addbot" class="btn btn-ghost btn-block">+ Add Bot 🤖</button>
+      <button id="btn-start" class="btn btn-primary btn-block">Start Game</button>
+      <p id="lobby-hint" class="muted center">Waiting for players…</p>
+    </div>
+
+    <div class="card rules">
+      <h3>How to play</h3>
+      <ol>
+        <li>Six mountains <b>5–10</b>. You have a 🐐 at the foot of each. Heights: 5,6→4; 7,8→3; 9,10→2.</li>
+        <li>On your turn, <b>roll 4 dice</b> (multiple 1s: keep one, re‑face the rest).</li>
+        <li><b>Group</b> dice — each group whose <b>sum is 5–10</b> moves that mountain's goat up one space.</li>
+        <li>Reach a <b>top</b> to take a Point Token (and bump the goat there off). Already on top? A match harvests another token.</li>
+        <li>Collect from <b>all 6 mountains</b> (a set) to claim a <b>Bonus Token</b> ✨ (15/12/9/6).</li>
+        <li>End when all Bonus Tokens are gone or 3 mountains empty, then equal turns. <b>Most points wins. 🏆</b></li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- GAME -->
+  <section id="screen-game" class="screen">
+    <div class="topbar">
+      <div class="room-pill">Room <strong id="game-code">----</strong></div>
+      <div id="turn-banner" class="turn-banner">—</div>
+      <button class="icon-btn" id="game-leave">Leave</button>
+    </div>
+
+    <!-- Players stats -->
+    <div id="stats-strip" class="stats-strip"></div>
+
+    <!-- Bonus tokens -->
+    <div id="bonus-row" class="bonus-row"></div>
+
+    <!-- Board -->
+    <div id="board" class="board"></div>
+
+    <!-- Controls -->
+    <div class="control-dock">
+      <p id="sel-sum" class="sel-sum"></p>
+      <div id="dice-area" class="dice-area"></div>
+      <div class="control-buttons">
+        <button id="btn-roll" class="btn btn-primary">Roll Dice</button>
+        <button id="btn-endturn" class="btn btn-ghost">End Turn</button>
+      </div>
+      <p id="game-hint" class="game-hint">—</p>
+    </div>
+  </section>
+
+  <!-- WIN OVERLAY -->
+  <div id="win-overlay" class="overlay">
+    <div class="overlay-card">
+      <div class="trophy">🏆</div>
+      <h2 id="win-title">Winner!</h2>
+      <p id="win-sub" class="muted"></p>
+      <button id="btn-playagain" class="btn btn-primary btn-block">Play Again</button>
+      <button id="btn-home" class="btn btn-ghost btn-block">Back to Home</button>
+    </div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/main.js"></script>
+</body>
+</html>
+
