@@ -43,7 +43,7 @@
 
       <label class="field">
         <span>Room code</span>
-        <input id="home-code" type="text" maxlength="4" placeholder="ABCD" autocomplete="off" class="code-input" />
+        <input id="home-code" type="number" inputmode="numeric" pattern="[0-9]*" maxlength="4" placeholder="1234" autocomplete="off" class="code-input" />
       </label>
       <button id="btn-join" class="btn btn-ghost btn-block">Join Room</button>
 
@@ -118,9 +118,12 @@
     <div class="overlay-card">
       <div class="trophy">🏆</div>
       <h2 id="win-title">Winner!</h2>
-      <p id="win-sub" class="muted"></p>
-      <button id="btn-playagain" class="btn btn-primary btn-block">Play Again</button>
-      <button id="btn-home" class="btn btn-ghost btn-block">Back to Home</button>
+      <div id="win-sub" class="muted"></div>
+      <div class="win-actions">
+        <button id="btn-win-share" class="btn btn-ghost btn-block">Share Result 🔗</button>
+        <button id="btn-playagain" class="btn btn-primary btn-block">Play Again</button>
+        <button id="btn-home" class="btn btn-ghost btn-block">Back to Home</button>
+      </div>
     </div>
   </div>
 

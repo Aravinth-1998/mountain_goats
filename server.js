@@ -108,11 +108,9 @@ function emptyMountainCount(room) {
 }
 
 function genRoomCode() {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let code = '';
   do {
-    code = '';
-    for (let i = 0; i < 4; i++) code += chars[Math.floor(Math.random() * chars.length)];
+    code = String(Math.floor(1000 + Math.random() * 9000)); // 1000–9999
   } while (rooms[code]);
   return code;
 }
@@ -560,7 +558,7 @@ io.on('connection', (socket) => {
 
   socket.on('joinRoom', ({ name, code }, cb) => {
     name = (name || '').trim().slice(0, 16);
-    code = (code || '').trim().toUpperCase();
+    code = String(code || '').trim().slice(0, 4);
     const room = rooms[code];
     if (!room) return cb && cb({ error: 'Room not found.' });
     if (!name) return cb && cb({ error: 'Please enter your name.' });

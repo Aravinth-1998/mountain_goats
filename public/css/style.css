@@ -84,35 +84,34 @@ body { background-color: var(--bg-0); }
 @keyframes dot { 0%,80%,100%{transform:scale(.6);opacity:.4} 40%{transform:scale(1);opacity:1} }
 .loading-msg { color: var(--muted); font-size: 15px; font-weight: 600; letter-spacing: .3px; }
 
-/* Game screen — fills exactly the viewport, column layout, nothing overflows */
-#screen-game {
-  display: flex;
+/* Game screen — only applies when active, so it never bleeds into other screens */
+#screen-game.active {
   flex-direction: column;
   gap: 0;
   padding: 0;
-  min-height: 0;           /* cancel the .screen min-height: 100vh */
+  min-height: 0;
   height: 100dvh;
-  height: 100vh;           /* fallback */
+  height: 100vh;
   overflow: hidden;
   max-width: 520px;
   margin: 0 auto;
 }
 
 /* Topbar — fixed height */
-#screen-game > .topbar {
+#screen-game.active > .topbar {
   flex: 0 0 auto;
   padding: 10px 12px;
   border-bottom: 1px solid var(--card-border);
 }
 
 /* Stats & bonus — fixed height */
-#screen-game > .stats-strip { flex: 0 0 auto; padding: 6px 12px 4px; overflow: hidden; }
-#screen-game > .bonus-row   { flex: 0 0 auto; padding: 2px 12px 4px; }
+#screen-game.active > .stats-strip { flex: 0 0 auto; padding: 6px 12px 4px; overflow: hidden; }
+#screen-game.active > .bonus-row   { flex: 0 0 auto; padding: 2px 12px 4px; }
 
 /* Board wrap — takes ALL remaining space; min-height: 0 is the critical fix */
 .board-wrap {
   flex: 1 1 0;
-  min-height: 0;           /* ← allows shrinking below content size in flex column */
+  min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
@@ -122,7 +121,7 @@ body { background-color: var(--bg-0); }
 .board-wrap::-webkit-scrollbar { display: none; }
 
 /* Control dock — static, pinned by flex order */
-#screen-game > .control-dock {
+#screen-game.active > .control-dock {
   flex: 0 0 auto;
   position: static;
   border-top: 1px solid var(--card-border);
@@ -396,20 +395,23 @@ input:focus { border-color: var(--primary); background: rgba(79,124,255,0.1); }
 /* Overlay */
 .overlay {
   position: fixed; inset: 0; z-index: 50;
-  display: none; align-items: center; justify-content: center;
-  background: rgba(4,8,16,0.8); backdrop-filter: blur(6px);
+  display: none; align-items: flex-start; justify-content: center;
+  background: rgba(4,8,16,0.85); backdrop-filter: blur(6px);
   padding: 20px;
+  overflow-y: auto;
 }
 .overlay.show { display: flex; }
 .overlay-card {
-  width: 100%; max-width: 360px; text-align: center;
+  width: 100%; max-width: 360px;
+  text-align: center;
   background: var(--card); border: 1px solid var(--card-border);
-  border-radius: 24px; padding: 28px 22px;
+  border-radius: 24px; padding: 24px 20px 20px;
   box-shadow: var(--shadow);
+  margin: auto; /* centres vertically when content is short */
 }
-.trophy { font-size: 64px; animation: bob 2.4s ease-in-out infinite; }
-.overlay-card h2 { font-family: 'Fredoka', sans-serif; font-size: 28px; margin: 8px 0; }
-.overlay-card .btn { margin-top: 10px; }
+.win-actions { display: flex; flex-direction: column; gap: 10px; margin-top: 14px; }
+.trophy { font-size: 56px; animation: bob 2.4s ease-in-out infinite; }
+.overlay-card h2 { font-family: 'Fredoka', sans-serif; font-size: 26px; margin: 6px 0 4px; }
 .scoreboard { display: flex; flex-direction: column; gap: 6px; margin: 12px 0 8px; text-align: left; }
 .score-row {
   display: flex; justify-content: space-between; align-items: center; gap: 8px;

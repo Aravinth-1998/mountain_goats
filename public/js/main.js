@@ -51,9 +51,9 @@
   });
   $('btn-join').addEventListener('click', () => {
     const name = $('home-name').value.trim();
-    const code = $('home-code').value.trim().toUpperCase();
+    const code = String($('home-code').value || '').trim().slice(0, 4);
     if (!name) return ($('home-error').textContent = 'Please enter your name.');
-    if (!code) return ($('home-error').textContent = 'Please enter a room code.');
+    if (!code || code.length < 4) return ($('home-error').textContent = 'Please enter the 4-digit room code.');
     setHomeLoading('join');
     socket.emit('joinRoom', { name, code }, (res) => {
       clearHomeLoading();
@@ -114,6 +114,24 @@
     }
   }
 
+  function shareWinResult() {
+    if (!state) return;
+    const winner = state.players.find((p) => p.id === state.winnerId);
+    if (!winner) return;
+    const scores = [...state.players]
+      .sort((a, b) => b.score - a.score)
+      .map((p) => `${p.name}: ${p.score}pts`)
+      .join(', ');
+    const text = `🐐 Mountain Goats — ${winner.name} wins! ${scores}\nPlay at: ${location.origin}`;
+    if (navigator.share) {
+      navigator.share({ title: 'Mountain Goats Result', text }).catch(() => {});
+    } else if (navigator.clipboard) {
+      navigator.clipboard.writeText(text).then(() => toast('Result copied! 📋'));
+    } else {
+      toast('Winner: ' + winner.name + ' · ' + scores);
+    }
+  }
+
   function shareRoom() {
     if (!state) return;
     const text = `Join my Mountain Goats game! Room code: ${state.code} - ${location.origin}`;
@@ -136,11 +154,15 @@
     setTimeout(() => $('dice-area').classList.remove('rolling'), 500);
   });
   $('btn-endturn').addEventListener('click', () => socket.emit('endTurn'));
-  $('btn-playagain').addEventListener('click', () => socket.emit('playAgain'));
+  $('btn-playagain').addEventListener('click', () => {
+    $('win-overlay').classList.remove('show'); // close immediately
+    socket.emit('playAgain');
+  });
   $('btn-home').addEventListener('click', () => {
     $('win-overlay').classList.remove('show');
     leaveToHome();
   });
+  $('btn-win-share').addEventListener('click', shareWinResult);
 
   // ===================== SOCKET =====================
   socket.on('connect', () => {
@@ -497,8 +519,23 @@
         <span class="sb-right">${p.score} pts · 👑${p.tops}</span>
       </div>`;
     }).join('');
+
+    // Only show tie-break note if it actually mattered.
+    const topScore = winner.score;
+    const tied = state.players.filter(p => p.score === topScore);
+    let tieNote = '';
+    if (tied.length > 1) {
+      const topTops = winner.tops;
+      const tiedOnTops = tied.filter(p => p.tops === topTops);
+      if (tiedOnTops.length > 1) {
+        tieNote = '<div class="tiebreak">🏔️ Tie broken by goat on the higher-numbered mountain.</div>';
+      } else {
+        tieNote = '<div class="tiebreak">👑 Tie broken by most goats on mountain tops.</div>';
+      }
+    }
+
     $('win-sub').innerHTML = `<div class="scoreboard">${rows}</div>
-      <div class="tiebreak">Ties: most goats on tops, then a goat on the higher mountain.</div>
+      ${tieNote}
       ${endReasonBadge(state.endReason)}`;
     $('btn-playagain').style.display = state.hostId === myId ? 'block' : 'none';
     $('win-overlay').classList.add('show');
