@@ -8,6 +8,7 @@
   let selSig = '';
 
   const screens = {
+    loading: document.getElementById('screen-loading'),
     home: document.getElementById('screen-home'),
     lobby: document.getElementById('screen-lobby'),
     game: document.getElementById('screen-game'),
@@ -17,6 +18,12 @@
   function show(name) {
     Object.values(screens).forEach((s) => s.classList.remove('active'));
     screens[name].classList.add('active');
+  }
+
+  // If there's a saved session, show the loading screen immediately
+  // so the user never sees the home page flash.
+  if (localStorage.getItem('mg_code') && localStorage.getItem('mg_name')) {
+    show('loading');
   }
   function toast(msg) {
     const t = $('toast');
@@ -33,7 +40,9 @@
   $('btn-create').addEventListener('click', () => {
     const name = $('home-name').value.trim();
     if (!name) return ($('home-error').textContent = 'Please enter your name.');
+    setHomeLoading('create');
     socket.emit('createRoom', { name }, (res) => {
+      clearHomeLoading();
       if (res.error) return ($('home-error').textContent = res.error);
       myId = res.youId;
       localStorage.setItem('mg_name', name);
@@ -45,13 +54,29 @@
     const code = $('home-code').value.trim().toUpperCase();
     if (!name) return ($('home-error').textContent = 'Please enter your name.');
     if (!code) return ($('home-error').textContent = 'Please enter a room code.');
+    setHomeLoading('join');
     socket.emit('joinRoom', { name, code }, (res) => {
+      clearHomeLoading();
       if (res.error) return ($('home-error').textContent = res.error);
       myId = res.youId;
       localStorage.setItem('mg_name', name);
       localStorage.setItem('mg_code', res.code);
     });
   });
+
+  function setHomeLoading(which) {
+    $('btn-create').disabled = true;
+    $('btn-join').disabled = true;
+    $('home-error').textContent = '';
+    if (which === 'create') $('btn-create').innerHTML = '<span class="spin">⏳</span> Creating…';
+    else $('btn-join').innerHTML = '<span class="spin">⏳</span> Joining…';
+  }
+  function clearHomeLoading() {
+    $('btn-create').disabled = false;
+    $('btn-join').disabled = false;
+    $('btn-create').textContent = 'Create Room';
+    $('btn-join').textContent = 'Join Room';
+  }
 
   // ===================== LOBBY / NAV =====================
   $('btn-start').addEventListener('click', () => socket.emit('startGame'));
@@ -126,12 +151,21 @@
         if (res && res.ok) {
           myId = res.youId;
         } else {
-          // Room gone (server restarted etc.) — clear and stay on home
           localStorage.removeItem('mg_code');
           localStorage.removeItem('mg_name');
           show('home');
         }
       });
+    } else {
+      show('home');
+    }
+  });
+
+  socket.on('connect_error', () => {
+    if (screens.loading.classList.contains('active')) {
+      localStorage.removeItem('mg_code');
+      localStorage.removeItem('mg_name');
+      show('home');
     }
   });
   socket.on('state', (s) => {

@@ -6,11 +6,22 @@
   <meta name="theme-color" content="#0b1220" />
   <title>Mountain Goats 🐐</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
+  <noscript><link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" /></noscript>
   <link rel="stylesheet" href="/css/style.css" />
 </head>
 <body>
   <div class="bg-mountains" aria-hidden="true"></div>
+
+  <!-- LOADING -->
+  <section id="screen-loading" class="screen">
+    <div class="loading-center">
+      <div class="loading-goat">🐐</div>
+      <div class="loading-dots"><span></span><span></span><span></span></div>
+      <p class="loading-msg">Rejoining your game…</p>
+    </div>
+  </section>
 
   <!-- HOME -->
   <section id="screen-home" class="screen active">
@@ -22,8 +33,8 @@
 
     <div class="card">
       <label class="field">
-        <span>Your name</span>
-        <input id="home-name" type="text" maxlength="16" placeholder="e.g. Mahesh" autocomplete="off" />
+        <span>Your nick name</span>
+        <input id="home-name" type="text" maxlength="16" placeholder="e.g. The Venomon" autocomplete="off" />
       </label>
 
       <button id="btn-create" class="btn btn-primary btn-block">Create Room</button>
@@ -38,7 +49,6 @@
 
       <p id="home-error" class="error-msg"></p>
     </div>
-    <p class="footnote">Best on mobile • 2–6 players</p>
   </section>
 
   <!-- LOBBY -->
@@ -86,10 +96,12 @@
     <!-- Bonus tokens -->
     <div id="bonus-row" class="bonus-row"></div>
 
-    <!-- Board -->
-    <div id="board" class="board"></div>
+    <!-- Board (scrollable middle zone) -->
+    <div class="board-wrap">
+      <div id="board" class="board"></div>
+    </div>
 
-    <!-- Controls -->
+    <!-- Controls (always pinned at bottom) -->
     <div class="control-dock">
       <p id="sel-sum" class="sel-sum"></p>
       <div id="dice-area" class="dice-area"></div>
