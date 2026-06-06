@@ -254,14 +254,14 @@
   }
 
   function renderGame() {
-    $('game-code').textContent = state.code;
+    try { $('game-code').textContent = state.code; } catch(e) {}
     syncSelection();
-    renderTurnBanner();
-    renderStats();
-    renderBonusRow();
-    renderBoard();
-    renderDice();
-    renderControls();
+    try { renderTurnBanner(); } catch(e) { console.error('renderTurnBanner', e); }
+    try { renderStats(); } catch(e) { console.error('renderStats', e); }
+    try { renderBonusRow(); } catch(e) { console.error('renderBonusRow', e); }
+    try { renderBoard(); } catch(e) { console.error('renderBoard', e); }
+    try { renderDice(); } catch(e) { console.error('renderDice', e); }
+    try { renderControls(); } catch(e) { console.error('renderControls', e); }
   }
 
   function syncSelection() {
@@ -299,25 +299,28 @@
   function renderStats() {
     const strip = $('stats-strip');
     strip.innerHTML = '';
-    const lead = Math.max(0, ...state.players.map((p) => p.score));
+    const lead = Math.max(0, ...state.players.map((p) => p.score || 0));
     state.players.forEach((p, idx) => {
       const panel = document.createElement('div');
       panel.className = 'pp' + (idx === state.currentIndex ? ' active' : '') + (p.connected ? '' : ' off');
+      const pos = p.pos || [];
+      const collected = p.collected || [];
       let chips = '';
       state.mountains.forEach((m, mi) => {
-        const onTop = p.pos[mi] >= m.height;
-        const n = p.collected[mi] || 0;
+        const onTop = (pos[mi] || 0) >= m.height;
+        const n = collected[mi] || 0;
         chips += `<span class="pp-chip${n > 0 ? ' has' : ''}${onTop ? ' top' : ''}" style="--c:${m.color}">${m.value}<b>×${n}</b></span>`;
       });
-      const leadTag = p.score === lead && lead > 0 ? '<span class="pp-lead">▲</span>' : '';
-      const topsTag = p.tops > 0 ? `<span class="pp-tops">👑${p.tops}</span>` : '';
-      const bonusTag = p.bonus && p.bonus.length ? `<span class="pp-bonus">✨${p.bonusPoints}</span>` : '';
-      const setsTag = p.sets > 0 ? `<span class="pp-sets">📦${p.sets}</span>` : '';
+      const leadTag = (p.score || 0) === lead && lead > 0 ? '<span class="pp-lead">▲</span>' : '';
+      const topsTag = (p.tops || 0) > 0 ? `<span class="pp-tops">👑${p.tops}</span>` : '';
+      const bonusTag = p.bonus && p.bonus.length ? `<span class="pp-bonus">✨${p.bonusPoints || 0}</span>` : '';
+      const setsTag = (p.sets || 0) > 0 ? `<span class="pp-sets">📦${p.sets}</span>` : '';
+      const offTag = !p.connected && !p.isBot ? '<span class="pp-auto">🤖 auto</span>' : '';
       panel.innerHTML = `
         <div class="pp-head">
           <span class="pp-dot" style="background:${p.color}"></span>
           <span class="pp-name">${escapeHtml(p.name)}${p.id === myId ? ' (You)' : ''}</span>
-          ${offTag}${setsTag}${topsTag}${bonusTag}<span class="pp-score">${leadTag}⭐ ${p.score}</span>
+          ${offTag}${setsTag}${topsTag}${bonusTag}<span class="pp-score">${leadTag}⭐ ${p.score || 0}</span>
         </div>
         <div class="pp-mtns">${chips}</div>`;
       strip.appendChild(panel);
@@ -360,7 +363,7 @@
         cell.className = 'cell' + (p === m.height ? ' top' : '');
         cell.style.setProperty('--c', m.color);
         cell.innerHTML = `<span class="cnum">${m.value}</span>`;
-        const here = state.players.filter((pl) => pl.pos[mi] === p);
+        const here = state.players.filter((pl) => (pl.pos || [])[mi] === p);
         if (here.length) cell.appendChild(goatCluster(here));
         track.appendChild(cell);
       }
@@ -369,7 +372,7 @@
       // foot (pos 0)
       const foot = document.createElement('div');
       foot.className = 'foot';
-      const footGoats = state.players.filter((pl) => pl.pos[mi] === 0);
+      const footGoats = state.players.filter((pl) => (pl.pos || [])[mi] === 0);
       if (footGoats.length) foot.appendChild(goatCluster(footGoats));
       col.appendChild(foot);
 
@@ -501,4 +504,8 @@
     $('win-overlay').classList.add('show');
   }
 })();
+
+
+
+
 

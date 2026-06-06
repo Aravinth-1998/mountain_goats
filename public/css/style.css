@@ -84,29 +84,35 @@ body { background-color: var(--bg-0); }
 @keyframes dot { 0%,80%,100%{transform:scale(.6);opacity:.4} 40%{transform:scale(1);opacity:1} }
 .loading-msg { color: var(--muted); font-size: 15px; font-weight: 600; letter-spacing: .3px; }
 
-/* Game screen is tighter so everything fits without scrolling */
+/* Game screen — fills exactly the viewport, column layout, nothing overflows */
 #screen-game {
+  display: flex;
+  flex-direction: column;
   gap: 0;
   padding: 0;
-  height: 100dvh;      /* exact viewport — no min-height overflow */
-  height: 100vh;       /* fallback for older browsers */
-  overflow: hidden;    /* prevent body scroll; inner zone scrolls instead */
+  min-height: 0;           /* cancel the .screen min-height: 100vh */
+  height: 100dvh;
+  height: 100vh;           /* fallback */
+  overflow: hidden;
+  max-width: 520px;
+  margin: 0 auto;
 }
 
-/* Topbar in game — fixed height */
-#screen-game .topbar {
+/* Topbar — fixed height */
+#screen-game > .topbar {
   flex: 0 0 auto;
   padding: 10px 12px;
   border-bottom: 1px solid var(--card-border);
 }
 
-/* Stats strip — fixed height, no wrap overflow */
-#screen-game .stats-strip  { flex: 0 0 auto; padding: 6px 12px 4px; }
-#screen-game .bonus-row    { flex: 0 0 auto; padding: 2px 12px 4px; }
+/* Stats & bonus — fixed height */
+#screen-game > .stats-strip { flex: 0 0 auto; padding: 6px 12px 4px; overflow: hidden; }
+#screen-game > .bonus-row   { flex: 0 0 auto; padding: 2px 12px 4px; }
 
-/* Board wrapper — takes ALL remaining height, scrolls if content overflows */
+/* Board wrap — takes ALL remaining space; min-height: 0 is the critical fix */
 .board-wrap {
   flex: 1 1 0;
+  min-height: 0;           /* ← allows shrinking below content size in flex column */
   overflow-y: auto;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
@@ -115,10 +121,10 @@ body { background-color: var(--bg-0); }
 }
 .board-wrap::-webkit-scrollbar { display: none; }
 
-/* Control dock — fixed height at bottom, NOT sticky (avoids the collapse bug) */
-#screen-game .control-dock {
+/* Control dock — static, pinned by flex order */
+#screen-game > .control-dock {
   flex: 0 0 auto;
-  position: static;    /* override the sticky that was causing the blank screen */
+  position: static;
   border-top: 1px solid var(--card-border);
   background: rgba(10,15,26,0.97);
   padding: 10px 12px 16px;
@@ -288,12 +294,12 @@ input:focus { border-color: var(--primary); background: rgba(79,124,255,0.1); }
   position: relative;
   flex: 1; min-width: 0; height: 30px; border-radius: 7px;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
-  font-weight: 800; font-size: 12px; line-height: 1; color: #fff;
-  background: color-mix(in srgb, var(--c) 45%, #0b1220);
-  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.12);
+  font-weight: 800; font-size: 12px; line-height: 1; color: rgba(255,255,255,0.55);
+  background: rgba(255,255,255,0.07);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.10);
 }
-.pp-chip b { font-size: 10px; font-weight: 700; opacity: 0.85; margin-top: 1px; }
-.pp-chip.has { background: var(--c); color: #08101f; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.25); }
+.pp-chip b { font-size: 10px; font-weight: 700; opacity: 0.8; margin-top: 1px; }
+.pp-chip.has { background: var(--c); color: #08101f; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.25); opacity: 1; }
 .pp-chip.top { box-shadow: inset 0 0 0 2px #fff; }
 
 /* Bonus token row */
