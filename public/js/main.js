@@ -381,13 +381,16 @@
       const track = document.createElement('div');
       track.className = 'track';
       for (let p = m.height; p >= 1; p--) {
+        const wrap = document.createElement('div');
+        wrap.className = 'cell-wrap';
         const cell = document.createElement('div');
         cell.className = 'cell' + (p === m.height ? ' top' : '');
         cell.style.setProperty('--c', m.color);
         cell.innerHTML = `<span class="cnum">${m.value}</span>`;
         const here = state.players.filter((pl) => (pl.pos || [])[mi] === p);
         if (here.length) cell.appendChild(goatCluster(here));
-        track.appendChild(cell);
+        wrap.appendChild(cell);
+        track.appendChild(wrap);
       }
       col.appendChild(track);
 
