@@ -89,10 +89,8 @@ body { background-color: var(--bg-0); }
   flex-direction: column;
   gap: 0;
   padding: 0;
-  min-height: 0;
-  height: 100dvh;
-  height: 100vh;
-  overflow: hidden;
+  min-height: 100dvh;
+  overflow-x: hidden;
   max-width: 520px;
   margin: 0 auto;
 }
@@ -108,11 +106,8 @@ body { background-color: var(--bg-0); }
 #screen-game.active > .stats-strip { flex: 0 0 auto; padding: 6px 12px 4px; overflow: hidden; }
 #screen-game.active > .bonus-row   { flex: 0 0 auto; padding: 2px 12px 4px; }
 
-/* Board wrap — takes ALL remaining space; min-height: 0 is the critical fix */
+/* Board wrap — natural height, whole page scrolls */
 .board-wrap {
-  flex: 1 1 0;
-  min-height: 0;
-  overflow: hidden;          /* NO scroll — everything must fit */
   padding: 4px 10px;
 }
 
@@ -120,7 +115,7 @@ body { background-color: var(--bg-0); }
 .board {
   display: flex;
   gap: 5px;
-  height: 100%;              /* fill board-wrap height */
+  height: auto;
   align-items: stretch;
 }
 
@@ -212,14 +207,15 @@ body { background-color: var(--bg-0); }
 }
 .goat.me { outline: 2px solid #fff; outline-offset: 1px; z-index: 2; }
 
-/* Control dock — static, pinned by flex order */
+/* Control dock — sticky at bottom of page while scrolling */
 #screen-game.active > .control-dock {
-  flex: 0 0 auto;
-  position: static;
+  position: sticky;
+  bottom: 0;
   border-top: 1px solid var(--card-border);
   background: rgba(10,15,26,0.97);
   padding: 10px 12px 16px;
   margin-top: 0;
+  z-index: 10;
 }
 
 /* Brand */
