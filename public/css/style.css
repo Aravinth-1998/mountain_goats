@@ -12,7 +12,6 @@
   --danger: #ff5d6c;
   --shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
   --radius: 20px;
-  --board-fixed-height: 300px;
 }
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -91,8 +90,8 @@ body { background-color: var(--bg-0); }
   gap: 0;
   padding: 0;
   min-height: 0;
-  height: 100vh;
   height: 100dvh;
+  height: 100vh;
   overflow: hidden;
   max-width: 520px;
   margin: 0 auto;
@@ -109,12 +108,10 @@ body { background-color: var(--bg-0); }
 #screen-game.active > .stats-strip { flex: 0 0 auto; padding: 6px 12px 4px; overflow: hidden; }
 #screen-game.active > .bonus-row   { flex: 0 0 auto; padding: 2px 12px 4px; }
 
-/* Board wrap — fixed height so the board is consistent across mobile screens */
+/* Board wrap — takes ALL remaining space; min-height: 0 is the critical fix */
 .board-wrap {
-  flex: 0 0 var(--board-fixed-height);
-  height: var(--board-fixed-height);
-  min-height: var(--board-fixed-height);
-  max-height: var(--board-fixed-height);
+  flex: 1 1 0;
+  min-height: 0;
   overflow: hidden;          /* NO scroll — everything must fit */
   padding: 4px 10px;
 }
@@ -124,7 +121,6 @@ body { background-color: var(--bg-0); }
   display: flex;
   gap: 5px;
   height: 100%;              /* fill board-wrap height */
-  min-height: 0;
   align-items: stretch;
 }
 
@@ -135,7 +131,6 @@ body { background-color: var(--bg-0); }
   display: flex;
   flex-direction: column;
   gap: 3px;
-  min-height: 0;
   border-radius: 10px;
   padding: 3px 2px;
   border: 1px solid transparent;
@@ -167,23 +162,21 @@ body { background-color: var(--bg-0); }
 
 /* Track — simple column, cells determine height */
 .track {
-  flex: 1 1 auto;
-  min-height: 0;
   display: flex;
   flex-direction: column;
   gap: 3px;
   width: 100%;
 }
 
-/* Cells flex to the fixed board height so taller columns are never clipped */
+/* Square cells using the padding-bottom trick (most reliable cross-browser) */
 .cell-wrap {
-  flex: 1 1 0;
-  min-height: 0;
   position: relative;
   width: 100%;
 }
 .cell-wrap::before {
-  content: none;
+  content: '';
+  display: block;
+  padding-bottom: 100%;
 }
 .cell {
   position: absolute;
@@ -503,10 +496,6 @@ input:focus { border-color: var(--primary); background: rgba(79,124,255,0.1); }
 
 @media (min-width: 560px) {
   .mountain { width: 130px; }
-}
-
-@media (max-height: 640px) {
-  :root { --board-fixed-height: 270px; }
 }
 
 
