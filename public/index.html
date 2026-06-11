@@ -49,6 +49,20 @@
 
       <p id="home-error" class="error-msg"></p>
     </div>
+
+    <div class="card rules-toggle">
+      <button class="rules-toggle-btn" data-target="home-rules-content">📖 How to Play <span class="toggle-arrow">▾</span></button>
+      <div id="home-rules-content" class="rules-content">
+        <ol>
+          <li>Six mountains <b>5–10</b>. You have a 🐐 at the foot of each. Heights: 5,6→4; 7,8→3; 9,10→2.</li>
+          <li>On your turn, <b>roll 4 dice</b> (multiple 1s: keep one, re‑face the rest).</li>
+          <li><b>Group</b> dice — each group whose <b>sum is 5–10</b> moves that mountain's goat up one space.</li>
+          <li>Reach a <b>top</b> to take a Point Token (and bump the goat there off). Already on top? A match harvests another token.</li>
+          <li>Collect from <b>all 6 mountains</b> (a set) to claim a <b>Bonus Token</b> ✨ (15/12/9/6).</li>
+          <li>End when all Bonus Tokens are gone or 3 mountains empty, then equal turns. <b>Most points wins. 🏆</b></li>
+        </ol>
+      </div>
+    </div>
   </section>
 
   <!-- LOBBY -->
@@ -69,16 +83,18 @@
       <p id="lobby-hint" class="muted center">Waiting for players…</p>
     </div>
 
-    <div class="card rules">
-      <h3>How to play</h3>
-      <ol>
-        <li>Six mountains <b>5–10</b>. You have a 🐐 at the foot of each. Heights: 5,6→4; 7,8→3; 9,10→2.</li>
-        <li>On your turn, <b>roll 4 dice</b> (multiple 1s: keep one, re‑face the rest).</li>
-        <li><b>Group</b> dice — each group whose <b>sum is 5–10</b> moves that mountain's goat up one space.</li>
-        <li>Reach a <b>top</b> to take a Point Token (and bump the goat there off). Already on top? A match harvests another token.</li>
-        <li>Collect from <b>all 6 mountains</b> (a set) to claim a <b>Bonus Token</b> ✨ (15/12/9/6).</li>
-        <li>End when all Bonus Tokens are gone or 3 mountains empty, then equal turns. <b>Most points wins. 🏆</b></li>
-      </ol>
+    <div class="card rules-toggle">
+      <button class="rules-toggle-btn" data-target="lobby-rules-content">📖 How to Play <span class="toggle-arrow">▾</span></button>
+      <div id="lobby-rules-content" class="rules-content">
+        <ol>
+          <li>Six mountains <b>5–10</b>. You have a 🐐 at the foot of each. Heights: 5,6→4; 7,8→3; 9,10→2.</li>
+          <li>On your turn, <b>roll 4 dice</b> (multiple 1s: keep one, re‑face the rest).</li>
+          <li><b>Group</b> dice — each group whose <b>sum is 5–10</b> moves that mountain's goat up one space.</li>
+          <li>Reach a <b>top</b> to take a Point Token (and bump the goat there off). Already on top? A match harvests another token.</li>
+          <li>Collect from <b>all 6 mountains</b> (a set) to claim a <b>Bonus Token</b> ✨ (15/12/9/6).</li>
+          <li>End when all Bonus Tokens are gone or 3 mountains empty, then equal turns. <b>Most points wins. 🏆</b></li>
+        </ol>
+      </div>
     </div>
   </section>
 
@@ -128,6 +144,17 @@
   </div>
 
   <div id="toast" class="toast"></div>
+
+  <!-- END TURN CONFIRM POPUP -->
+  <div id="endturn-overlay" class="overlay">
+    <div class="overlay-card" style="max-width:320px">
+      <div style="font-size:40px;margin-bottom:8px">⚠️</div>
+      <h2 style="margin:0 0 8px">End turn early?</h2>
+      <p class="muted">You still have dice that can make a valid group (5–10).</p>
+      <button id="btn-endturn-confirm" class="btn btn-danger btn-block">Yes, End Turn</button>
+      <button id="btn-endturn-cancel" class="btn btn-ghost btn-block">Keep Playing</button>
+    </div>
+  </div>
 
   <!-- LEAVE CONFIRM POPUP -->
   <div id="leave-overlay" class="overlay">

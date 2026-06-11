@@ -564,12 +564,11 @@ io.on('connection', (socket) => {
     if (!name) return cb && cb({ error: 'Please enter your name.' });
 
     // Reconnect path:
-    // In a started game we match by name even if still marked connected —
-    // this handles the page-refresh race where the new socket arrives before
-    // the server fires the disconnect event for the old socket.
-    const existing = room.started
-      ? room.players.find((p) => p.name === name && !p.isBot)
-      : room.players.find((p) => p.name === name && !p.connected && !p.isBot);
+    // Match by name even if still marked connected — this handles the
+    // page-refresh race where the new socket arrives before the server
+    // fires the disconnect event for the old socket. Works for both
+    // lobby and in-game reconnection (e.g. mobile app switch).
+    const existing = room.players.find((p) => p.name === name && !p.isBot);
 
     if (existing) {
       const wasMyTurn = room.players[room.currentIndex] &&
@@ -581,12 +580,19 @@ io.on('connection', (socket) => {
         room.hostId = socket.id;
       }
       socket.join(room.code);
+      // Cancel any pending bot-substitution timer for this player.
       if (room.started && wasDisconnected) {
-        // Cancel any pending bot-substitution timer for this player.
         if (room.botTimer) {
           clearTimeout(room.botTimer);
           room.botTimer = null;
         }
+      }
+      // Cancel any pending lobby cleanup timer for this player.
+      if (existing._lobbyCleanup) {
+        clearTimeout(existing._lobbyCleanup);
+        existing._lobbyCleanup = null;
+      }
+      if (wasDisconnected) {
         pushLog(room, `${name} reconnected. 👋`);
       }
       cb && cb({ ok: true, code: room.code, youId: socket.id });
@@ -633,6 +639,11 @@ io.on('connection', (socket) => {
     const room = findRoomBySocket(socket.id);
     if (!room || room.hostId !== socket.id || room.started) return;
     if (room.players.length < 2) return;
+    // Shuffle player order so the host doesn't always go first.
+    for (let i = room.players.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [room.players[i], room.players[j]] = [room.players[j], room.players[i]];
+    }
     resetForNewGame(room);
     room.started = true;
     pushLog(room, 'The climb begins! 🐐');
@@ -718,12 +729,12 @@ io.on('connection', (socket) => {
     const room = findRoomBySocket(socket.id);
     if (!room || room.hostId !== socket.id) return;
     resetForNewGame(room);
-    room.started = true;
+    room.started = false; // go back to lobby so players can adjust
     room.log = [];
-    pushLog(room, 'New game started! 🐐');
-    startWatchdog(room);
+    if (room.watchdog) { clearInterval(room.watchdog); room.watchdog = null; }
+    if (room.botTimer) { clearTimeout(room.botTimer); room.botTimer = null; }
+    pushLog(room, 'Back to lobby — start when ready! 🐐');
     broadcast(room);
-    scheduleBot(room);
   });
 
   socket.on('leaveRoom', () => handleDisconnect(socket, true));
@@ -748,19 +759,57 @@ function handleDisconnect(socket, immediate = false) {
   if (!immediate && !player.connected) return;
 
   if (!room.started) {
-    room.players = room.players.filter((p) => p.id !== socket.id);
-    pushLog(room, `${player.name} left.`);
-    if (room.hostId === socket.id) {
-      const nextHost = room.players.find((p) => !p.isBot);
-      room.hostId = nextHost ? nextHost.id : null;
+    if (immediate) {
+      // Explicit leave: remove immediately.
+      room.players = room.players.filter((p) => p.id !== socket.id);
+      pushLog(room, `${player.name} left.`);
+      if (room.hostId === socket.id) {
+        const nextHost = room.players.find((p) => !p.isBot && p.connected);
+        room.hostId = nextHost ? nextHost.id : null;
+      }
+      if (!hasHuman(room)) {
+        if (room.botTimer) clearTimeout(room.botTimer);
+        if (room.watchdog) clearInterval(room.watchdog);
+        delete rooms[room.code];
+        return;
+      }
+      if (room.currentIndex >= room.players.length) room.currentIndex = 0;
+    } else {
+      // Temporary disconnect (mobile app switch, network blip): keep the
+      // player in the lobby for 30 seconds so they can reconnect seamlessly.
+      player.connected = false;
+      if (room.hostId === socket.id) {
+        const nextHost = room.players.find((p) => p.connected && !p.isBot);
+        room.hostId = nextHost ? nextHost.id : room.hostId;
+      }
+      // If no humans remain connected, delete the room now.
+      if (!hasHuman(room)) {
+        if (room.botTimer) clearTimeout(room.botTimer);
+        if (room.watchdog) clearInterval(room.watchdog);
+        delete rooms[room.code];
+        return;
+      }
+      // Schedule cleanup: remove from lobby after 30s if still disconnected.
+      player._lobbyCleanup = setTimeout(() => {
+        player._lobbyCleanup = null;
+        if (!rooms[room.code]) return;
+        if (player.connected || room.started) return; // reconnected or game started
+        room.players = room.players.filter((p) => p !== player);
+        pushLog(room, `${player.name} timed out.`);
+        if (room.hostId === player.id) {
+          const nextHost = room.players.find((p) => p.connected && !p.isBot);
+          room.hostId = nextHost ? nextHost.id : null;
+        }
+        if (!hasHuman(room)) {
+          if (room.botTimer) clearTimeout(room.botTimer);
+          if (room.watchdog) clearInterval(room.watchdog);
+          delete rooms[room.code];
+          return;
+        }
+        if (room.currentIndex >= room.players.length) room.currentIndex = 0;
+        broadcast(room);
+      }, 30000);
     }
-    if (!hasHuman(room)) {
-      if (room.botTimer) clearTimeout(room.botTimer);
-      if (room.watchdog) clearInterval(room.watchdog);
-      delete rooms[room.code];
-      return;
-    }
-    if (room.currentIndex >= room.players.length) room.currentIndex = 0;
   } else {
     player.connected = false;
     pushLog(room, `${player.name} disconnected. Bot will play until they return.`);

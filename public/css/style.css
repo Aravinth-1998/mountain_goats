@@ -263,7 +263,9 @@ input {
   transition: border-color .2s, background .2s;
 }
 input:focus { border-color: var(--primary); background: rgba(79,124,255,0.1); }
-.code-input { text-transform: uppercase; letter-spacing: 8px; text-align: center; font-weight: 700; font-size: 22px; }
+.code-input { text-transform: uppercase; letter-spacing: 8px; text-align: center; font-weight: 700; font-size: 22px; -moz-appearance: textfield; }
+.code-input::-webkit-outer-spin-button,
+.code-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 
 /* Buttons */
 .btn {
@@ -344,6 +346,36 @@ input:focus { border-color: var(--primary); background: rgba(79,124,255,0.1); }
 
 .rules ol { margin: 4px 0 0; padding-left: 18px; color: var(--muted); line-height: 1.7; font-size: 14px; }
 .rules b { color: var(--text); }
+
+/* How to Play toggle */
+.rules-toggle { padding: 0; overflow: hidden; }
+.rules-toggle-btn {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  width: 100%; padding: 14px 18px;
+  background: none; border: none; cursor: pointer;
+  color: var(--muted); font-size: 15px; font-weight: 600;
+  font-family: 'Fredoka', sans-serif; letter-spacing: 0.3px;
+  transition: color .2s, background .2s;
+}
+.rules-toggle-btn:hover { color: var(--text); background: rgba(255,255,255,0.04); }
+.rules-toggle-btn:active { background: rgba(255,255,255,0.07); }
+.toggle-arrow {
+  display: inline-block; font-size: 14px;
+  transition: transform .3s ease;
+}
+.rules-toggle-btn.open .toggle-arrow { transform: rotate(180deg); }
+.rules-content {
+  max-height: 0; overflow: hidden;
+  transition: max-height .35s ease, padding .35s ease;
+  padding: 0 18px;
+}
+.rules-content.open {
+  max-height: 400px;
+  padding: 0 18px 16px;
+}
+.rules-content ol { margin: 4px 0 0; padding-left: 18px; color: var(--muted); line-height: 1.7; font-size: 14px; }
+.rules-content b { color: var(--text); }
+
 
 /* Turn banner */
 .turn-banner {
@@ -438,7 +470,16 @@ input:focus { border-color: var(--primary); background: rgba(79,124,255,0.1); }
 }
 .control-buttons { display: flex; gap: 10px; }
 .control-buttons .btn { flex: 1; }
-.game-hint { text-align: center; color: var(--muted); font-size: 13px; margin: 8px 0 0; min-height: 18px; }
+.game-hint { text-align: center; color: var(--muted); font-size: 13px; margin: 8px 0 0; min-height: 18px; transition: color .2s; }
+.game-hint.auto-end {
+  color: var(--gold);
+  font-weight: 700;
+  animation: autoEndPulse 1s ease-in-out infinite;
+}
+@keyframes autoEndPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
 
 /* Overlay */
 .overlay {

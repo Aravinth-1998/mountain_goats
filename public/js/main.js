@@ -1,11 +1,16 @@
 /* Mountain Goats - client */
 (function () {
-  const socket = io();
+  const socket = io({
+    reconnectionDelay: 500,
+    reconnectionDelayMax: 5000,
+    reconnectionAttempts: Infinity,
+  });
 
   let myId = null;
   let state = null;
   const selected = new Set(); // selected die indices for the current group
   let selSig = '';
+  let autoEndTimer = null; // timer for auto-ending turn when no groups possible
 
   const screens = {
     loading: document.getElementById('screen-loading'),
@@ -36,6 +41,17 @@
     return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   }
 
+  // ===================== HOW TO PLAY TOGGLES =====================
+  document.querySelectorAll('.rules-toggle-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const targetId = btn.getAttribute('data-target');
+      const content = document.getElementById(targetId);
+      if (!content) return;
+      const isOpen = content.classList.toggle('open');
+      btn.classList.toggle('open', isOpen);
+    });
+  });
+
   // ===================== HOME =====================
   $('btn-create').addEventListener('click', () => {
     const name = $('home-name').value.trim();
@@ -44,6 +60,7 @@
     socket.emit('createRoom', { name }, (res) => {
       clearHomeLoading();
       if (res.error) return ($('home-error').textContent = res.error);
+      leftRoom = false;
       myId = res.youId;
       localStorage.setItem('mg_name', name);
       localStorage.setItem('mg_code', res.code);
@@ -58,6 +75,7 @@
     socket.emit('joinRoom', { name, code }, (res) => {
       clearHomeLoading();
       if (res.error) return ($('home-error').textContent = res.error);
+      leftRoom = false;
       myId = res.youId;
       localStorage.setItem('mg_name', name);
       localStorage.setItem('mg_code', res.code);
@@ -139,11 +157,14 @@
     else if (navigator.clipboard) navigator.clipboard.writeText(text).then(() => toast('Invite copied!'));
     else toast('Room code: ' + state.code);
   }
+  let leftRoom = false; // flag to ignore state broadcasts after leaving
   function leaveToHome() {
+    leftRoom = true;
     socket.emit('leaveRoom');
     state = null;
     localStorage.removeItem('mg_code');
     localStorage.removeItem('mg_name');
+    $('win-overlay').classList.remove('show');
     show('home');
   }
 
@@ -153,7 +174,21 @@
     $('dice-area').classList.add('rolling');
     setTimeout(() => $('dice-area').classList.remove('rolling'), 500);
   });
-  $('btn-endturn').addEventListener('click', () => socket.emit('endTurn'));
+  $('btn-endturn').addEventListener('click', () => {
+    if (isMyTurn() && state.rolled && anyGroupPossible()) {
+      // Show confirmation popup if there are still valid groups
+      $('endturn-overlay').classList.add('show');
+    } else {
+      socket.emit('endTurn');
+    }
+  });
+  $('btn-endturn-confirm').addEventListener('click', () => {
+    $('endturn-overlay').classList.remove('show');
+    socket.emit('endTurn');
+  });
+  $('btn-endturn-cancel').addEventListener('click', () => {
+    $('endturn-overlay').classList.remove('show');
+  });
   $('btn-playagain').addEventListener('click', () => {
     $('win-overlay').classList.remove('show'); // close immediately
     socket.emit('playAgain');
@@ -169,6 +204,7 @@
     const code = localStorage.getItem('mg_code');
     const name = localStorage.getItem('mg_name');
     if (code && name) {
+      leftRoom = false;
       socket.emit('joinRoom', { name, code }, (res) => {
         if (res && res.ok) {
           myId = res.youId;
@@ -183,14 +219,19 @@
     }
   });
 
+  // Track consecutive connection failures — only give up after several.
+  let connectErrors = 0;
   socket.on('connect_error', () => {
-    if (screens.loading.classList.contains('active')) {
+    connectErrors++;
+    if (screens.loading.classList.contains('active') && connectErrors >= 5) {
       localStorage.removeItem('mg_code');
       localStorage.removeItem('mg_name');
       show('home');
     }
   });
+  socket.on('connect', () => { connectErrors = 0; });
   socket.on('state', (s) => {
+    if (leftRoom) return; // ignore stale broadcasts after leaving
     const wasFinished = state && state.finished;
     state = s;
     if (s && !s.finished) $('win-overlay').classList.remove('show');
@@ -489,9 +530,29 @@
       const cur = state.players[state.currentIndex];
       hint.textContent = cur ? `Waiting for ${cur.name}…` : '';
     } else if (!state.rolled) hint.textContent = 'Tap "Roll Dice" to roll 4 dice.';
-    else if (!anyGroupPossible()) hint.textContent = 'No groups make 5–10 — tap "End Turn".';
-    else if (!selected.size) hint.textContent = 'Tap dice to group them (sum 5–10), then tap that mountain.';
-    else hint.textContent = tMi >= 0 ? 'Tap the glowing mountain to climb 🐐' : 'This group is not 5–10. Adjust your selection.';
+    else if (!anyGroupPossible()) {
+      // Auto-end turn after 2 seconds when no valid groups remain
+      if (!autoEndTimer) {
+        hint.textContent = 'No groups make 5–10 — ending turn in 2s…';
+        hint.classList.add('auto-end');
+        autoEndTimer = setTimeout(() => {
+          autoEndTimer = null;
+          hint.classList.remove('auto-end');
+          if (isMyTurn() && state.rolled && !anyGroupPossible()) {
+            socket.emit('endTurn');
+          }
+        }, 2000);
+      }
+    } else {
+      // Valid groups exist — cancel any pending auto-end
+      if (autoEndTimer) {
+        clearTimeout(autoEndTimer);
+        autoEndTimer = null;
+        hint.classList.remove('auto-end');
+      }
+      if (!selected.size) hint.textContent = 'Tap dice to group them (sum 5–10), then tap that mountain.';
+      else hint.textContent = tMi >= 0 ? 'Tap the glowing mountain to climb 🐐' : 'This group is not 5–10. Adjust your selection.';
+    }
   }
 
   function endReasonBadge(reason) {
