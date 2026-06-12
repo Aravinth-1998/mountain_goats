@@ -49,7 +49,7 @@ const MOUNTAIN_DEFS = [
 const BONUS_DEFS = [15, 12, 9, 6];
 const NUM_DICE = 4;
 const MAX_PLAYERS = 6;
-const PLAYER_COLORS = ['#e63946', '#2a9d8f', '#f4a261', '#8e7dff', '#ffd166', '#06d6a0'];
+const PLAYER_COLORS = ['#e63946', '#4f7cff', '#e67e22', '#9b59b6', '#06d6a0', '#ff6b9d'];
 
 // Team definitions
 const TEAM_COLORS = ['#e63946', '#4f7cff', '#06d6a0'];
@@ -448,13 +448,7 @@ function applyClimb(room, player, i) {
   const m = room.mountains[i];
   if (player.pos[i] >= m.height) {
     // Already on top: harvest another token instead of moving.
-    // Team rule: summit scores only once per team — if a teammate already holds
-    // the summit, this player's goat is already there but no extra token.
-    if (room.teamMode && teamHasSummit(room, player, i)) {
-      // Teammate already scored this summit; no additional harvest.
-      pushLog(room, `${player.name} is already on Mountain ${m.value} summit with a teammate (no extra token).`);
-      return;
-    }
+    // In team mode, players can still harvest even if a teammate is also on the summit.
     if (m.chips > 0) {
       takeToken(room, player, i);
       pushLog(room, `${player.name} harvested a ${m.value}p token from Mountain ${m.value}.`);
@@ -620,11 +614,7 @@ function scoreGroup(room, bot, indices, mi) {
       return -Infinity; // waste of dice
     }
   } else if (atTop) {
-    // Already on top: harvest another token.
-    if (teammateOnTop) {
-      // Team mode: teammate already on summit — no token gained, waste of dice.
-      return -Infinity;
-    }
+    // Already on top: harvest another token (even if teammate is also on summit).
     value = m.value + bonusValue;
     // Slightly prefer mountains where chips are scarce (closing soon).
     value += Math.max(0, 3 - m.chips);
@@ -868,6 +858,27 @@ io.on('connection', (socket) => {
     broadcast(room);
   });
 
+  // Host kicks any player (human or bot) from the lobby
+  socket.on('kickPlayer', ({ id }) => {
+    const room = findRoomBySocket(socket.id);
+    if (!room || room.hostId !== socket.id || room.started) return;
+    if (id === socket.id) return; // can't kick yourself
+    const idx = room.players.findIndex((p) => p.id === id);
+    if (idx === -1) return;
+    const [kicked] = room.players.splice(idx, 1);
+    // Remove from team membership
+    if (room.teams) {
+      room.teams.forEach((t) => {
+        t.members = t.members.filter((mid) => mid !== id);
+      });
+    }
+    pushLog(room, `${kicked.name} was kicked by the host.`);
+    if (room.currentIndex >= room.players.length) room.currentIndex = 0;
+    // Notify the kicked player
+    io.to(id).emit('kicked');
+    broadcast(room);
+  });
+
   // ---- Team mode socket events (lobby only) ----
 
   // Toggle team mode on/off
@@ -1026,6 +1037,8 @@ io.on('connection', (socket) => {
       }
       // 4. Replace room.players with the interleaved order
       room.players = interleaved;
+      // 5. Reorder room.teams to match the shuffled team order used for interleaving
+      room.teams = teamsCopy;
     } else {
       // Standard mode: shuffle player order so the host doesn't always go first.
       for (let i = room.players.length - 1; i > 0; i--) {

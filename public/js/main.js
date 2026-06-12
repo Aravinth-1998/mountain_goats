@@ -41,6 +41,11 @@
     return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   }
 
+  // Enforce 4-digit limit on room code input
+  $('home-code').addEventListener('input', function() {
+    if (this.value.length > 4) this.value = this.value.slice(0, 4);
+  });
+
   // ===================== HOW TO PLAY TOGGLES =====================
   document.querySelectorAll('.rules-toggle-btn').forEach((btn) => {
     btn.addEventListener('click', () => {
@@ -55,7 +60,8 @@
   // ===================== HOME =====================
   $('btn-create').addEventListener('click', () => {
     const name = $('home-name').value.trim();
-    if (!name) return ($('home-error').textContent = 'Please enter your name.');
+    if (!name) return ($('home-name-error').textContent = 'Please enter your name.');
+    $('home-name-error').textContent = '';
     setHomeLoading('create');
     socket.emit('createRoom', { name }, (res) => {
       clearHomeLoading();
@@ -69,7 +75,8 @@
   $('btn-join').addEventListener('click', () => {
     const name = $('home-name').value.trim();
     const code = String($('home-code').value || '').trim().slice(0, 4);
-    if (!name) return ($('home-error').textContent = 'Please enter your name.');
+    if (!name) return ($('home-name-error').textContent = 'Please enter your name.');
+    $('home-name-error').textContent = '';
     if (!code || code.length < 4) return ($('home-error').textContent = 'Please enter the 4-digit room code.');
     setHomeLoading('join');
     socket.emit('joinRoom', { name, code }, (res) => {
@@ -123,9 +130,11 @@
   });
 
   function askLeave(inGame) {
+    const heading = document.querySelector('#leave-overlay h2');
+    if (heading) heading.textContent = inGame ? 'Leave the game?' : 'Leave the lobby?';
     $('leave-msg').textContent = inGame
       ? 'Your goats will stay put, but your turn will be skipped.'
-      : 'You will leave the lobby.';
+      : '';
     $('leave-overlay').classList.add('show');
   }
 
@@ -141,20 +150,84 @@
 
   function shareWinResult() {
     if (!state) return;
-    const winner = state.players.find((p) => p.id === state.winnerId);
-    if (!winner) return;
-    const scores = [...state.players]
-      .sort((a, b) => b.score - a.score)
-      .map((p) => `${p.name}: ${p.score}pts`)
-      .join(', ');
-    const text = `🐐 Mountain Goats — ${winner.name} wins! ${scores}\nPlay at: ${location.origin}`;
+    // Build share text with top 3 players
+    const sorted = [...state.players].sort((a, b) => b.score - a.score || b.tops - a.tops);
+    const top3 = sorted.slice(0, 3).map((p, i) => {
+      const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : '🥉';
+      return `${medal} ${p.name}: ${p.score}pts`;
+    }).join('\n');
+
+    let winnerLine = '';
+    if (state.teamMode && state.teams && state.winnerTeamId != null) {
+      const winTeam = state.teams.find((t) => t.id === state.winnerTeamId);
+      winnerLine = winTeam ? `Team ${winTeam.name} wins!` : 'Game over!';
+    } else {
+      const winner = state.players.find((p) => p.id === state.winnerId);
+      winnerLine = winner ? `${winner.name} wins!` : 'Game over!';
+    }
+
+    const text = `🐐 Mountain Goats — ${winnerLine}\n\n${top3}\n\nPlay at: ${location.origin}`;
+
+    // Try to capture the overlay card as an image
+    const overlayCard = document.querySelector('#win-overlay .overlay-card');
+    if (overlayCard && typeof html2canvas === 'function') {
+      // Temporarily hide the action buttons for a cleaner screenshot
+      const actions = overlayCard.querySelector('.win-actions');
+      if (actions) actions.style.display = 'none';
+
+      html2canvas(overlayCard, {
+        backgroundColor: '#0d1424',
+        scale: 2,
+        useCORS: true,
+        logging: false,
+      }).then((canvas) => {
+        if (actions) actions.style.display = '';
+        canvas.toBlob((blob) => {
+          if (!blob) {
+            // Fallback: share text only
+            shareTextOnly(text);
+            return;
+          }
+          const file = new File([blob], 'mountain-goats-result.png', { type: 'image/png' });
+          if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            navigator.share({
+              title: 'Mountain Goats Result',
+              text: text,
+              files: [file],
+            }).catch(() => shareTextOnly(text));
+          } else {
+            // Can't share files — try downloading + sharing text
+            downloadImage(canvas);
+            shareTextOnly(text);
+          }
+        }, 'image/png');
+      }).catch(() => {
+        if (actions) actions.style.display = '';
+        shareTextOnly(text);
+      });
+    } else {
+      shareTextOnly(text);
+    }
+  }
+
+  function shareTextOnly(text) {
     if (navigator.share) {
       navigator.share({ title: 'Mountain Goats Result', text }).catch(() => {});
     } else if (navigator.clipboard) {
       navigator.clipboard.writeText(text).then(() => toast('Result copied! 📋'));
     } else {
-      toast('Winner: ' + winner.name + ' · ' + scores);
+      toast(text.split('\n')[0]);
     }
+  }
+
+  function downloadImage(canvas) {
+    try {
+      const link = document.createElement('a');
+      link.download = 'mountain-goats-result.png';
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+      toast('Image saved! 📸');
+    } catch (e) { /* ignore */ }
   }
 
   function shareRoom() {
@@ -205,6 +278,17 @@
     leaveToHome();
   });
   $('btn-win-share').addEventListener('click', shareWinResult);
+
+  // Handle being kicked by the host
+  socket.on('kicked', () => {
+    leftRoom = true;
+    state = null;
+    localStorage.removeItem('mg_code');
+    localStorage.removeItem('mg_name');
+    $('win-overlay').classList.remove('show');
+    show('home');
+    toast('You were kicked from the room.');
+  });
 
   // ===================== SOCKET =====================
   socket.on('connect', () => {
@@ -343,12 +427,12 @@
             });
             li.appendChild(swapWrap);
           }
-          if (amHost && p.isBot) {
+          if (amHost && p.id !== myId) {
             const x = document.createElement('button');
             x.className = 'kick-btn';
             x.textContent = '✕';
-            x.title = 'Remove bot';
-            x.addEventListener('click', () => socket.emit('removeBot', { id: p.id }));
+            x.title = p.isBot ? 'Remove bot' : 'Kick player';
+            x.addEventListener('click', () => socket.emit('kickPlayer', { id: p.id }));
             li.appendChild(x);
           }
           ul.appendChild(li);
@@ -394,12 +478,12 @@
           });
           li.appendChild(swapWrap);
         }
-        if (amHost && p.isBot) {
+        if (amHost && p.id !== myId) {
           const x = document.createElement('button');
           x.className = 'kick-btn';
           x.textContent = '✕';
-          x.title = 'Remove bot';
-          x.addEventListener('click', () => socket.emit('removeBot', { id: p.id }));
+          x.title = p.isBot ? 'Remove bot' : 'Kick player';
+          x.addEventListener('click', () => socket.emit('kickPlayer', { id: p.id }));
           li.appendChild(x);
         }
         ul.appendChild(li);
@@ -413,12 +497,12 @@
         if (p.id === state.hostId) li.innerHTML += `<span class="badge">HOST</span>`;
         else if (p.id === myId) li.innerHTML += `<span class="badge you">YOU</span>`;
         else if (p.isBot) li.innerHTML += `<span class="badge bot">BOT</span>`;
-        if (amHost && p.isBot) {
+        if (amHost && p.id !== myId) {
           const x = document.createElement('button');
           x.className = 'kick-btn';
           x.textContent = '✕';
-          x.title = 'Remove bot';
-          x.addEventListener('click', () => socket.emit('removeBot', { id: p.id }));
+          x.title = p.isBot ? 'Remove bot' : 'Kick player';
+          x.addEventListener('click', () => socket.emit('kickPlayer', { id: p.id }));
           li.appendChild(x);
         }
         ul.appendChild(li);
@@ -532,62 +616,136 @@
   function renderStats() {
     const strip = $('stats-strip');
     strip.innerHTML = '';
-
-    // Team score bar (only in team mode)
-    if (state.teamMode && state.teams) {
-      const teamBar = document.createElement('div');
-      teamBar.className = 'team-score-bar';
-      const teamLead = Math.max(0, ...state.teams.map((t) => t.score || 0));
-      state.teams.forEach((t) => {
-        const isLead = t.score === teamLead && teamLead > 0;
-        teamBar.innerHTML += `<span class="team-score-pill" style="--tc:${t.color}">
-          <span class="tsp-dot" style="background:${t.color}"></span>
-          Team ${escapeHtml(t.name)}
-          <b>${isLead ? '▲ ' : ''}${t.score || 0}</b>
-          <span class="tsp-tops">👑${t.tops || 0}</span>
-        </span>`;
-      });
-      strip.appendChild(teamBar);
-    }
-
     const lead = Math.max(0, ...state.players.map((p) => p.score || 0));
-    state.players.forEach((p, idx) => {
-      const panel = document.createElement('div');
-      const teamClass = (state.teamMode && p.teamId != null) ? ' team-tagged' : '';
-      panel.className = 'pp' + (idx === state.currentIndex ? ' active' : '') + (p.connected ? '' : ' off') + teamClass;
-      // Add team color border in team mode
-      if (state.teamMode && state.teams && p.teamId != null) {
-        const pTeam = state.teams.find((t) => t.id === p.teamId);
-        if (pTeam) panel.style.setProperty('--team-border', pTeam.color);
-      }
-      const pos = p.pos || [];
-      const collected = p.collected || [];
-      let chips = '';
-      state.mountains.forEach((m, mi) => {
-        const onTop = (pos[mi] || 0) >= m.height;
-        const n = collected[mi] || 0;
-        chips += `<span class="pp-chip${n > 0 ? ' has' : ''}${onTop ? ' top' : ''}" style="--c:${m.color}">${m.value}<b>×${n}</b></span>`;
+
+    if (state.teamMode && state.teams) {
+      // Team mode: display team scorecards
+      const teamLead = Math.max(0, ...state.teams.map((t) => t.score || 0));
+      const numTeams = state.teams.length;
+
+      // Build ordered member lists per team based on actual turn order
+      const teamOrder = state.teams.map(() => []);
+      state.players.forEach((p) => {
+        const tIdx = state.teams.findIndex((t) => t.members.includes(p.id));
+        if (tIdx >= 0) teamOrder[tIdx].push(p);
       });
-      const leadTag = (p.score || 0) === lead && lead > 0 ? '<span class="pp-lead">▲</span>' : '';
-      const topsTag = (p.tops || 0) > 0 ? `<span class="pp-tops">👑${p.tops}</span>` : '';
-      const bonusTag = p.bonus && p.bonus.length ? `<span class="pp-bonus">✨${p.bonusPoints || 0}</span>` : '';
-      const setsTag = (p.sets || 0) > 0 ? `<span class="pp-sets">📦${p.sets}</span>` : '';
-      const offTag = !p.connected && !p.isBot ? '<span class="pp-auto">🤖 auto</span>' : '';
-      // Team tag
-      let teamTag = '';
-      if (state.teamMode && state.teams && p.teamId != null) {
-        const pTeam = state.teams.find((t) => t.id === p.teamId);
-        if (pTeam) teamTag = `<span class="pp-team" style="color:${pTeam.color}">${pTeam.name}</span>`;
+
+      if (numTeams === 2) {
+        // 2 teams: side-by-side columns
+        const grid = document.createElement('div');
+        grid.className = 'team-grid';
+        grid.style.setProperty('--cols', 2);
+        const maxMembers = Math.max(...teamOrder.map((arr) => arr.length));
+
+        // Team headers
+        state.teams.forEach((t) => {
+          const isLead = t.score === teamLead && teamLead > 0;
+          const head = document.createElement('div');
+          head.className = 'tg-cell tg-head';
+          head.style.setProperty('--tc', t.color);
+          head.innerHTML = `<span class="tg-dot" style="background:${t.color}"></span>
+            <span class="tg-name">${escapeHtml(t.name)}</span>
+            <span class="tg-tops">👑${t.tops || 0}</span>
+            <span class="tg-score">${isLead ? '▲ ' : ''}⭐ ${t.score || 0}</span>`;
+          grid.appendChild(head);
+        });
+
+        // Player rows
+        for (let row = 0; row < maxMembers; row++) {
+          state.teams.forEach((t, tIdx) => {
+            const p = teamOrder[tIdx][row];
+            const cell = document.createElement('div');
+            cell.className = 'tg-cell';
+            if (!p) { grid.appendChild(cell); return; }
+            cell.appendChild(buildPlayerPanel(p, t));
+            grid.appendChild(cell);
+          });
+        }
+        strip.appendChild(grid);
+      } else {
+        // 3+ teams: stacked vertically, each team as a row
+        state.teams.forEach((t, tIdx) => {
+          const isLead = t.score === teamLead && teamLead > 0;
+          const teamBlock = document.createElement('div');
+          teamBlock.className = 'team-block';
+          teamBlock.style.setProperty('--tc', t.color);
+
+          // Team header
+          const head = document.createElement('div');
+          head.className = 'tg-head';
+          head.style.setProperty('--tc', t.color);
+          head.innerHTML = `<span class="tg-dot" style="background:${t.color}"></span>
+            <span class="tg-name">${escapeHtml(t.name)}</span>
+            <span class="tg-tops">👑${t.tops || 0}</span>
+            <span class="tg-score">${isLead ? '▲ ' : ''}⭐ ${t.score || 0}</span>`;
+          teamBlock.appendChild(head);
+
+          // Members in a row
+          const membersRow = document.createElement('div');
+          membersRow.className = 'team-block-members';
+          teamOrder[tIdx].forEach((p) => {
+            membersRow.appendChild(buildPlayerPanel(p, t));
+          });
+          teamBlock.appendChild(membersRow);
+          strip.appendChild(teamBlock);
+        });
       }
-      panel.innerHTML = `
-        <div class="pp-head">
-          <span class="pp-dot" style="background:${p.color}"></span>
-          <span class="pp-name">${escapeHtml(p.name)}${p.id === myId ? ' (You)' : ''}</span>
-          ${teamTag}${offTag}${setsTag}${topsTag}${bonusTag}<span class="pp-score">${leadTag}⭐ ${p.score || 0}</span>
-        </div>
-        <div class="pp-mtns">${chips}</div>`;
-      strip.appendChild(panel);
-    });
+
+      // Helper to build a player panel
+      function buildPlayerPanel(p, t) {
+        const idx = state.players.indexOf(p);
+        const panel = document.createElement('div');
+        panel.className = 'pp team-pp' + (idx === state.currentIndex ? ' active' : '') + (p.connected ? '' : ' off');
+        panel.style.setProperty('--tc', t.color);
+        const pos = p.pos || [];
+        const collected = p.collected || [];
+        let chips = '';
+        state.mountains.forEach((m, mi) => {
+          const onTop = (pos[mi] || 0) >= m.height;
+          const n = collected[mi] || 0;
+          chips += `<span class="pp-chip${n > 0 ? ' has' : ''}${onTop ? ' top' : ''}" style="--c:${m.color}">${m.value}<b>×${n}</b></span>`;
+        });
+        const topsTag = (p.tops || 0) > 0 ? `<span class="pp-tops">👑${p.tops}</span>` : '';
+        const bonusTag = p.bonus && p.bonus.length ? `<span class="pp-bonus">✨${p.bonusPoints || 0}</span>` : '';
+        const setsTag = (p.sets || 0) > 0 ? `<span class="pp-sets">📦${p.sets}</span>` : '';
+        const offTag = !p.connected && !p.isBot ? '<span class="pp-auto">🤖 auto</span>' : '';
+        panel.innerHTML = `
+          <div class="pp-head">
+            <span class="pp-dot" style="background:${p.color}"></span>
+            <span class="pp-name">${escapeHtml(p.name)}${p.id === myId ? ' (You)' : ''}</span>
+            ${offTag}${setsTag}${topsTag}${bonusTag}<span class="pp-score">⭐ ${p.score || 0}</span>
+          </div>
+          <div class="pp-mtns">${chips}</div>`;
+        return panel;
+      }
+    } else {
+      // Standard mode: flat player panels
+      state.players.forEach((p, idx) => {
+        const panel = document.createElement('div');
+        panel.className = 'pp' + (idx === state.currentIndex ? ' active' : '') + (p.connected ? '' : ' off');
+        const pos = p.pos || [];
+        const collected = p.collected || [];
+        let chips = '';
+        state.mountains.forEach((m, mi) => {
+          const onTop = (pos[mi] || 0) >= m.height;
+          const n = collected[mi] || 0;
+          chips += `<span class="pp-chip${n > 0 ? ' has' : ''}${onTop ? ' top' : ''}" style="--c:${m.color}">${m.value}<b>×${n}</b></span>`;
+        });
+        const leadTag = (p.score || 0) === lead && lead > 0 ? '<span class="pp-lead">▲</span>' : '';
+        const topsTag = (p.tops || 0) > 0 ? `<span class="pp-tops">👑${p.tops}</span>` : '';
+        const bonusTag = p.bonus && p.bonus.length ? `<span class="pp-bonus">✨${p.bonusPoints || 0}</span>` : '';
+        const setsTag = (p.sets || 0) > 0 ? `<span class="pp-sets">📦${p.sets}</span>` : '';
+        const offTag = !p.connected && !p.isBot ? '<span class="pp-auto">🤖 auto</span>' : '';
+        panel.innerHTML = `
+          <div class="pp-head">
+            <span class="pp-dot" style="background:${p.color}"></span>
+            <span class="pp-name">${escapeHtml(p.name)}${p.id === myId ? ' (You)' : ''}</span>
+            ${offTag}${setsTag}${topsTag}${bonusTag}<span class="pp-score">${leadTag}⭐ ${p.score || 0}</span>
+          </div>
+          <div class="pp-mtns">${chips}</div>`;
+        strip.appendChild(panel);
+      });
+    }
   }
 
   function renderBonusRow() {

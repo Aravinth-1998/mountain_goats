@@ -262,8 +262,10 @@ input {
   outline: none;
   transition: border-color .2s, background .2s;
 }
+input::placeholder { opacity: 0.35; font-weight: 500; }
 input:focus { border-color: var(--primary); background: rgba(79,124,255,0.1); }
-.code-input { text-transform: uppercase; letter-spacing: 8px; text-align: center; font-weight: 700; font-size: 22px; -moz-appearance: textfield; }
+.code-input { text-transform: uppercase; letter-spacing: 8px; text-align: center; font-weight: 700; font-size: 18px; -moz-appearance: textfield; }
+.code-input::placeholder { font-size: 14px; letter-spacing: 1px; opacity: 0.35; font-weight: 500; }
 .code-input::-webkit-outer-spin-button,
 .code-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 
@@ -287,6 +289,7 @@ input:focus { border-color: var(--primary); background: rgba(79,124,255,0.1); }
 .btn-primary { background: linear-gradient(135deg, var(--primary), var(--primary-2)); box-shadow: 0 10px 24px rgba(79,124,255,0.35); }
 .btn-ghost { background: rgba(255,255,255,0.08); border: 1px solid var(--card-border); }
 .btn-danger { background: linear-gradient(135deg, #ff5d6c, #c0392b); box-shadow: 0 8px 20px rgba(255,93,108,0.35); }
+.btn-join { background: linear-gradient(135deg, var(--green), #049e7a); box-shadow: 0 10px 24px rgba(6,214,160,0.3); }
 .icon-btn {
   background: rgba(255,255,255,0.06);
   border: 1px solid var(--card-border);
@@ -370,7 +373,7 @@ input:focus { border-color: var(--primary); background: rgba(79,124,255,0.1); }
   padding: 0 18px;
 }
 .rules-content.open {
-  max-height: 400px;
+  max-height: 800px;
   padding: 0 18px 16px;
 }
 .rules-content ol { margin: 4px 0 0; padding-left: 18px; color: var(--muted); line-height: 1.7; font-size: 14px; }
@@ -397,7 +400,7 @@ input:focus { border-color: var(--primary); background: rgba(79,124,255,0.1); }
   border: 1px solid var(--card-border);
   border-radius: 14px; padding: 8px 10px;
 }
-.pp.active { box-shadow: 0 0 0 2px var(--green), 0 8px 20px rgba(6,214,160,0.2); }
+.pp.active { box-shadow: 0 0 0 2px var(--gold), 0 8px 20px rgba(255,209,102,0.3); }
 .pp.off { opacity: 0.5; }
 .pp-head { display: flex; align-items: center; gap: 7px; margin-bottom: 7px; }
 .pp-dot { width: 14px; height: 14px; border-radius: 5px; flex: 0 0 auto; box-shadow: inset 0 0 0 2px rgba(255,255,255,0.3); }
@@ -462,11 +465,14 @@ input:focus { border-color: var(--primary); background: rgba(79,124,255,0.1); }
 @keyframes shake { 0%,100%{transform:translateY(0) rotate(0)} 25%{transform:translateY(-8px) rotate(-12deg)} 75%{transform:translateY(-4px) rotate(12deg)} }
 .reface {
   position: absolute; top: -8px; right: -8px;
-  width: 22px; height: 22px; border-radius: 50%;
+  width: 28px; height: 28px; border-radius: 50%;
   border: none; cursor: pointer;
-  background: var(--primary); color: #fff; font-size: 13px; font-weight: 800;
+  background: var(--primary); color: #fff; font-size: 14px; font-weight: 800;
   box-shadow: 0 3px 8px rgba(0,0,0,0.4);
   display: flex; align-items: center; justify-content: center;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  z-index: 5;
 }
 .control-buttons { display: flex; gap: 10px; }
 .control-buttons .btn { flex: 1; }
@@ -603,37 +609,51 @@ input:focus { border-color: var(--primary); background: rgba(79,124,255,0.1); }
 }
 .team-cfg-btn:hover { background: rgba(255,255,255,0.1); }
 
-/* Game: team score bar */
-.team-score-bar {
-  display: flex; gap: 8px; flex-wrap: wrap;
-  width: 100%; margin-bottom: 6px;
+/* Game: team grid layout — teams as columns, players as rows */
+.team-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--cols, 2), 1fr);
+  gap: 4px;
+  width: 100%;
 }
-.team-score-pill {
-  flex: 1 1 0; min-width: 0;
-  display: flex; align-items: center; gap: 6px;
-  background: rgba(255,255,255,0.06);
+.tg-cell { min-width: 0; }
+.tg-head {
+  display: flex; align-items: center; gap: 5px;
+  padding: 5px 8px;
+  border-radius: 10px;
   border: 1px solid var(--tc, var(--card-border));
-  border-radius: 10px; padding: 6px 10px;
-  font-size: 12px; font-weight: 700; color: var(--text);
-  white-space: nowrap;
+  background: color-mix(in srgb, var(--tc, #fff) 12%, transparent);
+  font-size: 11px; font-weight: 700;
 }
-.tsp-dot {
-  width: 10px; height: 10px; border-radius: 50%; flex: 0 0 auto;
+.tg-dot {
+  width: 9px; height: 9px; border-radius: 50%; flex: 0 0 auto;
 }
-.team-score-pill b { color: var(--gold); margin-left: auto; }
-.tsp-tops { font-size: 10px; color: var(--muted); }
+.tg-name { color: var(--tc, var(--text)); font-family: 'Fredoka', sans-serif; font-size: 12px; }
+.tg-tops { font-size: 10px; color: var(--muted); margin-left: auto; }
+.tg-score { font-weight: 800; color: var(--gold); white-space: nowrap; font-size: 12px; }
 
-/* Game: player panel team tag */
-.pp-team {
-  font-size: 10px; font-weight: 800;
-  border-radius: 4px; padding: 0 4px;
-  background: rgba(255,255,255,0.06);
-  white-space: nowrap;
+/* Player panels inside team grid / block */
+.pp.team-pp {
+  flex: 1 1 0; min-width: 0;
+  border-radius: 10px;
+  border: 1px solid var(--tc, rgba(255,255,255,0.06));
+  border-left: 3px solid var(--tc, transparent);
+}
+.pp.team-pp.active {
+  box-shadow: 0 0 0 2px var(--gold), 0 4px 12px rgba(255,209,102,0.3);
 }
 
-/* Player panel team border */
-.pp.team-tagged {
-  border-left: 3px solid var(--team-border, transparent);
+/* Stacked team block (for 3+ teams) */
+.team-block {
+  width: 100%;
+  border: 1px solid var(--tc, var(--card-border));
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 4px;
+}
+.team-block-members {
+  display: flex; gap: 4px;
+  padding: 4px;
 }
 
 /* Win screen: team breakdown */
