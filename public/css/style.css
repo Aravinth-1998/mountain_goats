@@ -531,6 +531,128 @@ input:focus { border-color: var(--primary); background: rgba(79,124,255,0.1); }
 }
 .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
+/* ===== TEAM MODE STYLES ===== */
+
+/* Lobby: team header */
+.team-header {
+  display: flex; align-items: center; gap: 10px;
+  background: rgba(255,255,255,0.03) !important;
+  border: none !important;
+  padding: 8px 14px !important;
+  border-radius: 10px !important;
+  margin-top: 6px;
+}
+.team-header:first-child { margin-top: 0; }
+.team-dot {
+  width: 16px; height: 16px; border-radius: 50%; flex: 0 0 auto;
+  box-shadow: 0 0 6px rgba(255,255,255,0.2);
+}
+.team-label {
+  font-family: 'Fredoka', sans-serif;
+  font-weight: 700; font-size: 14px; color: var(--text);
+}
+.team-count {
+  margin-left: auto; font-size: 11px; color: var(--muted); font-weight: 600;
+}
+
+/* Lobby: team member indented */
+.team-member {
+  border-left: 3px solid var(--team-color, transparent) !important;
+  margin-left: 8px;
+}
+
+/* Lobby: team swap buttons */
+.team-swap {
+  display: inline-flex; gap: 4px; margin-left: auto;
+}
+.team-swap-btn {
+  width: 22px; height: 22px; border-radius: 6px;
+  border: none; cursor: pointer;
+  color: #fff; font-size: 10px; font-weight: 800;
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0.7; transition: opacity .15s, transform .1s;
+}
+.team-swap-btn:hover { opacity: 1; }
+.team-swap-btn:active { transform: scale(0.9); }
+
+/* Team mode toggle button */
+.btn.team-active {
+  background: rgba(79,124,255,0.18);
+  border-color: rgba(79,124,255,0.4);
+  color: var(--primary);
+}
+
+/* Team config selector */
+.team-config-wrap {
+  display: flex; gap: 8px; justify-content: center;
+  margin-top: 8px;
+}
+.team-cfg-btn {
+  flex: 1;
+  padding: 8px 12px; border-radius: 10px;
+  border: 1px solid var(--card-border);
+  background: rgba(255,255,255,0.06);
+  color: var(--muted); font-size: 13px; font-weight: 700;
+  cursor: pointer; transition: all .15s;
+  font-family: inherit;
+}
+.team-cfg-btn.active {
+  background: rgba(79,124,255,0.2);
+  border-color: var(--primary);
+  color: var(--text);
+}
+.team-cfg-btn:hover { background: rgba(255,255,255,0.1); }
+
+/* Game: team score bar */
+.team-score-bar {
+  display: flex; gap: 8px; flex-wrap: wrap;
+  width: 100%; margin-bottom: 6px;
+}
+.team-score-pill {
+  flex: 1 1 0; min-width: 0;
+  display: flex; align-items: center; gap: 6px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid var(--tc, var(--card-border));
+  border-radius: 10px; padding: 6px 10px;
+  font-size: 12px; font-weight: 700; color: var(--text);
+  white-space: nowrap;
+}
+.tsp-dot {
+  width: 10px; height: 10px; border-radius: 50%; flex: 0 0 auto;
+}
+.team-score-pill b { color: var(--gold); margin-left: auto; }
+.tsp-tops { font-size: 10px; color: var(--muted); }
+
+/* Game: player panel team tag */
+.pp-team {
+  font-size: 10px; font-weight: 800;
+  border-radius: 4px; padding: 0 4px;
+  background: rgba(255,255,255,0.06);
+  white-space: nowrap;
+}
+
+/* Player panel team border */
+.pp.team-tagged {
+  border-left: 3px solid var(--team-border, transparent);
+}
+
+/* Win screen: team breakdown */
+.team-breakdown-label {
+  font-size: 12px; font-weight: 700; color: var(--muted);
+  margin: 12px 0 4px; text-align: center;
+  text-transform: uppercase; letter-spacing: 1px;
+}
+.scoreboard-sm .score-row { padding: 5px 10px; font-size: 13px; }
+.score-row-sm { background: rgba(255,255,255,0.03); }
+.sb-tdot {
+  display: inline-block;
+  width: 8px; height: 8px; border-radius: 50%;
+  margin-right: 6px; flex: 0 0 auto;
+}
+.sb-members {
+  font-size: 11px; color: var(--muted); font-weight: 400;
+}
+
 @media (min-width: 560px) {
   .mountain { width: 130px; }
 }

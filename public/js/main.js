@@ -99,6 +99,13 @@
   // ===================== LOBBY / NAV =====================
   $('btn-start').addEventListener('click', () => socket.emit('startGame'));
   $('btn-addbot').addEventListener('click', () => socket.emit('addBot'));
+  // Team mode controls
+  $('btn-teammode').addEventListener('click', () => {
+    if (!state) return;
+    socket.emit('setTeamMode', { enabled: !state.teamMode });
+  });
+  $('btn-2teams').addEventListener('click', () => socket.emit('setTeamConfig', { numTeams: 2 }));
+  $('btn-3teams').addEventListener('click', () => socket.emit('setTeamConfig', { numTeams: 3 }));
 
   // Leave buttons open the confirm popup
   $('lobby-leave').addEventListener('click', () => askLeave(false));
@@ -287,33 +294,196 @@
     const amHost = state.hostId === myId;
     const ul = $('lobby-players');
     ul.innerHTML = '';
-    state.players.forEach((p) => {
-      const li = document.createElement('li');
-      li.innerHTML = `<span class="swatch" style="background:${p.color}"></span>
-        <span class="player-name">${escapeHtml(p.name)}${p.isBot ? ' 🤖' : ''}</span>`;
-      if (p.id === state.hostId) li.innerHTML += `<span class="badge">HOST</span>`;
-      else if (p.id === myId) li.innerHTML += `<span class="badge you">YOU</span>`;
-      else if (p.isBot) li.innerHTML += `<span class="badge bot">BOT</span>`;
-      if (amHost && p.isBot) {
-        const x = document.createElement('button');
-        x.className = 'kick-btn';
-        x.textContent = '✕';
-        x.title = 'Remove bot';
-        x.addEventListener('click', () => socket.emit('removeBot', { id: p.id }));
-        li.appendChild(x);
+
+    if (state.teamMode && state.teams) {
+      // Team mode: render players grouped by team
+      state.teams.forEach((team) => {
+        const teamHeader = document.createElement('li');
+        teamHeader.className = 'team-header';
+        teamHeader.innerHTML = `<span class="team-dot" style="background:${team.color}"></span>
+          <span class="team-label">Team ${escapeHtml(team.name)}</span>
+          <span class="team-count">${team.members.length} player${team.members.length !== 1 ? 's' : ''}</span>`;
+        ul.appendChild(teamHeader);
+
+        team.members.forEach((pid) => {
+          const p = state.players.find((pl) => pl.id === pid);
+          if (!p) return;
+          const li = document.createElement('li');
+          li.className = 'team-member';
+          li.style.setProperty('--team-color', team.color);
+          li.innerHTML = `<span class="swatch" style="background:${p.color}"></span>
+            <span class="player-name">${escapeHtml(p.name)}${p.isBot ? ' 🤖' : ''}</span>`;
+          if (p.id === state.hostId) li.innerHTML += `<span class="badge">HOST</span>`;
+          else if (p.id === myId) li.innerHTML += `<span class="badge you">YOU</span>`;
+          else if (p.isBot) li.innerHTML += `<span class="badge bot">BOT</span>`;
+          // Team swap buttons:
+          // - Host can swap ANY player (including themselves)
+          // - Non-host can only swap THEMSELVES
+          const canSwap = state.teams.length > 1 && (amHost || p.id === myId);
+          if (canSwap) {
+            const swapWrap = document.createElement('span');
+            swapWrap.className = 'team-swap';
+            state.teams.forEach((otherTeam) => {
+              if (otherTeam.id === team.id) return;
+              const btn = document.createElement('button');
+              btn.className = 'team-swap-btn';
+              btn.style.background = otherTeam.color;
+              btn.title = `Move to Team ${otherTeam.name}`;
+              btn.textContent = otherTeam.name.charAt(0);
+              btn.addEventListener('click', () => {
+                if (amHost) {
+                  // Host uses swapTeam (can move anyone)
+                  socket.emit('swapTeam', { playerId: p.id, toTeamId: otherTeam.id });
+                } else {
+                  // Non-host uses selfSwapTeam (can only move self)
+                  socket.emit('selfSwapTeam', { toTeamId: otherTeam.id });
+                }
+              });
+              swapWrap.appendChild(btn);
+            });
+            li.appendChild(swapWrap);
+          }
+          if (amHost && p.isBot) {
+            const x = document.createElement('button');
+            x.className = 'kick-btn';
+            x.textContent = '✕';
+            x.title = 'Remove bot';
+            x.addEventListener('click', () => socket.emit('removeBot', { id: p.id }));
+            li.appendChild(x);
+          }
+          ul.appendChild(li);
+        });
+      });
+      // Show any unassigned players with swap controls
+      const assigned = new Set(state.teams.flatMap((t) => t.members));
+      const unassigned = state.players.filter((p) => !assigned.has(p.id));
+      if (unassigned.length) {
+        const unHeader = document.createElement('li');
+        unHeader.className = 'team-header';
+        unHeader.innerHTML = `<span class="team-dot" style="background:#666"></span>
+          <span class="team-label">Unassigned</span>
+          <span class="team-count">${unassigned.length} player${unassigned.length !== 1 ? 's' : ''}</span>`;
+        ul.appendChild(unHeader);
       }
-      ul.appendChild(li);
-    });
+      unassigned.forEach((p) => {
+        const li = document.createElement('li');
+        li.className = 'team-member';
+        li.style.setProperty('--team-color', '#666');
+        li.innerHTML = `<span class="swatch" style="background:${p.color}"></span>
+          <span class="player-name">${escapeHtml(p.name)}${p.isBot ? ' 🤖' : ''}</span>
+          <span class="badge">UNASSIGNED</span>`;
+        // Swap buttons: host can assign anyone, non-host only self
+        const canSwap = amHost || p.id === myId;
+        if (canSwap && state.teams.length > 0) {
+          const swapWrap = document.createElement('span');
+          swapWrap.className = 'team-swap';
+          state.teams.forEach((team) => {
+            const btn = document.createElement('button');
+            btn.className = 'team-swap-btn';
+            btn.style.background = team.color;
+            btn.title = `Assign to Team ${team.name}`;
+            btn.textContent = team.name.charAt(0);
+            btn.addEventListener('click', () => {
+              if (amHost) {
+                socket.emit('swapTeam', { playerId: p.id, toTeamId: team.id });
+              } else {
+                socket.emit('selfSwapTeam', { toTeamId: team.id });
+              }
+            });
+            swapWrap.appendChild(btn);
+          });
+          li.appendChild(swapWrap);
+        }
+        if (amHost && p.isBot) {
+          const x = document.createElement('button');
+          x.className = 'kick-btn';
+          x.textContent = '✕';
+          x.title = 'Remove bot';
+          x.addEventListener('click', () => socket.emit('removeBot', { id: p.id }));
+          li.appendChild(x);
+        }
+        ul.appendChild(li);
+      });
+    } else {
+      // Standard mode: render flat player list
+      state.players.forEach((p) => {
+        const li = document.createElement('li');
+        li.innerHTML = `<span class="swatch" style="background:${p.color}"></span>
+          <span class="player-name">${escapeHtml(p.name)}${p.isBot ? ' 🤖' : ''}</span>`;
+        if (p.id === state.hostId) li.innerHTML += `<span class="badge">HOST</span>`;
+        else if (p.id === myId) li.innerHTML += `<span class="badge you">YOU</span>`;
+        else if (p.isBot) li.innerHTML += `<span class="badge bot">BOT</span>`;
+        if (amHost && p.isBot) {
+          const x = document.createElement('button');
+          x.className = 'kick-btn';
+          x.textContent = '✕';
+          x.title = 'Remove bot';
+          x.addEventListener('click', () => socket.emit('removeBot', { id: p.id }));
+          li.appendChild(x);
+        }
+        ul.appendChild(li);
+      });
+    }
+
+    // Team mode toggle (host only)
+    const teamSection = $('team-controls');
+    if (teamSection) {
+      if (amHost) {
+        teamSection.style.display = 'block';
+        const toggleBtn = $('btn-teammode');
+        toggleBtn.textContent = state.teamMode ? '🏁 Disable Teams' : '👥 Enable Teams';
+        toggleBtn.className = state.teamMode ? 'btn btn-ghost btn-block team-active' : 'btn btn-ghost btn-block';
+        // Team config selector
+        const configWrap = $('team-config-wrap');
+        if (state.teamMode && state.teams) {
+          configWrap.style.display = 'flex';
+          const numTeams = state.teams.length;
+          $('btn-2teams').classList.toggle('active', numTeams === 2);
+          $('btn-3teams').classList.toggle('active', numTeams === 3);
+          // Only show 3-team option if 6 players
+          $('btn-3teams').style.display = state.players.length >= 6 ? 'inline-block' : 'none';
+        } else {
+          configWrap.style.display = 'none';
+        }
+      } else {
+        teamSection.style.display = state.teamMode ? 'block' : 'none';
+        if (state.teamMode) {
+          // Non-host sees team info but no controls
+          $('btn-teammode').style.display = 'none';
+          $('team-config-wrap').style.display = 'none';
+        }
+      }
+    }
 
     const startBtn = $('btn-start');
     const addBtn = $('btn-addbot');
     startBtn.style.display = amHost ? 'block' : 'none';
-    startBtn.disabled = state.players.length < 2;
     addBtn.style.display = amHost ? 'block' : 'none';
     addBtn.disabled = state.players.length >= 6;
-    $('lobby-hint').textContent = amHost
-      ? state.players.length < 2 ? 'Add a bot or wait for a friend to join.' : 'Ready when you are!'
-      : 'Waiting for the host to start…';
+
+    // Check if teams are equal (required to start in team mode)
+    let teamsUnequal = false;
+    if (state.teamMode && state.teams && state.teams.length >= 2) {
+      const sizes = state.teams.map((t) => t.members.length);
+      teamsUnequal = sizes.some((s) => s !== sizes[0]) || sizes.some((s) => s === 0);
+    }
+
+    startBtn.disabled = state.players.length < 2 || teamsUnequal;
+    if (amHost) {
+      if (state.players.length < 2) {
+        $('lobby-hint').textContent = 'Add a bot or wait for a friend to join.';
+      } else if (teamsUnequal) {
+        const sizes = state.teams.map((t) => `${t.name}: ${t.members.length}`).join(', ');
+        $('lobby-hint').textContent = `⚠️ Teams must be equal to start! (${sizes})`;
+        $('lobby-hint').style.color = 'var(--danger)';
+      } else {
+        $('lobby-hint').textContent = state.teamMode ? 'Teams ready! Start when you are!' : 'Ready when you are!';
+        $('lobby-hint').style.color = '';
+      }
+    } else {
+      $('lobby-hint').textContent = 'Waiting for the host to start…';
+      $('lobby-hint').style.color = '';
+    }
   }
 
   function renderGame() {
@@ -362,10 +532,34 @@
   function renderStats() {
     const strip = $('stats-strip');
     strip.innerHTML = '';
+
+    // Team score bar (only in team mode)
+    if (state.teamMode && state.teams) {
+      const teamBar = document.createElement('div');
+      teamBar.className = 'team-score-bar';
+      const teamLead = Math.max(0, ...state.teams.map((t) => t.score || 0));
+      state.teams.forEach((t) => {
+        const isLead = t.score === teamLead && teamLead > 0;
+        teamBar.innerHTML += `<span class="team-score-pill" style="--tc:${t.color}">
+          <span class="tsp-dot" style="background:${t.color}"></span>
+          Team ${escapeHtml(t.name)}
+          <b>${isLead ? '▲ ' : ''}${t.score || 0}</b>
+          <span class="tsp-tops">👑${t.tops || 0}</span>
+        </span>`;
+      });
+      strip.appendChild(teamBar);
+    }
+
     const lead = Math.max(0, ...state.players.map((p) => p.score || 0));
     state.players.forEach((p, idx) => {
       const panel = document.createElement('div');
-      panel.className = 'pp' + (idx === state.currentIndex ? ' active' : '') + (p.connected ? '' : ' off');
+      const teamClass = (state.teamMode && p.teamId != null) ? ' team-tagged' : '';
+      panel.className = 'pp' + (idx === state.currentIndex ? ' active' : '') + (p.connected ? '' : ' off') + teamClass;
+      // Add team color border in team mode
+      if (state.teamMode && state.teams && p.teamId != null) {
+        const pTeam = state.teams.find((t) => t.id === p.teamId);
+        if (pTeam) panel.style.setProperty('--team-border', pTeam.color);
+      }
       const pos = p.pos || [];
       const collected = p.collected || [];
       let chips = '';
@@ -379,11 +573,17 @@
       const bonusTag = p.bonus && p.bonus.length ? `<span class="pp-bonus">✨${p.bonusPoints || 0}</span>` : '';
       const setsTag = (p.sets || 0) > 0 ? `<span class="pp-sets">📦${p.sets}</span>` : '';
       const offTag = !p.connected && !p.isBot ? '<span class="pp-auto">🤖 auto</span>' : '';
+      // Team tag
+      let teamTag = '';
+      if (state.teamMode && state.teams && p.teamId != null) {
+        const pTeam = state.teams.find((t) => t.id === p.teamId);
+        if (pTeam) teamTag = `<span class="pp-team" style="color:${pTeam.color}">${pTeam.name}</span>`;
+      }
       panel.innerHTML = `
         <div class="pp-head">
           <span class="pp-dot" style="background:${p.color}"></span>
           <span class="pp-name">${escapeHtml(p.name)}${p.id === myId ? ' (You)' : ''}</span>
-          ${offTag}${setsTag}${topsTag}${bonusTag}<span class="pp-score">${leadTag}⭐ ${p.score || 0}</span>
+          ${teamTag}${offTag}${setsTag}${topsTag}${bonusTag}<span class="pp-score">${leadTag}⭐ ${p.score || 0}</span>
         </div>
         <div class="pp-mtns">${chips}</div>`;
       strip.appendChild(panel);
@@ -459,6 +659,11 @@
       const g = document.createElement('div');
       g.className = 'goat' + (p.id === myId ? ' me' : '');
       g.style.background = p.color;
+      // In team mode, add team-colored ring
+      if (state.teamMode && state.teams && p.teamId != null) {
+        const pTeam = state.teams.find((t) => t.id === p.teamId);
+        if (pTeam) g.style.boxShadow = `0 2px 5px rgba(0,0,0,0.45), inset 0 0 0 1.5px rgba(255,255,255,0.6), 0 0 0 2px ${pTeam.color}`;
+      }
       g.textContent = p.name.charAt(0).toUpperCase();
       g.title = p.name;
       wrap.appendChild(g);
@@ -573,34 +778,78 @@
   function showWin() {
     const winner = state.players.find((p) => p.id === state.winnerId);
     if (!winner) return;
-    $('win-title').textContent = winner.id === myId ? 'You Win! 🎉' : `${winner.name} Wins!`;
-    const sorted = [...state.players].sort((a, b) => b.score - a.score || b.tops - a.tops);
-    const rows = sorted.map((p, i) => {
-      const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '•';
-      const bonusTag = p.bonus && p.bonus.length ? ` <span class="sb-bonus">✨+${p.bonusPoints}</span>` : '';
-      return `<div class="score-row${p.id === winner.id ? ' win' : ''}">
-        <span class="sb-left">${medal} ${escapeHtml(p.name)}${p.isBot ? ' 🤖' : ''}${bonusTag}</span>
-        <span class="sb-right">${p.score} pts · 👑${p.tops}</span>
-      </div>`;
-    }).join('');
 
-    // Only show tie-break note if it actually mattered.
-    const topScore = winner.score;
-    const tied = state.players.filter(p => p.score === topScore);
-    let tieNote = '';
-    if (tied.length > 1) {
-      const topTops = winner.tops;
-      const tiedOnTops = tied.filter(p => p.tops === topTops);
-      if (tiedOnTops.length > 1) {
-        tieNote = '<div class="tiebreak">🏔️ Tie broken by goat on the higher-numbered mountain.</div>';
-      } else {
-        tieNote = '<div class="tiebreak">👑 Tie broken by most goats on mountain tops.</div>';
+    if (state.teamMode && state.teams && state.winnerTeamId != null) {
+      // Team mode win screen
+      const winTeam = state.teams.find((t) => t.id === state.winnerTeamId);
+      if (!winTeam) return;
+      // Check if I'm on the winning team
+      const myTeam = state.teams.find((t) => t.members.includes(myId));
+      const myTeamWon = myTeam && myTeam.id === winTeam.id;
+      $('win-title').textContent = myTeamWon ? 'Your Team Wins! 🎉' : `Team ${winTeam.name} Wins!`;
+
+      // Team scoreboard
+      const sortedTeams = [...state.teams].sort((a, b) => (b.score || 0) - (a.score || 0) || (b.tops || 0) - (a.tops || 0));
+      const teamRows = sortedTeams.map((t, i) => {
+        const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : '🥉';
+        const isWin = t.id === winTeam.id;
+        const members = t.members.map((pid) => {
+          const pl = state.players.find((p) => p.id === pid);
+          return pl ? escapeHtml(pl.name) : '?';
+        }).join(', ');
+        return `<div class="score-row${isWin ? ' win' : ''}" style="border-left:3px solid ${t.color}">
+          <span class="sb-left">${medal} <b style="color:${t.color}">Team ${escapeHtml(t.name)}</b> <span class="sb-members">(${members})</span></span>
+          <span class="sb-right">${t.score || 0} pts · 👑${t.tops || 0}</span>
+        </div>`;
+      }).join('');
+
+      // Individual player breakdown
+      const sorted = [...state.players].sort((a, b) => b.score - a.score || b.tops - a.tops);
+      const playerRows = sorted.map((p) => {
+        const pTeam = state.teams.find((t) => t.id === p.teamId);
+        const teamDot = pTeam ? `<span class="sb-tdot" style="background:${pTeam.color}"></span>` : '';
+        const bonusTag = p.bonus && p.bonus.length ? ` <span class="sb-bonus">✨+${p.bonusPoints}</span>` : '';
+        return `<div class="score-row score-row-sm">
+          <span class="sb-left">${teamDot}${escapeHtml(p.name)}${p.isBot ? ' 🤖' : ''}${bonusTag}</span>
+          <span class="sb-right">${p.score} pts · 👑${p.tops}</span>
+        </div>`;
+      }).join('');
+
+      $('win-sub').innerHTML = `<div class="scoreboard">${teamRows}</div>
+        <div class="team-breakdown-label">Individual Scores</div>
+        <div class="scoreboard scoreboard-sm">${playerRows}</div>
+        ${endReasonBadge(state.endReason)}`;
+    } else {
+      // Standard mode win screen
+      $('win-title').textContent = winner.id === myId ? 'You Win! 🎉' : `${winner.name} Wins!`;
+      const sorted = [...state.players].sort((a, b) => b.score - a.score || b.tops - a.tops);
+      const rows = sorted.map((p, i) => {
+        const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '•';
+        const bonusTag = p.bonus && p.bonus.length ? ` <span class="sb-bonus">✨+${p.bonusPoints}</span>` : '';
+        return `<div class="score-row${p.id === winner.id ? ' win' : ''}">
+          <span class="sb-left">${medal} ${escapeHtml(p.name)}${p.isBot ? ' 🤖' : ''}${bonusTag}</span>
+          <span class="sb-right">${p.score} pts · 👑${p.tops}</span>
+        </div>`;
+      }).join('');
+
+      // Only show tie-break note if it actually mattered.
+      const topScore = winner.score;
+      const tied = state.players.filter(p => p.score === topScore);
+      let tieNote = '';
+      if (tied.length > 1) {
+        const topTops = winner.tops;
+        const tiedOnTops = tied.filter(p => p.tops === topTops);
+        if (tiedOnTops.length > 1) {
+          tieNote = '<div class="tiebreak">🏔️ Tie broken by goat on the higher-numbered mountain.</div>';
+        } else {
+          tieNote = '<div class="tiebreak">👑 Tie broken by most goats on mountain tops.</div>';
+        }
       }
-    }
 
-    $('win-sub').innerHTML = `<div class="scoreboard">${rows}</div>
-      ${tieNote}
-      ${endReasonBadge(state.endReason)}`;
+      $('win-sub').innerHTML = `<div class="scoreboard">${rows}</div>
+        ${tieNote}
+        ${endReasonBadge(state.endReason)}`;
+    }
     $('btn-playagain').style.display = state.hostId === myId ? 'block' : 'none';
     $('win-overlay').classList.add('show');
   }

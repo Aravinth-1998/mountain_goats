@@ -51,6 +51,16 @@ const NUM_DICE = 4;
 const MAX_PLAYERS = 6;
 const PLAYER_COLORS = ['#e63946', '#2a9d8f', '#f4a261', '#8e7dff', '#ffd166', '#06d6a0'];
 
+// Team definitions
+const TEAM_COLORS = ['#e63946', '#4f7cff', '#06d6a0'];
+const TEAM_NAMES = ['Red', 'Blue', 'Green'];
+// Valid team configurations: [totalPlayers, numTeams, playersPerTeam]
+const TEAM_CONFIGS = [
+  { total: 4, teams: 2, perTeam: 2 },
+  { total: 6, teams: 2, perTeam: 3 },
+  { total: 6, teams: 3, perTeam: 2 },
+];
+
 // ----------------------------------------------------------------------------
 // Helpers
 // ----------------------------------------------------------------------------
@@ -116,6 +126,98 @@ function genRoomCode() {
 }
 
 // ----------------------------------------------------------------------------
+// Team helpers
+// ----------------------------------------------------------------------------
+function getTeamOfPlayer(room, playerId) {
+  if (!room.teamMode) return null;
+  return room.teams ? room.teams.find((t) => t.members.includes(playerId)) : null;
+}
+
+function getTeamById(room, teamId) {
+  if (!room.teams) return null;
+  return room.teams.find((t) => t.id === teamId);
+}
+
+function areTeammates(room, p1Id, p2Id) {
+  if (!room.teamMode) return false;
+  const t1 = getTeamOfPlayer(room, p1Id);
+  const t2 = getTeamOfPlayer(room, p2Id);
+  return t1 && t2 && t1.id === t2.id;
+}
+
+// Team score = sum of all members' individual scores
+function teamScoreOf(room, team) {
+  let total = 0;
+  team.members.forEach((pid) => {
+    const p = room.players.find((pl) => pl.id === pid);
+    if (p) total += scoreOf(room, p);
+  });
+  return total;
+}
+
+// Team tops: count summits where at least one team member is on top
+function teamTopsOf(room, team) {
+  let n = 0;
+  room.mountains.forEach((m, i) => {
+    const hasTop = team.members.some((pid) => {
+      const p = room.players.find((pl) => pl.id === pid);
+      return p && p.pos[i] >= m.height;
+    });
+    if (hasTop) n++;
+  });
+  return n;
+}
+
+// Highest mountain value where team has a goat on top
+function teamHighestTopValue(room, team) {
+  let v = 0;
+  room.mountains.forEach((m, i) => {
+    const hasTop = team.members.some((pid) => {
+      const p = room.players.find((pl) => pl.id === pid);
+      return p && p.pos[i] >= m.height;
+    });
+    if (hasTop && m.value > v) v = m.value;
+  });
+  return v;
+}
+
+// Check if a summit already has a teammate on it (for team summit scoring rule)
+function teamHasSummit(room, player, mountainIndex) {
+  if (!room.teamMode) return false;
+  const team = getTeamOfPlayer(room, player.id);
+  if (!team) return false;
+  const m = room.mountains[mountainIndex];
+  return team.members.some((pid) => {
+    if (pid === player.id) return false;
+    const p = room.players.find((pl) => pl.id === pid);
+    return p && p.pos[mountainIndex] >= m.height;
+  });
+}
+
+// Get valid team configurations for the current player count
+function getValidTeamConfigs(playerCount) {
+  return TEAM_CONFIGS.filter((c) => c.total === playerCount);
+}
+
+// Build default team assignments for a configuration
+function buildTeams(room, numTeams) {
+  const teams = [];
+  for (let t = 0; t < numTeams; t++) {
+    teams.push({
+      id: t,
+      name: TEAM_NAMES[t],
+      color: TEAM_COLORS[t],
+      members: [],
+    });
+  }
+  // Round-robin assign players
+  room.players.forEach((p, idx) => {
+    teams[idx % numTeams].members.push(p.id);
+  });
+  return teams;
+}
+
+// ----------------------------------------------------------------------------
 // Room state
 // ----------------------------------------------------------------------------
 const rooms = {}; // code -> room
@@ -140,6 +242,10 @@ function createRoom() {
     log: [],
     botTimer: null,
     watchdog: null,
+    // Team mode (optional)
+    teamMode: false,
+    teams: null, // array of {id, name, color, members:[playerId...]}
+    winnerTeamId: null,
   };
   rooms[code] = room;
   return room;
@@ -183,6 +289,7 @@ function resetForNewGame(room) {
   room.endReason = null;
   room.finished = false;
   room.winnerId = null;
+  room.winnerTeamId = null;
   room.currentIndex = 0;
   room.dice = null;
   room.diceUsed = [];
@@ -194,10 +301,11 @@ function resetForNewGame(room) {
     p.bonus = [];
     p.turns = 0;
   });
+  // Team assignments persist across games (they're set in lobby)
 }
 
 function publicState(room) {
-  return {
+  const st = {
     code: room.code,
     hostId: room.hostId,
     started: room.started,
@@ -215,23 +323,40 @@ function publicState(room) {
     adjustable: room.adjustable,
     rolled: room.rolled,
     mountains: room.mountains, // {value, height, color, fullStack, chips}
-    players: room.players.map((p) => ({
-      id: p.id,
-      name: p.name,
-      color: p.color,
-      isBot: !!p.isBot,
-      pos: p.pos,
-      collected: p.collected,
-      points: pointsOf(room, p),
-      bonus: p.bonus,
-      bonusPoints: bonusOf(p),
-      score: scoreOf(room, p),
-      tops: topsOf(room, p),
-      sets: Math.max(0, setsOf(p)),
-      connected: p.connected,
-    })),
+    players: room.players.map((p) => {
+      const pTeam = getTeamOfPlayer(room, p.id);
+      return {
+        id: p.id,
+        name: p.name,
+        color: p.color,
+        isBot: !!p.isBot,
+        pos: p.pos,
+        collected: p.collected,
+        points: pointsOf(room, p),
+        bonus: p.bonus,
+        bonusPoints: bonusOf(p),
+        score: scoreOf(room, p),
+        tops: topsOf(room, p),
+        sets: Math.max(0, setsOf(p)),
+        connected: p.connected,
+        teamId: pTeam ? pTeam.id : null,
+      };
+    }),
     log: room.log.slice(-14),
+    // Team data
+    teamMode: room.teamMode || false,
+    teams: room.teams ? room.teams.map((t) => ({
+      id: t.id,
+      name: t.name,
+      color: t.color,
+      members: t.members,
+      score: teamScoreOf(room, t),
+      tops: teamTopsOf(room, t),
+      highTop: teamHighestTopValue(room, t),
+    })) : null,
+    winnerTeamId: room.winnerTeamId != null ? room.winnerTeamId : null,
   };
+  return st;
 }
 
 function broadcast(room) {
@@ -323,6 +448,13 @@ function applyClimb(room, player, i) {
   const m = room.mountains[i];
   if (player.pos[i] >= m.height) {
     // Already on top: harvest another token instead of moving.
+    // Team rule: summit scores only once per team — if a teammate already holds
+    // the summit, this player's goat is already there but no extra token.
+    if (room.teamMode && teamHasSummit(room, player, i)) {
+      // Teammate already scored this summit; no additional harvest.
+      pushLog(room, `${player.name} is already on Mountain ${m.value} summit with a teammate (no extra token).`);
+      return;
+    }
     if (m.chips > 0) {
       takeToken(room, player, i);
       pushLog(room, `${player.name} harvested a ${m.value}p token from Mountain ${m.value}.`);
@@ -331,18 +463,52 @@ function applyClimb(room, player, i) {
   }
   player.pos[i] += 1;
   if (player.pos[i] >= m.height) {
-    // Reached the top: bump any other goat already there to the foot.
-    room.players.forEach((o) => {
-      if (o.id !== player.id && o.pos[i] >= m.height) {
-        o.pos[i] = 0;
-        pushLog(room, `${o.name}'s goat was bumped off the top of Mountain ${m.value}!`);
+    if (room.teamMode) {
+      // TEAM MODE: teammates can co-occupy summit. Only bump opposing team goats.
+      const playerTeam = getTeamOfPlayer(room, player.id);
+      let bumped = false;
+      let bumpedTeamName = '';
+      room.players.forEach((o) => {
+        if (o.id !== player.id && o.pos[i] >= m.height) {
+          if (areTeammates(room, player.id, o.id)) {
+            // Teammate on summit — they stay (co-occupy).
+          } else {
+            // Opposing team: Team Wipeout — all opposing goats removed.
+            o.pos[i] = 0;
+            const oTeam = getTeamOfPlayer(room, o.id);
+            bumpedTeamName = oTeam ? oTeam.name : '';
+            bumped = true;
+            pushLog(room, `${o.name}'s goat was wiped off the top of Mountain ${m.value}! (Team Wipeout)`);
+          }
+        }
+      });
+      if (bumped && bumpedTeamName) {
+        pushLog(room, `Team ${bumpedTeamName} lost all goats on Mountain ${m.value} summit!`);
       }
-    });
-    if (m.chips > 0) {
-      takeToken(room, player, i);
-      pushLog(room, `${player.name} reached the top of Mountain ${m.value} (+${m.value}).`);
+      // Team summit scoring: only score if no teammate was already on top
+      const teammateAlreadyOnTop = teamHasSummit(room, player, i);
+      if (!teammateAlreadyOnTop && m.chips > 0) {
+        takeToken(room, player, i);
+        pushLog(room, `${player.name} reached the top of Mountain ${m.value} (+${m.value}).`);
+      } else if (teammateAlreadyOnTop) {
+        pushLog(room, `${player.name} joined teammate on Mountain ${m.value} summit (no extra token).`);
+      } else {
+        pushLog(room, `${player.name} reached the top of Mountain ${m.value} (no tokens left).`);
+      }
     } else {
-      pushLog(room, `${player.name} reached the top of Mountain ${m.value} (no tokens left).`);
+      // STANDARD MODE: bump any other goat already there to the foot.
+      room.players.forEach((o) => {
+        if (o.id !== player.id && o.pos[i] >= m.height) {
+          o.pos[i] = 0;
+          pushLog(room, `${o.name}'s goat was bumped off the top of Mountain ${m.value}!`);
+        }
+      });
+      if (m.chips > 0) {
+        takeToken(room, player, i);
+        pushLog(room, `${player.name} reached the top of Mountain ${m.value} (+${m.value}).`);
+      } else {
+        pushLog(room, `${player.name} reached the top of Mountain ${m.value} (no tokens left).`);
+      }
     }
   }
 }
@@ -358,13 +524,43 @@ function rankedPlayers(room) {
     .sort((a, b) => b.score - a.score || b.tops - a.tops || b.highTop - a.highTop);
 }
 
+function rankedTeams(room) {
+  if (!room.teamMode || !room.teams) return [];
+  return room.teams
+    .map((t) => ({
+      team: t,
+      score: teamScoreOf(room, t),
+      tops: teamTopsOf(room, t),
+      highTop: teamHighestTopValue(room, t),
+    }))
+    .sort((a, b) => b.score - a.score || b.tops - a.tops || b.highTop - a.highTop);
+}
+
 function endGame(room) {
   room.finished = true;
   if (room.watchdog) { clearInterval(room.watchdog); room.watchdog = null; }
-  const ranked = rankedPlayers(room);
-  const winner = ranked[0] ? ranked[0].p : null;
-  room.winnerId = winner ? winner.id : null;
-  if (winner) pushLog(room, `Game over! ${winner.name} wins with ${ranked[0].score} points! 🏆`);
+
+  if (room.teamMode && room.teams) {
+    // Team mode: rank teams, then pick the individual winner from winning team
+    const ranked = rankedTeams(room);
+    const winTeam = ranked[0] ? ranked[0].team : null;
+    room.winnerTeamId = winTeam ? winTeam.id : null;
+    // Pick the highest-scoring member of the winning team as the "player winner"
+    if (winTeam) {
+      const members = winTeam.members
+        .map((pid) => room.players.find((p) => p.id === pid))
+        .filter(Boolean)
+        .sort((a, b) => scoreOf(room, b) - scoreOf(room, a));
+      room.winnerId = members[0] ? members[0].id : null;
+      pushLog(room, `Game over! Team ${winTeam.name} wins with ${ranked[0].score} points! 🏆`);
+    }
+  } else {
+    // Standard mode
+    const ranked = rankedPlayers(room);
+    const winner = ranked[0] ? ranked[0].p : null;
+    room.winnerId = winner ? winner.id : null;
+    if (winner) pushLog(room, `Game over! ${winner.name} wins with ${ranked[0].score} points! 🏆`);
+  }
 }
 
 // Watchdog: every 8s, if it's a bot/disconnected turn and no timer is running, kick it.
@@ -402,9 +598,15 @@ function scoreGroup(room, bot, indices, mi) {
     : 0;
 
   // Count opponents on this top (bumping them is valuable).
+  // In team mode, only count non-teammates.
   const oppsOnTop = room.players.filter(
-    (o) => o.id !== bot.id && o.pos[mi] >= m.height
+    (o) => o.id !== bot.id && o.pos[mi] >= m.height && !areTeammates(room, bot.id, o.id)
   ).length;
+
+  // In team mode: if a teammate is already on this summit, harvesting gives nothing.
+  const teammateOnTop = room.teamMode && room.teams
+    ? room.players.some((o) => o.id !== bot.id && o.pos[mi] >= m.height && areTeammates(room, bot.id, o.id))
+    : false;
 
   let value;
 
@@ -417,14 +619,26 @@ function scoreGroup(room, bot, indices, mi) {
     }
   } else if (atTop) {
     // Already on top: harvest another token.
+    if (teammateOnTop) {
+      // Team mode: teammate already on summit — no token gained, waste of dice.
+      return -Infinity;
+    }
     value = m.value + bonusValue;
     // Slightly prefer mountains where chips are scarce (closing soon).
     value += Math.max(0, 3 - m.chips);
   } else if (stepsLeft === 1) {
     // This move reaches the top → collect a token + optional bump + optional set.
-    value = m.value + 4 + bonusValue + oppsOnTop * 3;
-    // Urgency: fewer chips left = close it before someone else does.
-    value += Math.max(0, 4 - m.chips) * 1.5;
+    // Team mode: if teammate already on top, no token gained — reduce value.
+    if (teammateOnTop) {
+      value = 1 + oppsOnTop * 2; // still worth it if it bumps opponents
+      if (oppsOnTop === 0) return -Infinity; // pure waste
+    } else {
+      value = m.value + 4 + bonusValue + oppsOnTop * 3;
+    }
+    if (!teammateOnTop) {
+      // Urgency: fewer chips left = close it before someone else does.
+      value += Math.max(0, 4 - m.chips) * 1.5;
+    }
   } else {
     // Intermediate step — progress value, weighted by mountain value and urgency.
     const progressFactor = 1 / stepsLeft; // closer to top = more valuable
@@ -574,8 +788,16 @@ io.on('connection', (socket) => {
       const wasMyTurn = room.players[room.currentIndex] &&
         room.players[room.currentIndex].id === existing.id;
       const wasDisconnected = !existing.connected;
+      const oldId = existing.id;
       existing.id = socket.id;
       existing.connected = true;
+      // Update team member references when player ID changes on reconnect
+      if (room.teams && oldId !== socket.id) {
+        room.teams.forEach((t) => {
+          const idx = t.members.indexOf(oldId);
+          if (idx !== -1) t.members[idx] = socket.id;
+        });
+      }
       if (!room.hostId || !room.players.some((p) => p.id === room.hostId && p.connected)) {
         room.hostId = socket.id;
       }
@@ -610,6 +832,11 @@ io.on('connection', (socket) => {
     }
     socket.join(room.code);
     const player = addPlayer(room, socket.id, name);
+    // Auto-assign to smallest team if team mode is active
+    if (room.teamMode && room.teams) {
+      const smallest = room.teams.reduce((a, b) => a.members.length <= b.members.length ? a : b);
+      smallest.members.push(player.id);
+    }
     pushLog(room, `${name} joined.`);
     cb && cb({ ok: true, code: room.code, youId: player.id });
     broadcast(room);
@@ -620,6 +847,11 @@ io.on('connection', (socket) => {
     if (!room || room.hostId !== socket.id || room.started) return;
     if (room.players.length >= MAX_PLAYERS) return;
     const bot = addBot(room);
+    // Auto-assign to smallest team if team mode is active
+    if (room.teamMode && room.teams) {
+      const smallest = room.teams.reduce((a, b) => a.members.length <= b.members.length ? a : b);
+      smallest.members.push(bot.id);
+    }
     pushLog(room, `${bot.name} was added.`);
     broadcast(room);
   });
@@ -630,8 +862,100 @@ io.on('connection', (socket) => {
     const idx = room.players.findIndex((p) => p.id === id && p.isBot);
     if (idx === -1) return;
     const [removed] = room.players.splice(idx, 1);
+    // Remove from team membership
+    if (room.teams) {
+      room.teams.forEach((t) => {
+        t.members = t.members.filter((mid) => mid !== id);
+      });
+    }
     pushLog(room, `${removed.name} was removed.`);
     if (room.currentIndex >= room.players.length) room.currentIndex = 0;
+    broadcast(room);
+  });
+
+  // ---- Team mode socket events (lobby only) ----
+
+  // Toggle team mode on/off
+  socket.on('setTeamMode', ({ enabled }) => {
+    const room = findRoomBySocket(socket.id);
+    if (!room || room.hostId !== socket.id || room.started) return;
+    room.teamMode = !!enabled;
+    if (room.teamMode) {
+      // Auto-build teams with default config
+      const configs = getValidTeamConfigs(room.players.length);
+      if (configs.length > 0) {
+        room.teams = buildTeams(room, configs[0].teams);
+        pushLog(room, `Team mode enabled! (${configs[0].teams} teams of ${configs[0].perTeam})`);
+      } else {
+        // No valid config for this player count — build 2 teams anyway
+        room.teams = buildTeams(room, 2);
+        pushLog(room, `Team mode enabled! Teams may be uneven.`);
+      }
+    } else {
+      room.teams = null;
+      room.winnerTeamId = null;
+      pushLog(room, 'Team mode disabled.');
+    }
+    broadcast(room);
+  });
+
+  // Change team configuration (number of teams)
+  socket.on('setTeamConfig', ({ numTeams }) => {
+    const room = findRoomBySocket(socket.id);
+    if (!room || room.hostId !== socket.id || room.started || !room.teamMode) return;
+    numTeams = parseInt(numTeams, 10);
+    if (numTeams < 2 || numTeams > 3) return;
+    room.teams = buildTeams(room, numTeams);
+    const perTeam = Math.ceil(room.players.length / numTeams);
+    pushLog(room, `Teams reconfigured: ${numTeams} teams of ~${perTeam}.`);
+    broadcast(room);
+  });
+
+  // Move a player to a different team (host only — can move anyone)
+  socket.on('swapTeam', ({ playerId, toTeamId }) => {
+    const room = findRoomBySocket(socket.id);
+    if (!room || room.hostId !== socket.id || room.started || !room.teamMode || !room.teams) return;
+    toTeamId = parseInt(toTeamId, 10);
+    const targetTeam = getTeamById(room, toTeamId);
+    if (!targetTeam) return;
+    // Verify the player exists in the room
+    if (!room.players.some((p) => p.id === playerId)) return;
+    // Remove player from current team
+    const currentTeam = getTeamOfPlayer(room, playerId);
+    if (currentTeam) {
+      currentTeam.members = currentTeam.members.filter((id) => id !== playerId);
+    }
+    // Add to new team
+    if (!targetTeam.members.includes(playerId)) {
+      targetTeam.members.push(playerId);
+    }
+    broadcast(room);
+  });
+
+  // Non-host player moves themselves to a different team
+  socket.on('selfSwapTeam', ({ toTeamId }) => {
+    const room = findRoomBySocket(socket.id);
+    if (!room || room.started || !room.teamMode || !room.teams) return;
+    // Only allow moving yourself (not others)
+    const playerId = socket.id;
+    if (!room.players.some((p) => p.id === playerId)) return;
+    toTeamId = parseInt(toTeamId, 10);
+    const targetTeam = getTeamById(room, toTeamId);
+    if (!targetTeam) return;
+    // Remove from current team
+    const currentTeam = getTeamOfPlayer(room, playerId);
+    if (currentTeam && currentTeam.id === toTeamId) return; // already on this team
+    if (currentTeam) {
+      currentTeam.members = currentTeam.members.filter((id) => id !== playerId);
+    }
+    // Add to new team
+    if (!targetTeam.members.includes(playerId)) {
+      targetTeam.members.push(playerId);
+    }
+    const player = room.players.find((p) => p.id === playerId);
+    if (player) {
+      pushLog(room, `${player.name} joined Team ${targetTeam.name}.`);
+    }
     broadcast(room);
   });
 
@@ -639,14 +963,89 @@ io.on('connection', (socket) => {
     const room = findRoomBySocket(socket.id);
     if (!room || room.hostId !== socket.id || room.started) return;
     if (room.players.length < 2) return;
-    // Shuffle player order so the host doesn't always go first.
-    for (let i = room.players.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [room.players[i], room.players[j]] = [room.players[j], room.players[i]];
+
+    // Validate team mode: ensure every player is in a team and teams are non-empty
+    if (room.teamMode && room.teams) {
+      // Clean up: ensure all current player IDs are in teams
+      const allIds = new Set(room.players.map((p) => p.id));
+      // Remove stale IDs
+      room.teams.forEach((t) => {
+        t.members = t.members.filter((id) => allIds.has(id));
+      });
+      // Add any unassigned players to the smallest team
+      const assigned = new Set(room.teams.flatMap((t) => t.members));
+      room.players.forEach((p) => {
+        if (!assigned.has(p.id)) {
+          const smallest = room.teams.reduce((a, b) => a.members.length <= b.members.length ? a : b);
+          smallest.members.push(p.id);
+        }
+      });
+      // Remove empty teams
+      room.teams = room.teams.filter((t) => t.members.length > 0);
+      if (room.teams.length < 2) {
+        room.teamMode = false;
+        room.teams = null;
+        pushLog(room, 'Team mode disabled (not enough teams).');
+      }
+      // Validate equal team sizes
+      if (room.teamMode && room.teams) {
+        const sizes = room.teams.map((t) => t.members.length);
+        if (sizes.some((s) => s !== sizes[0])) {
+          // Teams are unequal — block start
+          pushLog(room, 'Cannot start: teams must have equal number of players.');
+          broadcast(room);
+          return;
+        }
+      }
+    }
+
+    if (room.teamMode && room.teams && room.teams.length >= 2) {
+      // TEAM MODE: interleave players so turns alternate between teams.
+      // 1. Shuffle team order randomly
+      const teamsCopy = [...room.teams];
+      for (let i = teamsCopy.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [teamsCopy[i], teamsCopy[j]] = [teamsCopy[j], teamsCopy[i]];
+      }
+      // 2. Shuffle members within each team
+      const teamMembers = teamsCopy.map((t) => {
+        const members = t.members
+          .map((pid) => room.players.find((p) => p.id === pid))
+          .filter(Boolean);
+        // Fisher-Yates shuffle
+        for (let i = members.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [members[i], members[j]] = [members[j], members[i]];
+        }
+        return members;
+      });
+      // 3. Round-robin interleave: take one player from each team in turn
+      const interleaved = [];
+      const maxLen = Math.max(...teamMembers.map((m) => m.length));
+      for (let slot = 0; slot < maxLen; slot++) {
+        for (let t = 0; t < teamMembers.length; t++) {
+          if (slot < teamMembers[t].length) {
+            interleaved.push(teamMembers[t][slot]);
+          }
+        }
+      }
+      // 4. Replace room.players with the interleaved order
+      room.players = interleaved;
+    } else {
+      // Standard mode: shuffle player order so the host doesn't always go first.
+      for (let i = room.players.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [room.players[i], room.players[j]] = [room.players[j], room.players[i]];
+      }
     }
     resetForNewGame(room);
     room.started = true;
-    pushLog(room, 'The climb begins! 🐐');
+    if (room.teamMode && room.teams) {
+      const teamNames = room.teams.map((t) => `Team ${t.name}: ${t.members.map((id) => { const p = room.players.find((pl) => pl.id === id); return p ? p.name : '?'; }).join(', ')}`).join(' | ');
+      pushLog(room, `The climb begins! 🐐 [Teams: ${teamNames}]`);
+    } else {
+      pushLog(room, 'The climb begins! 🐐');
+    }
     startWatchdog(room);
     broadcast(room);
     scheduleBot(room);
