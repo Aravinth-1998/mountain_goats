@@ -195,10 +195,14 @@
               text: text,
               files: [file],
             }).catch(() => shareTextOnly(text));
-          } else {
-            // Can't share files — try downloading + sharing text
-            downloadImage(canvas);
+          } else if (navigator.share) {
+            // Can share text but not files — share text only (no download)
             shareTextOnly(text);
+          } else {
+            // No share API at all (desktop) — copy text to clipboard
+            if (navigator.clipboard) {
+              navigator.clipboard.writeText(text).then(() => toast('Result copied! 📋'));
+            }
           }
         }, 'image/png');
       }).catch(() => {
@@ -630,66 +634,32 @@
         if (tIdx >= 0) teamOrder[tIdx].push(p);
       });
 
-      if (numTeams === 2) {
-        // 2 teams: side-by-side columns
-        const grid = document.createElement('div');
-        grid.className = 'team-grid';
-        grid.style.setProperty('--cols', 2);
-        const maxMembers = Math.max(...teamOrder.map((arr) => arr.length));
+      // All team configs: stacked vertically, each team as a block with members in a row
+      state.teams.forEach((t, tIdx) => {
+        const isLead = t.score === teamLead && teamLead > 0;
+        const teamBlock = document.createElement('div');
+        teamBlock.className = 'team-block';
+        teamBlock.style.setProperty('--tc', t.color);
 
-        // Team headers
-        state.teams.forEach((t) => {
-          const isLead = t.score === teamLead && teamLead > 0;
-          const head = document.createElement('div');
-          head.className = 'tg-cell tg-head';
-          head.style.setProperty('--tc', t.color);
-          head.innerHTML = `<span class="tg-dot" style="background:${t.color}"></span>
-            <span class="tg-name">${escapeHtml(t.name)}</span>
-            <span class="tg-tops">👑${t.tops || 0}</span>
-            <span class="tg-score">${isLead ? '▲ ' : ''}⭐ ${t.score || 0}</span>`;
-          grid.appendChild(head);
+        // Team header
+        const head = document.createElement('div');
+        head.className = 'tg-head';
+        head.style.setProperty('--tc', t.color);
+        head.innerHTML = `<span class="tg-dot" style="background:${t.color}"></span>
+          <span class="tg-name">${escapeHtml(t.name)}</span>
+          <span class="tg-tops">👑${t.tops || 0}</span>
+          <span class="tg-score">${isLead ? '▲ ' : ''}⭐ ${t.score || 0}</span>`;
+        teamBlock.appendChild(head);
+
+        // Members in a row
+        const membersRow = document.createElement('div');
+        membersRow.className = 'team-block-members';
+        teamOrder[tIdx].forEach((p) => {
+          membersRow.appendChild(buildPlayerPanel(p, t));
         });
-
-        // Player rows
-        for (let row = 0; row < maxMembers; row++) {
-          state.teams.forEach((t, tIdx) => {
-            const p = teamOrder[tIdx][row];
-            const cell = document.createElement('div');
-            cell.className = 'tg-cell';
-            if (!p) { grid.appendChild(cell); return; }
-            cell.appendChild(buildPlayerPanel(p, t));
-            grid.appendChild(cell);
-          });
-        }
-        strip.appendChild(grid);
-      } else {
-        // 3+ teams: stacked vertically, each team as a row
-        state.teams.forEach((t, tIdx) => {
-          const isLead = t.score === teamLead && teamLead > 0;
-          const teamBlock = document.createElement('div');
-          teamBlock.className = 'team-block';
-          teamBlock.style.setProperty('--tc', t.color);
-
-          // Team header
-          const head = document.createElement('div');
-          head.className = 'tg-head';
-          head.style.setProperty('--tc', t.color);
-          head.innerHTML = `<span class="tg-dot" style="background:${t.color}"></span>
-            <span class="tg-name">${escapeHtml(t.name)}</span>
-            <span class="tg-tops">👑${t.tops || 0}</span>
-            <span class="tg-score">${isLead ? '▲ ' : ''}⭐ ${t.score || 0}</span>`;
-          teamBlock.appendChild(head);
-
-          // Members in a row
-          const membersRow = document.createElement('div');
-          membersRow.className = 'team-block-members';
-          teamOrder[tIdx].forEach((p) => {
-            membersRow.appendChild(buildPlayerPanel(p, t));
-          });
-          teamBlock.appendChild(membersRow);
-          strip.appendChild(teamBlock);
-        });
-      }
+        teamBlock.appendChild(membersRow);
+        strip.appendChild(teamBlock);
+      });
 
       // Helper to build a player panel
       function buildPlayerPanel(p, t) {

@@ -252,7 +252,9 @@ function createRoom() {
 }
 
 function addPlayer(room, socketId, name, isBot = false) {
-  const color = PLAYER_COLORS[room.players.length % PLAYER_COLORS.length];
+  // Assign first unused color to ensure all players have unique colors
+  const usedColors = new Set(room.players.map((p) => p.color));
+  const color = PLAYER_COLORS.find((c) => !usedColors.has(c)) || PLAYER_COLORS[room.players.length % PLAYER_COLORS.length];
   const player = {
     id: socketId,
     name,
