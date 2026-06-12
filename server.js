@@ -485,13 +485,15 @@ function applyClimb(room, player, i) {
       if (bumped && bumpedTeamName) {
         pushLog(room, `Team ${bumpedTeamName} lost all goats on Mountain ${m.value} summit!`);
       }
-      // Team summit scoring: only score if no teammate was already on top
-      const teammateAlreadyOnTop = teamHasSummit(room, player, i);
-      if (!teammateAlreadyOnTop && m.chips > 0) {
+      // Team summit scoring: teammate reaching the summit also scores
+      if (m.chips > 0) {
         takeToken(room, player, i);
-        pushLog(room, `${player.name} reached the top of Mountain ${m.value} (+${m.value}).`);
-      } else if (teammateAlreadyOnTop) {
-        pushLog(room, `${player.name} joined teammate on Mountain ${m.value} summit (no extra token).`);
+        const teammateAlreadyOnTop = teamHasSummit(room, player, i);
+        if (teammateAlreadyOnTop) {
+          pushLog(room, `${player.name} joined teammate on Mountain ${m.value} summit (+${m.value}).`);
+        } else {
+          pushLog(room, `${player.name} reached the top of Mountain ${m.value} (+${m.value}).`);
+        }
       } else {
         pushLog(room, `${player.name} reached the top of Mountain ${m.value} (no tokens left).`);
       }
@@ -628,17 +630,10 @@ function scoreGroup(room, bot, indices, mi) {
     value += Math.max(0, 3 - m.chips);
   } else if (stepsLeft === 1) {
     // This move reaches the top → collect a token + optional bump + optional set.
-    // Team mode: if teammate already on top, no token gained — reduce value.
-    if (teammateOnTop) {
-      value = 1 + oppsOnTop * 2; // still worth it if it bumps opponents
-      if (oppsOnTop === 0) return -Infinity; // pure waste
-    } else {
-      value = m.value + 4 + bonusValue + oppsOnTop * 3;
-    }
-    if (!teammateOnTop) {
-      // Urgency: fewer chips left = close it before someone else does.
-      value += Math.max(0, 4 - m.chips) * 1.5;
-    }
+    // In team mode, reaching summit where teammate is already there still scores.
+    value = m.value + 4 + bonusValue + oppsOnTop * 3;
+    // Urgency: fewer chips left = close it before someone else does.
+    value += Math.max(0, 4 - m.chips) * 1.5;
   } else {
     // Intermediate step — progress value, weighted by mountain value and urgency.
     const progressFactor = 1 / stepsLeft; // closer to top = more valuable
