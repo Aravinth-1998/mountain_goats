@@ -355,6 +355,10 @@
   // can any subset of unused dice reach a value 5-10?
   function anyGroupPossible() {
     if (!state.dice) return false;
+    // If there are still adjustable dice (extra 1s that can be re-faced),
+    // don't auto-end — the player hasn't had a chance to change them yet.
+    const noneUsed = !state.diceUsed.some((u) => u);
+    if (noneUsed && state.adjustable && state.adjustable.length > 0) return true;
     const idx = state.dice.map((_, i) => i).filter((i) => !state.diceUsed[i]);
     const n = idx.length;
     for (let mask = 1; mask < (1 << n); mask++) {
