@@ -61,10 +61,24 @@
     });
   });
 
+  // Clear error styling when user clicks or types in the name field
+  $('home-name').addEventListener('focus', () => {
+    $('home-name').classList.remove('input-error');
+    $('home-name-error').textContent = '';
+  });
+  $('home-name').addEventListener('input', () => {
+    $('home-name').classList.remove('input-error');
+    $('home-name-error').textContent = '';
+  });
+
   // ===================== HOME =====================
   $('btn-create').addEventListener('click', () => {
     const name = $('home-name').value.trim();
-    if (!name) return ($('home-name-error').textContent = 'Please enter your name.');
+    if (!name) {
+      $('home-name').classList.add('input-error');
+      return ($('home-name-error').textContent = 'Please enter your name.');
+    }
+    $('home-name').classList.remove('input-error');
     $('home-name-error').textContent = '';
     setHomeLoading('create');
     socket.emit('createRoom', { name }, (res) => {
@@ -80,7 +94,11 @@
   // Navigate to Join screen
   $('btn-goto-join').addEventListener('click', () => {
     const name = $('home-name').value.trim();
-    if (!name) return ($('home-name-error').textContent = 'Please enter your name.');
+    if (!name) {
+      $('home-name').classList.add('input-error');
+      return ($('home-name-error').textContent = 'Please enter your name.');
+    }
+    $('home-name').classList.remove('input-error');
     $('home-name-error').textContent = '';
     $('home-error').textContent = '';
     show('join');
@@ -124,7 +142,7 @@
   function clearHomeLoading() {
     $('btn-create').disabled = false;
     $('btn-goto-join').disabled = false;
-    $('btn-create').textContent = '🏠 Create Room';
+    $('btn-create').textContent = 'Create Room';
   }
 
   // ===================== PUBLIC ROOMS =====================

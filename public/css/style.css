@@ -264,6 +264,8 @@ input {
 }
 input::placeholder { opacity: 0.35; font-weight: 500; }
 input:focus { border-color: var(--primary); background: rgba(79,124,255,0.1); }
+input.input-error { border-color: var(--danger); background: rgba(255,93,108,0.08); }
+input.input-error:focus { border-color: var(--danger); background: rgba(255,93,108,0.1); }
 .code-input { text-transform: uppercase; letter-spacing: 8px; text-align: center; font-weight: 700; font-size: 18px; -moz-appearance: textfield; }
 .code-input::placeholder { font-size: 14px; letter-spacing: 1px; opacity: 0.35; font-weight: 500; }
 .code-input::-webkit-outer-spin-button,
