@@ -33,6 +33,126 @@ const io = new Server(server);
 app.use(express.static(path.join(__dirname, 'public')));
 app.get('/healthz', (req, res) => res.send('ok'));
 
+// Admin secret key - set via environment variable or defaults to a random key
+const ADMIN_KEY = process.env.ADMIN_KEY || 'goat-admin-' + Math.random().toString(36).slice(2, 8);
+console.log(`Admin key: ${ADMIN_KEY}`);
+
+// Admin API - returns all active rooms and players
+app.get('/api/admin/rooms', (req, res) => {
+  if (req.query.key !== ADMIN_KEY) return res.status(403).json({ error: 'Invalid admin key' });
+  const data = [];
+  for (const code in rooms) {
+    const room = rooms[code];
+    const host = room.players.find((p) => p.id === room.hostId);
+    data.push({
+      code: room.code,
+      hostName: host ? host.name : 'Unknown',
+      isPublic: room.isPublic,
+      maxPlayers: room.maxPlayers,
+      started: room.started,
+      finished: room.finished,
+      teamMode: room.teamMode,
+      playerCount: room.players.length,
+      players: room.players.map((p) => ({
+        name: p.name,
+        isBot: p.isBot,
+        connected: p.connected,
+        score: room.started ? scoreOf(room, p) : 0,
+      })),
+    });
+  }
+  res.json({ rooms: data, totalConnections: io.engine.clientsCount });
+});
+
+// Admin page
+app.get('/admin', (req, res) => {
+  if (req.query.key !== ADMIN_KEY) return res.status(403).send('Access denied. Provide ?key=YOUR_ADMIN_KEY');
+  res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mountain Goats Admin</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: system-ui, sans-serif; background: #0b1220; color: #eaf0ff; margin: 0; padding: 20px; }
+    h1 { font-size: 24px; margin: 0 0 4px; }
+    .meta { color: #93a0bf; font-size: 14px; margin-bottom: 20px; }
+    .refresh-btn { background: #4f7cff; color: #fff; border: none; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 14px; }
+    .refresh-btn:hover { background: #6f5cff; }
+    .stats { display: flex; gap: 16px; margin-bottom: 20px; }
+    .stat-card { background: rgba(22,31,51,0.7); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 16px 20px; flex: 1; }
+    .stat-num { font-size: 28px; font-weight: 800; color: #ffd166; }
+    .stat-label { font-size: 12px; color: #93a0bf; margin-top: 4px; }
+    .room { background: rgba(22,31,51,0.7); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 16px; margin-bottom: 12px; }
+    .room-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+    .room-code { font-weight: 800; color: #ffd166; font-size: 18px; }
+    .room-badges span { display: inline-block; padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 700; margin-left: 6px; }
+    .badge-public { background: rgba(6,214,160,0.2); color: #06d6a0; }
+    .badge-private { background: rgba(147,160,191,0.2); color: #93a0bf; }
+    .badge-started { background: rgba(79,124,255,0.2); color: #4f7cff; }
+    .badge-lobby { background: rgba(255,209,102,0.2); color: #ffd166; }
+    .badge-team { background: rgba(111,92,255,0.2); color: #b9aaff; }
+    .player-row { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-top: 1px solid rgba(255,255,255,0.05); font-size: 14px; }
+    .player-row:first-child { border-top: none; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 auto; }
+    .dot.online { background: #06d6a0; }
+    .dot.offline { background: #ff5d6c; }
+    .player-name { flex: 1; }
+    .player-type { color: #93a0bf; font-size: 12px; }
+    .no-rooms { color: #93a0bf; text-align: center; padding: 40px; }
+    .auto-refresh { color: #93a0bf; font-size: 12px; margin-left: 12px; }
+  </style>
+</head>
+<body>
+  <h1>🐐 Mountain Goats Admin</h1>
+  <p class="meta">Live server dashboard <button class="refresh-btn" onclick="load()">Refresh</button><span class="auto-refresh">Auto-refreshes every 5s</span></p>
+  <div class="stats">
+    <div class="stat-card"><div class="stat-num" id="s-conn">-</div><div class="stat-label">Connections</div></div>
+    <div class="stat-card"><div class="stat-num" id="s-rooms">-</div><div class="stat-label">Active Rooms</div></div>
+    <div class="stat-card"><div class="stat-num" id="s-playing">-</div><div class="stat-label">In-Game</div></div>
+  </div>
+  <div id="rooms-list"></div>
+  <script>
+    const KEY = new URLSearchParams(location.search).get('key');
+    async function load() {
+      try {
+        const res = await fetch('/api/admin/rooms?key=' + encodeURIComponent(KEY));
+        const data = await res.json();
+        document.getElementById('s-conn').textContent = data.totalConnections;
+        document.getElementById('s-rooms').textContent = data.rooms.length;
+        document.getElementById('s-playing').textContent = data.rooms.filter(r => r.started && !r.finished).length;
+        const list = document.getElementById('rooms-list');
+        if (!data.rooms.length) { list.innerHTML = '<div class="no-rooms">No active rooms</div>'; return; }
+        list.innerHTML = data.rooms.map(r => {
+          const badges = [
+            r.isPublic ? '<span class="badge-public">PUBLIC</span>' : '<span class="badge-private">PRIVATE</span>',
+            r.started ? (r.finished ? '<span class="badge-lobby">FINISHED</span>' : '<span class="badge-started">IN GAME</span>') : '<span class="badge-lobby">LOBBY</span>',
+            r.teamMode ? '<span class="badge-team">TEAMS</span>' : '',
+          ].join('');
+          const players = r.players.map(p =>
+            '<div class="player-row">' +
+              '<div class="dot ' + (p.connected ? 'online' : 'offline') + '"></div>' +
+              '<span class="player-name">' + p.name + '</span>' +
+              '<span class="player-type">' + (p.isBot ? '🤖 Bot' : '👤 Human') + '</span>' +
+              (r.started ? '<span style="color:#ffd166;font-size:12px;font-weight:700">⭐' + p.score + '</span>' : '') +
+            '</div>'
+          ).join('');
+          return '<div class="room">' +
+            '<div class="room-header">' +
+              '<div><span class="room-code">Room ' + r.code + '</span> · Host: ' + r.hostName + ' · ' + r.playerCount + '/' + r.maxPlayers + ' players</div>' +
+              '<div class="room-badges">' + badges + '</div>' +
+            '</div>' + players + '</div>';
+        }).join('');
+      } catch(e) { console.error(e); }
+    }
+    load();
+    setInterval(load, 5000);
+  </script>
+</body>
+</html>`);
+});
+
 const PORT = process.env.PORT || 3000;
 
 // ----------------------------------------------------------------------------
