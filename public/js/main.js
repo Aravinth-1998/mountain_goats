@@ -15,6 +15,7 @@
   const screens = {
     loading: document.getElementById('screen-loading'),
     home: document.getElementById('screen-home'),
+    join: document.getElementById('screen-join'),
     lobby: document.getElementById('screen-lobby'),
     game: document.getElementById('screen-game'),
   };
@@ -41,10 +42,13 @@
     return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   }
 
-  // Enforce 4-digit limit on room code input
-  $('home-code').addEventListener('input', function() {
+  // Enforce 4-digit limit on room code inputs
+  $('join-code').addEventListener('input', function() {
     if (this.value.length > 4) this.value = this.value.slice(0, 4);
   });
+
+  // Public rooms refresh timer
+  let publicRoomsTimer = null;
 
   // ===================== HOW TO PLAY TOGGLES =====================
   document.querySelectorAll('.rules-toggle-btn').forEach((btn) => {
@@ -72,36 +76,127 @@
       localStorage.setItem('mg_code', res.code);
     });
   });
-  $('btn-join').addEventListener('click', () => {
+
+  // Navigate to Join screen
+  $('btn-goto-join').addEventListener('click', () => {
     const name = $('home-name').value.trim();
-    const code = String($('home-code').value || '').trim().slice(0, 4);
     if (!name) return ($('home-name-error').textContent = 'Please enter your name.');
     $('home-name-error').textContent = '';
-    if (!code || code.length < 4) return ($('home-error').textContent = 'Please enter the 4-digit room code.');
-    setHomeLoading('join');
+    $('home-error').textContent = '';
+    show('join');
+    refreshPublicRooms();
+    startPublicRoomsRefresh();
+  });
+
+  // Join screen back button
+  $('join-back').addEventListener('click', () => {
+    stopPublicRoomsRefresh();
+    show('home');
+  });
+
+  // Join Room (from join screen)
+  $('btn-join').addEventListener('click', () => {
+    const name = $('home-name').value.trim();
+    const code = String($('join-code').value || '').trim().slice(0, 4);
+    if (!name) return ($('join-error').textContent = 'Please enter your name on the home screen.');
+    if (!code || code.length < 4) return ($('join-error').textContent = 'Please enter the 4-digit room code.');
+    $('join-error').textContent = '';
+    $('btn-join').disabled = true;
+    $('btn-join').innerHTML = '<span class="spin">⏳</span> Joining…';
     socket.emit('joinRoom', { name, code }, (res) => {
-      clearHomeLoading();
-      if (res.error) return ($('home-error').textContent = res.error);
+      $('btn-join').disabled = false;
+      $('btn-join').textContent = 'Join Room';
+      if (res.error) return ($('join-error').textContent = res.error);
       leftRoom = false;
       myId = res.youId;
       localStorage.setItem('mg_name', name);
       localStorage.setItem('mg_code', res.code);
+      stopPublicRoomsRefresh();
     });
   });
 
   function setHomeLoading(which) {
     $('btn-create').disabled = true;
-    $('btn-join').disabled = true;
+    $('btn-goto-join').disabled = true;
     $('home-error').textContent = '';
     if (which === 'create') $('btn-create').innerHTML = '<span class="spin">⏳</span> Creating…';
-    else $('btn-join').innerHTML = '<span class="spin">⏳</span> Joining…';
   }
   function clearHomeLoading() {
     $('btn-create').disabled = false;
-    $('btn-join').disabled = false;
-    $('btn-create').textContent = 'Create Room';
-    $('btn-join').textContent = 'Join Room';
+    $('btn-goto-join').disabled = false;
+    $('btn-create').textContent = '🏠 Create Room';
   }
+
+  // ===================== PUBLIC ROOMS =====================
+  function refreshPublicRooms() {
+    socket.emit('getPublicRooms', (rooms) => {
+      const list = $('public-rooms-list');
+      list.innerHTML = '';
+      if (!rooms || rooms.length === 0) {
+        list.innerHTML = '<p class="muted center">No public rooms available right now.</p>';
+        return;
+      }
+      rooms.forEach((r) => {
+        const card = document.createElement('div');
+        card.className = 'public-room-card';
+        const full = r.playerCount >= r.maxPlayers;
+        card.innerHTML = `
+          <div class="pr-info">
+            <span class="pr-host">🐐 ${escapeHtml(r.hostName)}</span>
+            <span class="pr-meta">${r.playerCount}/${r.maxPlayers} players · ${r.teamMode ? '👥 Team' : '🎯 Solo'}</span>
+          </div>
+          <button class="btn btn-join btn-sm pr-join" ${full ? 'disabled' : ''} data-code="${r.code}">${full ? 'Full' : 'Join'}</button>
+        `;
+        const joinBtn = card.querySelector('.pr-join');
+        if (!full) {
+          joinBtn.addEventListener('click', () => {
+            const name = $('home-name').value.trim();
+            if (!name) return ($('join-error').textContent = 'Please enter your name on the home screen.');
+            $('join-error').textContent = '';
+            joinBtn.disabled = true;
+            joinBtn.innerHTML = '<span class="spin">⏳</span>';
+            socket.emit('joinRoom', { name, code: r.code }, (res) => {
+              joinBtn.disabled = false;
+              joinBtn.textContent = 'Join';
+              if (res.error) return ($('join-error').textContent = res.error);
+              leftRoom = false;
+              myId = res.youId;
+              localStorage.setItem('mg_name', name);
+              localStorage.setItem('mg_code', res.code);
+              stopPublicRoomsRefresh();
+            });
+          });
+        }
+        list.appendChild(card);
+      });
+    });
+  }
+
+  function startPublicRoomsRefresh() {
+    stopPublicRoomsRefresh();
+    publicRoomsTimer = setInterval(refreshPublicRooms, 4000);
+  }
+  function stopPublicRoomsRefresh() {
+    if (publicRoomsTimer) { clearInterval(publicRoomsTimer); publicRoomsTimer = null; }
+  }
+
+  // ===================== LOBBY ROOM SETTINGS =====================
+  $('btn-private').addEventListener('click', () => {
+    socket.emit('setRoomVisibility', { isPublic: false });
+  });
+  $('btn-public').addEventListener('click', () => {
+    socket.emit('setRoomVisibility', { isPublic: true });
+  });
+  $('btn-maxp-down').addEventListener('click', () => {
+    if (!state) return;
+    const cur = state.maxPlayers || 6;
+    if (cur > 2) socket.emit('setMaxPlayers', { maxPlayers: cur - 1 });
+  });
+  $('btn-maxp-up').addEventListener('click', () => {
+    if (!state) return;
+    const cur = state.maxPlayers || 6;
+    if (cur < 6) socket.emit('setMaxPlayers', { maxPlayers: cur + 1 });
+  });
 
   // ===================== LOBBY / NAV =====================
   $('btn-start').addEventListener('click', () => socket.emit('startGame'));
@@ -284,14 +379,15 @@
   $('btn-win-share').addEventListener('click', shareWinResult);
 
   // Handle being kicked by the host
-  socket.on('kicked', () => {
+  socket.on('kicked', (data) => {
     leftRoom = true;
     state = null;
     localStorage.removeItem('mg_code');
     localStorage.removeItem('mg_name');
     $('win-overlay').classList.remove('show');
     show('home');
-    toast('You were kicked from the room.');
+    const hostName = (data && data.hostName) ? data.hostName : 'The host';
+    toast(`${hostName} kicked you from the room.`);
   });
 
   // ===================== SOCKET =====================
@@ -384,6 +480,21 @@
   function renderLobby() {
     $('lobby-code').textContent = state.code;
     const amHost = state.hostId === myId;
+
+    // Room settings (host only)
+    const settingsCard = $('room-settings');
+    if (settingsCard) {
+      settingsCard.style.display = amHost ? 'block' : 'none';
+      if (amHost) {
+        const isPublic = state.isPublic || false;
+        $('btn-private').classList.toggle('active', !isPublic);
+        $('btn-public').classList.toggle('active', isPublic);
+        $('maxp-display').textContent = state.maxPlayers || 6;
+        $('btn-maxp-down').disabled = (state.maxPlayers || 6) <= Math.max(2, state.players.length);
+        $('btn-maxp-up').disabled = (state.maxPlayers || 6) >= 6;
+      }
+    }
+
     const ul = $('lobby-players');
     ul.innerHTML = '';
 
@@ -404,10 +515,10 @@
           li.className = 'team-member';
           li.style.setProperty('--team-color', team.color);
           li.innerHTML = `<span class="swatch" style="background:${p.color}"></span>
-            <span class="player-name">${escapeHtml(p.name)}${p.isBot ? ' 🤖' : ''}</span>`;
-          if (p.id === state.hostId) li.innerHTML += `<span class="badge">HOST</span>`;
-          else if (p.id === myId) li.innerHTML += `<span class="badge you">YOU</span>`;
-          else if (p.isBot) li.innerHTML += `<span class="badge bot">BOT</span>`;
+            <span class="player-name">${escapeHtml(p.name)}</span>`;
+          if (p.id === state.hostId) li.innerHTML += `<span class="host-icon" title="Host">👑</span>`;
+          else li.innerHTML += `<span class="player-type-icon ${p.isBot ? 'bot' : 'human'}" title="${p.isBot ? 'Bot' : 'Player'}">${p.isBot ? '🤖' : '👤'}</span>`;
+          if (p.id === myId) li.innerHTML += `<span class="badge you">YOU</span>`;
           // Team swap buttons:
           // - Host can swap ANY player (including themselves)
           // - Non-host can only swap THEMSELVES
@@ -462,7 +573,7 @@
         li.className = 'team-member';
         li.style.setProperty('--team-color', '#666');
         li.innerHTML = `<span class="swatch" style="background:${p.color}"></span>
-          <span class="player-name">${escapeHtml(p.name)}${p.isBot ? ' 🤖' : ''}</span>
+          <span class="player-name">${escapeHtml(p.name)}</span>
           <span class="badge">UNASSIGNED</span>`;
         // Swap buttons: host can assign anyone, non-host only self
         const canSwap = amHost || p.id === myId;
@@ -501,10 +612,10 @@
       state.players.forEach((p) => {
         const li = document.createElement('li');
         li.innerHTML = `<span class="swatch" style="background:${p.color}"></span>
-          <span class="player-name">${escapeHtml(p.name)}${p.isBot ? ' 🤖' : ''}</span>`;
-        if (p.id === state.hostId) li.innerHTML += `<span class="badge">HOST</span>`;
-        else if (p.id === myId) li.innerHTML += `<span class="badge you">YOU</span>`;
-        else if (p.isBot) li.innerHTML += `<span class="badge bot">BOT</span>`;
+          <span class="player-name">${escapeHtml(p.name)}</span>`;
+        if (p.id === state.hostId) li.innerHTML += `<span class="host-icon" title="Host">👑</span>`;
+        else li.innerHTML += `<span class="player-type-icon ${p.isBot ? 'bot' : 'human'}" title="${p.isBot ? 'Bot' : 'Player'}">${p.isBot ? '🤖' : '👤'}</span>`;
+        if (p.id === myId) li.innerHTML += `<span class="badge you">YOU</span>`;
         if (amHost && p.id !== myId) {
           const x = document.createElement('button');
           x.className = 'kick-btn';
@@ -551,7 +662,7 @@
     const addBtn = $('btn-addbot');
     startBtn.style.display = amHost ? 'block' : 'none';
     addBtn.style.display = amHost ? 'block' : 'none';
-    addBtn.disabled = state.players.length >= 6;
+    addBtn.disabled = state.players.length >= (state.maxPlayers || 6);
 
     // Check if teams are equal (required to start in team mode)
     let teamsUnequal = false;
@@ -565,8 +676,7 @@
       if (state.players.length < 2) {
         $('lobby-hint').textContent = 'Add a bot or wait for a friend to join.';
       } else if (teamsUnequal) {
-        const sizes = state.teams.map((t) => `${t.name}: ${t.members.length}`).join(', ');
-        $('lobby-hint').textContent = `⚠️ Teams must be equal to start! (${sizes})`;
+        $('lobby-hint').textContent = '⚠️ Teams must be equal to start!';
         $('lobby-hint').style.color = 'var(--danger)';
       } else {
         $('lobby-hint').textContent = state.teamMode ? 'Teams ready! Start when you are!' : 'Ready when you are!';

@@ -222,7 +222,7 @@ function buildTeams(room, numTeams) {
 // ----------------------------------------------------------------------------
 const rooms = {}; // code -> room
 
-function createRoom() {
+function createRoom(options = {}) {
   const code = genRoomCode();
   const room = {
     code,
@@ -242,6 +242,9 @@ function createRoom() {
     log: [],
     botTimer: null,
     watchdog: null,
+    // Room settings
+    isPublic: !!options.isPublic,
+    maxPlayers: Math.min(MAX_PLAYERS, Math.max(2, parseInt(options.maxPlayers, 10) || MAX_PLAYERS)),
     // Team mode (optional)
     teamMode: false,
     teams: null, // array of {id, name, color, members:[playerId...]}
@@ -310,6 +313,8 @@ function publicState(room) {
   const st = {
     code: room.code,
     hostId: room.hostId,
+    isPublic: room.isPublic || false,
+    maxPlayers: room.maxPlayers || MAX_PLAYERS,
     started: room.started,
     finished: room.finished,
     winnerId: room.winnerId,
@@ -746,10 +751,10 @@ function botAct(room) {
 // Socket handlers
 // ----------------------------------------------------------------------------
 io.on('connection', (socket) => {
-  socket.on('createRoom', ({ name }, cb) => {
+  socket.on('createRoom', ({ name, isPublic, maxPlayers }, cb) => {
     name = (name || '').trim().slice(0, 16);
     if (!name) return cb && cb({ error: 'Please enter your name.' });
-    const room = createRoom();
+    const room = createRoom({ isPublic, maxPlayers });
     socket.join(room.code);
     const player = addPlayer(room, socket.id, name);
     pushLog(room, `${name} created the room.`);
@@ -813,7 +818,7 @@ io.on('connection', (socket) => {
     }
 
     if (room.started) return cb && cb({ error: 'Game already started.' });
-    if (room.players.length >= MAX_PLAYERS) return cb && cb({ error: 'Room is full.' });
+    if (room.players.length >= room.maxPlayers) return cb && cb({ error: 'Room is full.' });
     if (room.players.some((p) => p.name === name)) {
       return cb && cb({ error: 'Name already taken in this room.' });
     }
@@ -832,7 +837,7 @@ io.on('connection', (socket) => {
   socket.on('addBot', () => {
     const room = findRoomBySocket(socket.id);
     if (!room || room.hostId !== socket.id || room.started) return;
-    if (room.players.length >= MAX_PLAYERS) return;
+    if (room.players.length >= room.maxPlayers) return;
     const bot = addBot(room);
     // Auto-assign to smallest team if team mode is active
     if (room.teamMode && room.teams) {
@@ -876,9 +881,53 @@ io.on('connection', (socket) => {
     }
     pushLog(room, `${kicked.name} was kicked by the host.`);
     if (room.currentIndex >= room.players.length) room.currentIndex = 0;
-    // Notify the kicked player
-    io.to(id).emit('kicked');
+    // Notify the kicked player with the host's name
+    const hostPlayer = room.players.find((p) => p.id === room.hostId);
+    io.to(id).emit('kicked', { hostName: hostPlayer ? hostPlayer.name : 'The host' });
     broadcast(room);
+  });
+
+  // ---- Room settings socket events (lobby only) ----
+
+  // Toggle room visibility (public/private)
+  socket.on('setRoomVisibility', ({ isPublic }) => {
+    const room = findRoomBySocket(socket.id);
+    if (!room || room.hostId !== socket.id || room.started) return;
+    room.isPublic = !!isPublic;
+    broadcast(room);
+  });
+
+  // Set max players for the room
+  socket.on('setMaxPlayers', ({ maxPlayers }) => {
+    const room = findRoomBySocket(socket.id);
+    if (!room || room.hostId !== socket.id || room.started) return;
+    maxPlayers = parseInt(maxPlayers, 10);
+    if (maxPlayers < 2 || maxPlayers > MAX_PLAYERS) return;
+    if (maxPlayers < room.players.length) return; // can't set below current player count
+    room.maxPlayers = maxPlayers;
+    broadcast(room);
+  });
+
+  // Get list of public rooms (for the join screen)
+  socket.on('getPublicRooms', (cb) => {
+    const publicRooms = [];
+    for (const code in rooms) {
+      const room = rooms[code];
+      if (room.isPublic && !room.started && !room.finished) {
+        const host = room.players.find((p) => p.id === room.hostId);
+        // Count only connected players (and bots) for accurate display
+        const connectedCount = room.players.filter((p) => p.connected || p.isBot).length;
+        if (connectedCount === 0) continue; // skip empty rooms
+        publicRooms.push({
+          code: room.code,
+          hostName: host ? host.name : 'Unknown',
+          playerCount: connectedCount,
+          maxPlayers: room.maxPlayers,
+          teamMode: room.teamMode || false,
+        });
+      }
+    }
+    cb && cb(publicRooms);
   });
 
   // ---- Team mode socket events (lobby only) ----
@@ -1171,6 +1220,12 @@ function handleDisconnect(socket, immediate = false) {
     if (immediate) {
       // Explicit leave: remove immediately.
       room.players = room.players.filter((p) => p.id !== socket.id);
+      // Remove from team membership
+      if (room.teams) {
+        room.teams.forEach((t) => {
+          t.members = t.members.filter((mid) => mid !== socket.id);
+        });
+      }
       pushLog(room, `${player.name} left.`);
       if (room.hostId === socket.id) {
         const nextHost = room.players.find((p) => !p.isBot && p.connected);
