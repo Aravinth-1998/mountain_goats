@@ -750,7 +750,20 @@ function botAct(room) {
 // ----------------------------------------------------------------------------
 // Socket handlers
 // ----------------------------------------------------------------------------
+// Broadcast online player count to all connected clients
+function broadcastOnlineCount() {
+  const count = io.engine.clientsCount;
+  io.emit('onlineCount', count);
+}
+
 io.on('connection', (socket) => {
+  // Send current online count to new client and broadcast to all
+  broadcastOnlineCount();
+  socket.on('disconnect', () => {
+    // Delay slightly so the count reflects the disconnection
+    setTimeout(broadcastOnlineCount, 100);
+  });
+
   socket.on('createRoom', ({ name, isPublic, maxPlayers }, cb) => {
     name = (name || '').trim().slice(0, 16);
     if (!name) return cb && cb({ error: 'Please enter your name.' });

@@ -439,6 +439,13 @@
     }
   });
   socket.on('connect', () => { connectErrors = 0; });
+
+  // Online player count
+  socket.on('onlineCount', (count) => {
+    const el = $('online-count');
+    if (el) el.textContent = `🟢 ${count} player${count !== 1 ? 's' : ''} online`;
+  });
+
   socket.on('state', (s) => {
     if (leftRoom) return; // ignore stale broadcasts after leaving
     const wasFinished = state && state.finished;

@@ -235,6 +235,12 @@ body { background-color: var(--bg-0); }
   -webkit-background-clip: text; background-clip: text; color: transparent;
 }
 .tagline { color: var(--muted); margin: 0; font-size: 15px; }
+.online-count {
+  color: var(--green); font-size: 13px; font-weight: 600;
+  margin: 8px 0 0; letter-spacing: 0.3px;
+  min-height: 18px;
+  padding-bottom: 10px;
+}
 
 /* Card */
 .card {
