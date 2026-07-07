@@ -539,7 +539,7 @@
           const li = document.createElement('li');
           li.className = 'team-member';
           li.style.setProperty('--team-color', team.color);
-          li.innerHTML = `<span class="swatch" style="background:${p.color}"></span>
+          li.innerHTML = `<span class="swatch${p.id === myId ? ' me' : ''}" style="background:${p.color}">${escapeHtml(p.name.charAt(0).toUpperCase())}</span>
             <span class="player-name">${escapeHtml(p.name)}</span>`;
           if (p.id === state.hostId) li.innerHTML += `<span class="host-icon" title="Host">👑</span>`;
           else li.innerHTML += `<span class="player-type-icon ${p.isBot ? 'bot' : 'human'}" title="${p.isBot ? 'Bot' : 'Player'}">${p.isBot ? '🤖' : '👤'}</span>`;
@@ -597,7 +597,7 @@
         const li = document.createElement('li');
         li.className = 'team-member';
         li.style.setProperty('--team-color', '#666');
-        li.innerHTML = `<span class="swatch" style="background:${p.color}"></span>
+        li.innerHTML = `<span class="swatch${p.id === myId ? ' me' : ''}" style="background:${p.color}">${escapeHtml(p.name.charAt(0).toUpperCase())}</span>
           <span class="player-name">${escapeHtml(p.name)}</span>
           <span class="badge">UNASSIGNED</span>`;
         // Swap buttons: host can assign anyone, non-host only self
@@ -636,7 +636,7 @@
       // Standard mode: render flat player list
       state.players.forEach((p) => {
         const li = document.createElement('li');
-        li.innerHTML = `<span class="swatch" style="background:${p.color}"></span>
+        li.innerHTML = `<span class="swatch${p.id === myId ? ' me' : ''}" style="background:${p.color}">${escapeHtml(p.name.charAt(0).toUpperCase())}</span>
           <span class="player-name">${escapeHtml(p.name)}</span>`;
         if (p.id === state.hostId) li.innerHTML += `<span class="host-icon" title="Host">👑</span>`;
         else li.innerHTML += `<span class="player-type-icon ${p.isBot ? 'bot' : 'human'}" title="${p.isBot ? 'Bot' : 'Player'}">${p.isBot ? '🤖' : '👤'}</span>`;
