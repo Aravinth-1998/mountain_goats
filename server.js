@@ -64,6 +64,12 @@ app.get('/api/admin/rooms', (req, res) => {
   res.json({ rooms: data, totalConnections: io.engine.clientsCount });
 });
 
+// Admin API - completed games from the last 2 days
+app.get('/api/admin/history', (req, res) => {
+  if (req.query.key !== ADMIN_KEY) return res.status(403).json({ error: 'Invalid admin key' });
+  res.json({ games: gameHistory });
+});
+
 // Admin page
 app.get('/admin', (req, res) => {
   if (req.query.key !== ADMIN_KEY) return res.status(403).send('Access denied. Provide ?key=YOUR_ADMIN_KEY');
@@ -102,6 +108,22 @@ app.get('/admin', (req, res) => {
     .player-type { color: #93a0bf; font-size: 12px; }
     .no-rooms { color: #93a0bf; text-align: center; padding: 40px; }
     .auto-refresh { color: #93a0bf; font-size: 12px; margin-left: 12px; }
+    .section-title { font-size: 16px; font-weight: 800; margin: 28px 0 12px; color: #eaf0ff; }
+    .history-game { background: rgba(22,31,51,0.7); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 14px 16px; margin-bottom: 10px; }
+    .history-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 10px; flex-wrap: wrap; }
+    .history-title { font-weight: 800; color: #ffd166; font-size: 15px; }
+    .history-sub { color: #93a0bf; font-size: 12px; margin-top: 3px; }
+    .history-badges span { display: inline-block; padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 700; margin-left: 6px; }
+    .badge-finished { background: rgba(6,214,160,0.18); color: #06d6a0; }
+    .history-winner { font-size: 13px; font-weight: 700; color: #06d6a0; white-space: nowrap; }
+    .history-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .history-table th, .history-table td { text-align: left; padding: 5px 8px; border-top: 1px solid rgba(255,255,255,0.05); }
+    .history-table th { color: #93a0bf; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; }
+    .history-table tr:first-child th, .history-table tr:first-child td { border-top: none; }
+    .history-table .win-row td { color: #ffd166; font-weight: 700; }
+    .coin { width: 18px; height: 18px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 800; color: #08101f; vertical-align: middle; margin-right: 6px; box-shadow: inset 0 0 0 1.5px rgba(255,255,255,0.45); }
+    .team-block { margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.06); }
+    .team-block-title { font-size: 12px; font-weight: 800; margin-bottom: 4px; }
   </style>
 </head>
 <body>
@@ -111,17 +133,106 @@ app.get('/admin', (req, res) => {
     <div class="stat-card"><div class="stat-num" id="s-conn">-</div><div class="stat-label">Connections</div></div>
     <div class="stat-card"><div class="stat-num" id="s-rooms">-</div><div class="stat-label">Active Rooms</div></div>
     <div class="stat-card"><div class="stat-num" id="s-playing">-</div><div class="stat-label">In-Game</div></div>
+    <div class="stat-card"><div class="stat-num" id="s-history">-</div><div class="stat-label">Games (2 days)</div></div>
   </div>
+  <h2 class="section-title">Live Rooms</h2>
   <div id="rooms-list"></div>
+  <h2 class="section-title">Games (Last 2 Days)</h2>
+  <div id="history-list"></div>
   <script>
     const KEY = new URLSearchParams(location.search).get('key');
+    function esc(s) {
+      return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    }
+    function fmtDate(ts) {
+      if (!ts) return 'Unknown time';
+      return new Date(ts).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    }
+    function fmtDuration(ms) {
+      if (ms == null || ms < 0) return '-';
+      const sec = Math.round(ms / 1000);
+      const m = Math.floor(sec / 60);
+      const s = sec % 60;
+      if (m >= 60) {
+        const h = Math.floor(m / 60);
+        const rm = m % 60;
+        return h + 'h ' + rm + 'm';
+      }
+      return m > 0 ? m + 'm ' + s + 's' : s + 's';
+    }
+    function fmtEndReason(reason) {
+      if (reason === 'bonus') return 'All bonus tokens claimed';
+      if (reason === 'empty') return '3 mountains emptied';
+      return reason || 'Completed';
+    }
+    function coin(color, name) {
+      const initial = esc((name || '?').charAt(0).toUpperCase());
+      return '<span class="coin" style="background:' + esc(color || '#666') + '">' + initial + '</span>';
+    }
+    function renderPlayerRows(players, winnerName) {
+      const sorted = [...players].sort((a, b) => (b.score || 0) - (a.score || 0));
+      return sorted.map((p) => {
+        const win = p.name === winnerName;
+        return '<tr class="' + (win ? 'win-row' : '') + '">' +
+          '<td>' + coin(p.color, p.name) + esc(p.name) + (p.isBot ? ' <span style="color:#93a0bf;font-size:11px">🤖</span>' : '') + '</td>' +
+          '<td>⭐ ' + (p.score || 0) + '</td>' +
+          '<td>' + (p.points || 0) + '</td>' +
+          '<td>' + (p.bonusPoints || 0) + '</td>' +
+          '<td>👑 ' + (p.tops || 0) + '</td>' +
+          '<td>' + (p.sets || 0) + '</td>' +
+        '</tr>';
+      }).join('');
+    }
+    function renderHistory(games) {
+      const list = document.getElementById('history-list');
+      document.getElementById('s-history').textContent = games.length;
+      if (!games.length) {
+        list.innerHTML = '<div class="no-rooms">No completed games in the last 2 days</div>';
+        return;
+      }
+      list.innerHTML = games.map((g) => {
+        const badges = [
+          g.teamMode ? '<span class="badge-team">TEAMS</span>' : '',
+          '<span class="badge-finished">FINISHED</span>',
+        ].join('');
+        const winnerLabel = g.teamMode && g.winnerTeam
+          ? 'Team ' + esc(g.winnerTeam) + (g.winner ? ' (' + esc(g.winner) + ')' : '')
+          : esc(g.winner || 'Unknown');
+        let stats = '<table class="history-table"><thead><tr>' +
+          '<th>Player</th><th>Score</th><th>Points</th><th>Bonus</th><th>Tops</th><th>Sets</th>' +
+          '</tr></thead><tbody>' + renderPlayerRows(g.players || [], g.winner) + '</tbody></table>';
+        if (g.teamMode && g.teams && g.teams.length) {
+          stats += g.teams.map((t) =>
+            '<div class="team-block">' +
+              '<div class="team-block-title" style="color:' + esc(t.color) + '">Team ' + esc(t.name) +
+                ' · ⭐ ' + (t.score || 0) + ' · 👑 ' + (t.tops || 0) +
+                ' · ' + esc((t.members || []).join(', ')) +
+              '</div>' +
+            '</div>'
+          ).join('');
+        }
+        return '<div class="history-game">' +
+          '<div class="history-head">' +
+            '<div>' +
+              '<div class="history-title">Room ' + esc(g.code) + ' · ' + (g.playerCount || 0) + ' players</div>' +
+              '<div class="history-sub">' + fmtDate(g.endedAt) + ' · ' + fmtDuration(g.durationMs) + ' · ' + esc(fmtEndReason(g.endReason)) + '</div>' +
+            '</div>' +
+            '<div><div class="history-winner">🏆 ' + winnerLabel + '</div><div class="history-badges">' + badges + '</div></div>' +
+          '</div>' + stats + '</div>';
+      }).join('');
+    }
     async function load() {
       try {
-        const res = await fetch('/api/admin/rooms?key=' + encodeURIComponent(KEY));
-        const data = await res.json();
+        const [roomsRes, histRes] = await Promise.all([
+          fetch('/api/admin/rooms?key=' + encodeURIComponent(KEY)),
+          fetch('/api/admin/history?key=' + encodeURIComponent(KEY)),
+        ]);
+        const data = await roomsRes.json();
+        const hist = await histRes.json();
         document.getElementById('s-conn').textContent = data.totalConnections;
         document.getElementById('s-rooms').textContent = data.rooms.length;
         document.getElementById('s-playing').textContent = data.rooms.filter(r => r.started && !r.finished).length;
+        renderHistory(hist.games || []);
         const list = document.getElementById('rooms-list');
         if (!data.rooms.length) { list.innerHTML = '<div class="no-rooms">No active rooms</div>'; return; }
         list.innerHTML = data.rooms.map(r => {
@@ -341,6 +452,15 @@ function buildTeams(room, numTeams) {
 // Room state
 // ----------------------------------------------------------------------------
 const rooms = {}; // code -> room
+const gameHistory = []; // completed games from the last 2 days
+const HISTORY_RETENTION_MS = 2 * 24 * 60 * 60 * 1000;
+
+function pruneGameHistory() {
+  const cutoff = Date.now() - HISTORY_RETENTION_MS;
+  while (gameHistory.length && gameHistory[gameHistory.length - 1].endedAt < cutoff) {
+    gameHistory.pop();
+  }
+}
 
 function createRoom(options = {}) {
   const code = genRoomCode();
@@ -412,6 +532,7 @@ function resetForNewGame(room) {
   room.bonusTokens = [...BONUS_DEFS];
   room.lastRound = false;
   room.endReason = null;
+  room.startedAt = null;
   room.finished = false;
   room.winnerId = null;
   room.winnerTeamId = null;
@@ -659,6 +780,52 @@ function rankedTeams(room) {
     .sort((a, b) => b.score - a.score || b.tops - a.tops || b.highTop - a.highTop);
 }
 
+function recordGameHistory(room) {
+  const entry = {
+    code: room.code,
+    endedAt: Date.now(),
+    startedAt: room.startedAt || null,
+    durationMs: room.startedAt ? Date.now() - room.startedAt : null,
+    playerCount: room.players.length,
+    endReason: room.endReason || null,
+    teamMode: room.teamMode || false,
+    winner: null,
+    winnerTeam: null,
+    players: room.players.map((p) => ({
+      name: p.name,
+      isBot: p.isBot,
+      color: p.color,
+      score: scoreOf(room, p),
+      points: pointsOf(room, p),
+      bonusPoints: bonusOf(p),
+      tops: topsOf(room, p),
+      sets: Math.max(0, setsOf(p)),
+    })),
+    teams: null,
+  };
+  if (room.teamMode && room.teams) {
+    entry.teams = room.teams.map((t) => ({
+      name: t.name,
+      color: t.color,
+      score: teamScoreOf(room, t),
+      tops: teamTopsOf(room, t),
+      members: t.members.map((pid) => {
+        const p = room.players.find((pl) => pl.id === pid);
+        return p ? p.name : '?';
+      }),
+    }));
+  }
+  // winner/winnerTeam are set after endGame sets them, so we call this at the end of endGame
+  const winner = room.players.find((p) => p.id === room.winnerId);
+  entry.winner = winner ? winner.name : null;
+  if (room.winnerTeamId != null && room.teams) {
+    const wt = room.teams.find((t) => t.id === room.winnerTeamId);
+    entry.winnerTeam = wt ? wt.name : null;
+  }
+  gameHistory.unshift(entry);
+  pruneGameHistory();
+}
+
 function endGame(room) {
   room.finished = true;
   if (room.watchdog) { clearInterval(room.watchdog); room.watchdog = null; }
@@ -684,6 +851,7 @@ function endGame(room) {
     room.winnerId = winner ? winner.id : null;
     if (winner) pushLog(room, `Game over! ${winner.name} wins with ${ranked[0].score} points! 🏆`);
   }
+  recordGameHistory(room);
 }
 
 // Watchdog: every 8s, if it's a bot/disconnected turn and no timer is running, kick it.
@@ -1232,6 +1400,7 @@ io.on('connection', (socket) => {
     }
     resetForNewGame(room);
     room.started = true;
+    room.startedAt = Date.now();
     if (room.teamMode && room.teams) {
       const teamNames = room.teams.map((t) => `Team ${t.name}: ${t.members.map((id) => { const p = room.players.find((pl) => pl.id === id); return p ? p.name : '?'; }).join(', ')}`).join(' | ');
       pushLog(room, `The climb begins! 🐐 [Teams: ${teamNames}]`);

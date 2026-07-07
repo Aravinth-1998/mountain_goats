@@ -372,6 +372,22 @@ input.input-error:focus { border-color: var(--danger); background: rgba(255,93,1
 .swatch.me::after {
   border-radius: 5px;
 }
+.swatch.sm {
+  width: 20px;
+  height: 20px;
+  font-size: 10px;
+  border-width: 1px;
+}
+.swatch.sm::after {
+  inset: 2px;
+  border-width: 1px;
+}
+.swatch.sm.me {
+  border-radius: 5px;
+}
+.swatch.sm.me::after {
+  border-radius: 3px;
+}
 .player-name { font-weight: 600; }
 .badge { margin-left: auto; font-size: 11px; padding: 4px 8px; border-radius: 999px; background: rgba(255,209,102,0.15); color: var(--gold); font-weight: 700; order: 96; }
 .badge.you { background: rgba(6,214,160,0.15); color: var(--green); }
@@ -466,7 +482,6 @@ input.input-error:focus { border-color: var(--danger); background: rgba(255,93,1
 .pp.active { box-shadow: 0 0 0 2px var(--gold), 0 8px 20px rgba(255,209,102,0.3); }
 .pp.off { opacity: 0.5; }
 .pp-head { display: flex; align-items: center; gap: 7px; margin-bottom: 7px; }
-.pp-dot { width: 14px; height: 14px; border-radius: 5px; flex: 0 0 auto; box-shadow: inset 0 0 0 2px rgba(255,255,255,0.3); }
 .pp-name { font-weight: 700; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; }
 .pp-score { font-weight: 800; font-size: 13px; color: var(--gold); white-space: nowrap; display: flex; align-items: center; gap: 3px; }
 .pp-lead { color: var(--green); font-size: 10px; }

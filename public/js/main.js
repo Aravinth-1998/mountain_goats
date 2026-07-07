@@ -41,6 +41,10 @@
   function escapeHtml(s) {
     return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   }
+  function playerCoinHtml(p, sizeClass) {
+    const cls = 'swatch' + (sizeClass ? ' ' + sizeClass : '') + (p.id === myId ? ' me' : '');
+    return `<span class="${cls}" style="background:${p.color}">${escapeHtml(p.name.charAt(0).toUpperCase())}</span>`;
+  }
 
   // Enforce 4-digit limit on room code inputs
   $('join-code').addEventListener('input', function() {
@@ -820,7 +824,7 @@
         const offTag = !p.connected && !p.isBot ? '<span class="pp-auto">🤖 auto</span>' : '';
         panel.innerHTML = `
           <div class="pp-head">
-            <span class="pp-dot" style="background:${p.color}"></span>
+            ${playerCoinHtml(p, 'sm')}
             <span class="pp-name">${escapeHtml(p.name)}${p.id === myId ? ' (You)' : ''}</span>
             ${offTag}${setsTag}${topsTag}${bonusTag}<span class="pp-score">⭐ ${p.score || 0}</span>
           </div>
@@ -847,7 +851,7 @@
         const offTag = !p.connected && !p.isBot ? '<span class="pp-auto">🤖 auto</span>' : '';
         panel.innerHTML = `
           <div class="pp-head">
-            <span class="pp-dot" style="background:${p.color}"></span>
+            ${playerCoinHtml(p, 'sm')}
             <span class="pp-name">${escapeHtml(p.name)}${p.id === myId ? ' (You)' : ''}</span>
             ${offTag}${setsTag}${topsTag}${bonusTag}<span class="pp-score">${leadTag}⭐ ${p.score || 0}</span>
           </div>
