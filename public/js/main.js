@@ -13,6 +13,7 @@
   let autoEndTimer = null; // timer for auto-ending turn when no groups possible
   let colorPickerEl = null;
   let colorPickerOutsideHandler = null;
+  let winCountUpFrames = [];
 
   const PLAYER_COLORS = ['#e63946', '#4f7cff', '#e67e22', '#9b59b6', '#06d6a0', '#ff6b9d', '#ffd166', '#2ec4b6', '#8338ec', '#118ab2'];
 
@@ -496,7 +497,7 @@
     state = null;
     localStorage.removeItem('mg_code');
     localStorage.removeItem('mg_name');
-    $('win-overlay').classList.remove('show');
+    hideWinOverlay();
     show('home');
   }
 
@@ -522,11 +523,11 @@
     $('endturn-overlay').classList.remove('show');
   });
   $('btn-playagain').addEventListener('click', () => {
-    $('win-overlay').classList.remove('show'); // close immediately
+    hideWinOverlay(); // close immediately
     socket.emit('playAgain');
   });
   $('btn-home').addEventListener('click', () => {
-    $('win-overlay').classList.remove('show');
+    hideWinOverlay();
     leaveToHome();
   });
   $('btn-win-share').addEventListener('click', shareWinResult);
@@ -537,7 +538,7 @@
     state = null;
     localStorage.removeItem('mg_code');
     localStorage.removeItem('mg_name');
-    $('win-overlay').classList.remove('show');
+    hideWinOverlay();
     show('home');
     const hostName = (data && data.hostName) ? data.hostName : 'The host';
     toast(`${hostName} kicked you from the room.`);
@@ -585,7 +586,7 @@
     if (leftRoom) return; // ignore stale broadcasts after leaving
     const wasFinished = state && state.finished;
     state = s;
-    if (s && !s.finished) $('win-overlay').classList.remove('show');
+    if (s && !s.finished) hideWinOverlay();
     render();
     if (s.finished && !wasFinished) showWin();
   });
@@ -1135,19 +1136,90 @@
     }
   }
 
-  function endReasonBadge(reason) {
+  function endReasonBadge(reason, extraIndex) {
     if (!reason) return '';
+    const style = extraIndex != null ? ` style="--i:${extraIndex}"` : '';
+    const cls = extraIndex != null ? 'end-reason win-extra' : 'end-reason';
     if (reason === 'bonus') {
-      return `<div class="end-reason">
+      return `<div class="${cls}"${style}>
         <span class="er-icon">✨</span>
         <span>All 4 Bonus Tokens were claimed — the final round was triggered.</span>
       </div>`;
     }
-    // 'empty'
-    return `<div class="end-reason">
+    return `<div class="${cls}"${style}>
       <span class="er-icon">🏔️</span>
       <span>3 mountains ran out of Point Tokens — the final round was triggered.</span>
     </div>`;
+  }
+
+  function winScoreRightHtml(score, tops) {
+    const s = score || 0;
+    const t = tops || 0;
+    return `<span class="sb-right"><span class="sb-count-score" data-target="${s}">0</span> pts · 👑<span class="sb-count-tops" data-target="${t}">0</span></span>`;
+  }
+
+  function cancelWinCountUp() {
+    winCountUpFrames.forEach((id) => cancelAnimationFrame(id));
+    winCountUpFrames = [];
+  }
+
+  function winRowIndex(row) {
+    const inline = row.getAttribute('style') || '';
+    const m = inline.match(/--i:\s*(\d+)/);
+    if (m) return parseInt(m[1], 10);
+    return parseInt(getComputedStyle(row).getPropertyValue('--i'), 10) || 0;
+  }
+
+  function animateWinCount(el, target, duration, delay) {
+    const easeOut = (t) => 1 - Math.pow(1 - t, 3);
+    const startAt = performance.now() + delay;
+    function tick(now) {
+      if (now < startAt) {
+        winCountUpFrames.push(requestAnimationFrame(tick));
+        return;
+      }
+      const t = Math.min(1, (now - startAt) / duration);
+      el.textContent = String(Math.round(target * easeOut(t)));
+      if (t < 1) winCountUpFrames.push(requestAnimationFrame(tick));
+      else el.textContent = String(target);
+    }
+    winCountUpFrames.push(requestAnimationFrame(tick));
+  }
+
+  function startWinScoreCountUp() {
+    cancelWinCountUp();
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const els = document.querySelectorAll('#win-overlay .sb-count-score, #win-overlay .sb-count-tops');
+    if (reduced) {
+      els.forEach((el) => { el.textContent = el.dataset.target; });
+      return;
+    }
+    const duration = 650;
+    document.querySelectorAll('#win-overlay .score-row').forEach((row) => {
+      const delay = 380 + winRowIndex(row) * 90;
+      row.querySelectorAll('.sb-count-score').forEach((el) => {
+        el.textContent = '0';
+        animateWinCount(el, parseInt(el.dataset.target, 10) || 0, duration, delay);
+      });
+      row.querySelectorAll('.sb-count-tops').forEach((el) => {
+        el.textContent = '0';
+        animateWinCount(el, parseInt(el.dataset.target, 10) || 0, duration, delay);
+      });
+    });
+  }
+
+  function revealWinOverlay() {
+    cancelWinCountUp();
+    const overlay = $('win-overlay');
+    overlay.classList.remove('show');
+    void overlay.offsetWidth;
+    overlay.classList.add('show');
+    startWinScoreCountUp();
+  }
+
+  function hideWinOverlay() {
+    cancelWinCountUp();
+    $('win-overlay').classList.remove('show');
   }
 
   function showWin() {
@@ -1172,28 +1244,33 @@
           const pl = state.players.find((p) => p.id === pid);
           return pl ? escapeHtml(pl.name) : '?';
         }).join(', ');
-        return `<div class="score-row${isWin ? ' win' : ''}" style="border-left:3px solid ${t.color}">
+        return `<div class="score-row${isWin ? ' win' : ''}" style="--i:${i};border-left:3px solid ${t.color}">
           <span class="sb-left">${medal} <b style="color:${t.color}">Team ${escapeHtml(t.name)}</b> <span class="sb-members">(${members})</span></span>
-          <span class="sb-right">${t.score || 0} pts · 👑${t.tops || 0}</span>
+          ${winScoreRightHtml(t.score, t.tops)}
         </div>`;
       }).join('');
 
       // Individual player breakdown
+      let rowIdx = sortedTeams.length;
+      const labelIdx = rowIdx++;
       const sorted = [...state.players].sort((a, b) => b.score - a.score || b.tops - a.tops);
       const playerRows = sorted.map((p) => {
         const pTeam = state.teams.find((t) => t.id === p.teamId);
         const teamDot = pTeam ? `<span class="sb-tdot" style="background:${pTeam.color}"></span>` : '';
         const bonusTag = p.bonus && p.bonus.length ? ` <span class="sb-bonus">✨+${p.bonusPoints}</span>` : '';
-        return `<div class="score-row score-row-sm">
+        const idx = rowIdx++;
+        return `<div class="score-row score-row-sm" style="--i:${idx}">
           <span class="sb-left">${teamDot}${escapeHtml(p.name)}${p.isBot ? ' 🤖' : ''}${bonusTag}</span>
-          <span class="sb-right">${p.score} pts · 👑${p.tops}</span>
+          ${winScoreRightHtml(p.score, p.tops)}
         </div>`;
       }).join('');
+      const extraIdx = rowIdx;
 
       $('win-sub').innerHTML = `<div class="scoreboard">${teamRows}</div>
-        <div class="team-breakdown-label">Individual Scores</div>
+        <div class="team-breakdown-label win-extra" style="--i:${labelIdx}">Individual Scores</div>
         <div class="scoreboard scoreboard-sm">${playerRows}</div>
-        ${endReasonBadge(state.endReason)}`;
+        ${endReasonBadge(state.endReason, extraIdx)}`;
+      document.querySelector('#win-overlay .win-actions').style.setProperty('--rows', String(rowIdx));
     } else {
       // Standard mode win screen
       $('win-title').textContent = winner.id === myId ? 'You Win! 🎉' : `${winner.name} Wins!`;
@@ -1201,32 +1278,34 @@
       const rows = sorted.map((p, i) => {
         const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '•';
         const bonusTag = p.bonus && p.bonus.length ? ` <span class="sb-bonus">✨+${p.bonusPoints}</span>` : '';
-        return `<div class="score-row${p.id === winner.id ? ' win' : ''}">
+        return `<div class="score-row${p.id === winner.id ? ' win' : ''}" style="--i:${i}">
           <span class="sb-left">${medal} ${escapeHtml(p.name)}${p.isBot ? ' 🤖' : ''}${bonusTag}</span>
-          <span class="sb-right">${p.score} pts · 👑${p.tops}</span>
+          ${winScoreRightHtml(p.score, p.tops)}
         </div>`;
       }).join('');
 
       // Only show tie-break note if it actually mattered.
       const topScore = winner.score;
       const tied = state.players.filter(p => p.score === topScore);
+      let extraIdx = sorted.length;
       let tieNote = '';
       if (tied.length > 1) {
         const topTops = winner.tops;
         const tiedOnTops = tied.filter(p => p.tops === topTops);
         if (tiedOnTops.length > 1) {
-          tieNote = '<div class="tiebreak">🏔️ Tie broken by goat on the higher-numbered mountain.</div>';
+          tieNote = `<div class="tiebreak win-extra" style="--i:${extraIdx++}">🏔️ Tie broken by goat on the higher-numbered mountain.</div>`;
         } else {
-          tieNote = '<div class="tiebreak">👑 Tie broken by most goats on mountain tops.</div>';
+          tieNote = `<div class="tiebreak win-extra" style="--i:${extraIdx++}">👑 Tie broken by most goats on mountain tops.</div>`;
         }
       }
 
       $('win-sub').innerHTML = `<div class="scoreboard">${rows}</div>
         ${tieNote}
-        ${endReasonBadge(state.endReason)}`;
+        ${endReasonBadge(state.endReason, extraIdx)}`;
+      document.querySelector('#win-overlay .win-actions').style.setProperty('--rows', String(sorted.length));
     }
     $('btn-playagain').style.display = state.hostId === myId ? 'block' : 'none';
-    $('win-overlay').classList.add('show');
+    revealWinOverlay();
   }
 })();
 
