@@ -364,21 +364,10 @@ input.input-error:focus { border-color: var(--danger); background: rgba(255,93,1
   position: relative;
   text-shadow: 0 1px 1px rgba(255,255,255,0.3);
 }
-.swatch::after {
-  content: '';
-  position: absolute;
-  inset: 3px;
-  border-radius: 50%;
-  border: 1.5px dashed rgba(255,255,255,0.25);
-  pointer-events: none;
-}
 .swatch.me {
   border-radius: 8px;
   outline: 2px solid #fff;
   outline-offset: 1px;
-}
-.swatch.me::after {
-  border-radius: 5px;
 }
 .swatch.sm {
   width: 20px;
