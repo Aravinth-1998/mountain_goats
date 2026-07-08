@@ -281,6 +281,14 @@ const BONUS_DEFS = [15, 12, 9, 6];
 const NUM_DICE = 4;
 const MAX_PLAYERS = 6;
 const PLAYER_COLORS = ['#e63946', '#4f7cff', '#e67e22', '#9b59b6', '#06d6a0', '#ff6b9d'];
+// Bot names by creation order: 1st Z, 2nd Y, 3rd X, 4th W, 5th V (random pick from each pair)
+const BOT_NAME_POOLS = [
+  ['Zorro', 'Zenith'],
+  ['Ymir', 'Yeti'],
+  ['Xenon', 'Xander'],
+  ['Wolf', 'Wraith'],
+  ['Vector', 'Viper'],
+];
 
 // Team definitions
 const TEAM_COLORS = ['#e63946', '#4f7cff', '#06d6a0'];
@@ -514,12 +522,20 @@ function addPlayer(room, socketId, name, isBot = false) {
   return player;
 }
 
-function addBot(room) {
-  let k = 1;
+function pickBotName(room) {
+  const botIndex = room.players.filter((p) => p.isBot).length;
+  if (botIndex >= BOT_NAME_POOLS.length) return null;
   const used = new Set(room.players.map((p) => p.name));
-  while (used.has('Bot ' + k)) k++;
+  const pool = BOT_NAME_POOLS[botIndex].filter((n) => !used.has(n));
+  const candidates = pool.length ? pool : BOT_NAME_POOLS[botIndex];
+  return candidates[Math.floor(Math.random() * candidates.length)];
+}
+
+function addBot(room) {
+  const name = pickBotName(room);
+  if (!name) return null;
   const id = 'bot_' + Math.random().toString(36).slice(2, 9);
-  return addPlayer(room, id, 'Bot ' + k, true);
+  return addPlayer(room, id, name, true);
 }
 
 function hasHuman(room) {
@@ -1140,6 +1156,7 @@ io.on('connection', (socket) => {
     if (!room || room.hostId !== socket.id || room.started) return;
     if (room.players.length >= room.maxPlayers) return;
     const bot = addBot(room);
+    if (!bot) return;
     // Auto-assign to smallest team if team mode is active
     if (room.teamMode && room.teams) {
       const smallest = room.teams.reduce((a, b) => a.members.length <= b.members.length ? a : b);
