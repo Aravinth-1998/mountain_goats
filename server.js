@@ -280,7 +280,18 @@ const MOUNTAIN_DEFS = [
 const BONUS_DEFS = [15, 12, 9, 6];
 const NUM_DICE = 4;
 const MAX_PLAYERS = 6;
-const PLAYER_COLORS = ['#e63946', '#4f7cff', '#e67e22', '#9b59b6', '#06d6a0', '#ff6b9d', '#ffd166', '#2ec4b6', '#8338ec', '#118ab2'];
+const PLAYER_COLORS = [
+  '#e63946', // red
+  '#4f7cff', // blue
+  '#06d6a0', // mint green
+  '#ff6b9d', // pink
+  '#118ab2', // sky blue
+  '#40916c', // forest green
+  '#c1121f', // dark red
+  '#1e40af', // navy blue
+  '#22c55e', // grass green
+  '#e67e22', // orange
+];
 // Bot names by creation order: 1st Z, 2nd Y, 3rd X, 4th W, 5th V (random pick from each pair)
 const BOT_NAME_POOLS = [
   ['Zorro', 'Zenith'],
@@ -293,6 +304,13 @@ const BOT_NAME_POOLS = [
 // Team definitions
 const TEAM_COLORS = ['#e63946', '#4f7cff', '#06d6a0'];
 const TEAM_NAMES = ['Red', 'Blue', 'Green'];
+// Three player shades per team (indices into PLAYER_COLORS)
+const TEAM_PALETTE_INDICES = [
+  [0, 3, 6], // Red
+  [1, 4, 7], // Blue
+  [2, 5, 8], // Green
+];
+const TEAM_PALETTES = TEAM_PALETTE_INDICES.map((indices) => indices.map((i) => PLAYER_COLORS[i]));
 // Valid team configurations: [totalPlayers, numTeams, playersPerTeam]
 const TEAM_CONFIGS = [
   { total: 4, teams: 2, perTeam: 2 },
@@ -375,6 +393,69 @@ function getTeamOfPlayer(room, playerId) {
 function getTeamById(room, teamId) {
   if (!room.teams) return null;
   return room.teams.find((t) => t.id === teamId);
+}
+
+function getTeamPalette(teamId) {
+  if (teamId == null || teamId < 0 || teamId >= TEAM_PALETTES.length) return null;
+  return TEAM_PALETTES[teamId];
+}
+
+function getUsedColors(room, excludePlayerId) {
+  return new Set(
+    room.players
+      .filter((p) => p.id !== excludePlayerId)
+      .map((p) => p.color)
+  );
+}
+
+function pickTeamColor(room, teamId, excludePlayerId, avoidColor) {
+  const palette = getTeamPalette(teamId);
+  if (!palette) return PLAYER_COLORS[0];
+  const used = getUsedColors(room, excludePlayerId);
+  let candidates = palette.filter((c) => !used.has(c));
+  if (avoidColor) {
+    const preferred = candidates.filter((c) => c !== avoidColor);
+    if (preferred.length) candidates = preferred;
+  }
+  if (candidates.length) return candidates[0];
+  return palette.find((c) => c !== avoidColor) || palette[0];
+}
+
+function assignPlayerTeamColor(room, playerId, forceNew) {
+  const team = getTeamOfPlayer(room, playerId);
+  if (!team) return;
+  const player = room.players.find((p) => p.id === playerId);
+  if (!player) return;
+  const palette = getTeamPalette(team.id);
+  if (!palette) return;
+  if (!forceNew && palette.includes(player.color) && !getUsedColors(room, playerId).has(player.color)) {
+    return;
+  }
+  player.color = pickTeamColor(room, team.id, playerId, forceNew ? player.color : null);
+}
+
+function assignAllTeamColors(room) {
+  if (!room.teamMode || !room.teams) return;
+  room.teams.forEach((team) => {
+    team.members.forEach((pid) => assignPlayerTeamColor(room, pid, false));
+  });
+}
+
+function getAllowedColorsForPlayer(room, playerId) {
+  if (!room.teamMode || !room.teams) return PLAYER_COLORS;
+  const team = getTeamOfPlayer(room, playerId);
+  if (team) return getTeamPalette(team.id) || PLAYER_COLORS;
+  const colors = [];
+  const seen = new Set();
+  room.teams.forEach((t) => {
+    getTeamPalette(t.id).forEach((c) => {
+      if (!seen.has(c)) {
+        seen.add(c);
+        colors.push(c);
+      }
+    });
+  });
+  return colors.length ? colors : PLAYER_COLORS;
 }
 
 function areTeammates(room, p1Id, p2Id) {
@@ -588,6 +669,7 @@ function publicState(room) {
     rolled: room.rolled,
     mountains: room.mountains, // {value, height, color, fullStack, chips}
     playerColors: PLAYER_COLORS,
+    teamPalettes: room.teamMode ? TEAM_PALETTES : null,
     players: room.players.map((p) => {
       const pTeam = getTeamOfPlayer(room, p.id);
       return {
@@ -1146,6 +1228,7 @@ io.on('connection', (socket) => {
     if (room.teamMode && room.teams) {
       const smallest = room.teams.reduce((a, b) => a.members.length <= b.members.length ? a : b);
       smallest.members.push(player.id);
+      assignPlayerTeamColor(room, player.id, false);
     }
     pushLog(room, `${name} joined.`);
     cb && cb({ ok: true, code: room.code, youId: player.id });
@@ -1162,6 +1245,7 @@ io.on('connection', (socket) => {
     if (room.teamMode && room.teams) {
       const smallest = room.teams.reduce((a, b) => a.members.length <= b.members.length ? a : b);
       smallest.members.push(bot.id);
+      assignPlayerTeamColor(room, bot.id, false);
     }
     pushLog(room, `${bot.name} was added.`);
     broadcast(room);
@@ -1176,6 +1260,8 @@ io.on('connection', (socket) => {
     if (!target) return cb && cb({ error: 'Player not found.' });
     if (targetId !== socket.id && room.hostId !== socket.id) return cb && cb({ error: 'Not allowed.' });
     if (targetId === socket.id && target.isBot) return cb && cb({ error: 'Not allowed.' });
+    const allowed = getAllowedColorsForPlayer(room, targetId);
+    if (!allowed.includes(color)) return cb && cb({ error: 'Colour not available for this team.' });
     if (room.players.some((p) => p.id !== targetId && p.color === color)) return cb && cb({ error: 'Colour already taken.' });
     if (target.color === color) return cb && cb({ ok: true });
     target.color = color;
@@ -1277,10 +1363,12 @@ io.on('connection', (socket) => {
       const configs = getValidTeamConfigs(room.players.length);
       if (configs.length > 0) {
         room.teams = buildTeams(room, configs[0].teams);
+        assignAllTeamColors(room);
         pushLog(room, `Team mode enabled! (${configs[0].teams} teams of ${configs[0].perTeam})`);
       } else {
         // No valid config for this player count — build 2 teams anyway
         room.teams = buildTeams(room, 2);
+        assignAllTeamColors(room);
         pushLog(room, `Team mode enabled! Teams may be uneven.`);
       }
     } else {
@@ -1298,6 +1386,7 @@ io.on('connection', (socket) => {
     numTeams = parseInt(numTeams, 10);
     if (numTeams < 2 || numTeams > 3) return;
     room.teams = buildTeams(room, numTeams);
+    assignAllTeamColors(room);
     const perTeam = Math.ceil(room.players.length / numTeams);
     pushLog(room, `Teams reconfigured: ${numTeams} teams of ~${perTeam}.`);
     broadcast(room);
@@ -1321,6 +1410,7 @@ io.on('connection', (socket) => {
     if (!targetTeam.members.includes(playerId)) {
       targetTeam.members.push(playerId);
     }
+    assignPlayerTeamColor(room, playerId, true);
     broadcast(room);
   });
 
@@ -1344,6 +1434,7 @@ io.on('connection', (socket) => {
     if (!targetTeam.members.includes(playerId)) {
       targetTeam.members.push(playerId);
     }
+    assignPlayerTeamColor(room, playerId, true);
     const player = room.players.find((p) => p.id === playerId);
     if (player) {
       pushLog(room, `${player.name} joined Team ${targetTeam.name}.`);
@@ -1370,6 +1461,7 @@ io.on('connection', (socket) => {
         if (!assigned.has(p.id)) {
           const smallest = room.teams.reduce((a, b) => a.members.length <= b.members.length ? a : b);
           smallest.members.push(p.id);
+          assignPlayerTeamColor(room, p.id, false);
         }
       });
       // Remove empty teams

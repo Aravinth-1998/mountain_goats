@@ -15,7 +15,18 @@
   let colorPickerOutsideHandler = null;
   let winCountUpFrames = [];
 
-  const PLAYER_COLORS = ['#e63946', '#4f7cff', '#e67e22', '#9b59b6', '#06d6a0', '#ff6b9d', '#ffd166', '#2ec4b6', '#8338ec', '#118ab2'];
+  const PLAYER_COLORS = [
+    '#e63946', // red
+    '#4f7cff', // blue
+    '#06d6a0', // mint green
+    '#ff6b9d', // pink
+    '#118ab2', // sky blue
+    '#40916c', // forest green
+    '#c1121f', // dark red
+    '#1e40af', // navy blue
+    '#22c55e', // grass green
+    '#e67e22', // orange
+  ];
 
   const screens = {
     loading: document.getElementById('screen-loading'),
@@ -70,7 +81,26 @@
     const badge = badgeHtml || '';
     return `<div class="player-main">${lobbySwatchHtml(p)}<span class="player-name">${escapeHtml(p.name)}</span></div><div class="player-end">${badge}${lobbyPlayerEndIconHtml(p)}</div>`;
   }
-  function getPlayerColors() {
+  function getPlayerColors(p) {
+    if (state && state.teamMode && state.teamPalettes) {
+      if (p) {
+        const team = state.teams && state.teams.find((t) => t.members.includes(p.id));
+        if (team && state.teamPalettes[team.id]) {
+          return state.teamPalettes[team.id];
+        }
+        const seen = new Set();
+        const colors = [];
+        state.teamPalettes.forEach((pal) => {
+          pal.forEach((c) => {
+            if (!seen.has(c)) {
+              seen.add(c);
+              colors.push(c);
+            }
+          });
+        });
+        if (colors.length) return colors;
+      }
+    }
     return (state && state.playerColors) || PLAYER_COLORS;
   }
   function closeColorPicker() {
@@ -106,7 +136,7 @@
     pop.dataset.playerId = p.id;
     const grid = document.createElement('div');
     grid.className = 'color-picker-grid';
-    getPlayerColors().forEach((color) => {
+    getPlayerColors(p).forEach((color) => {
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'color-opt';
@@ -675,7 +705,6 @@
           if (!p) return;
           const li = document.createElement('li');
           li.className = 'team-member';
-          li.style.setProperty('--team-color', team.color);
           li.innerHTML = lobbyPlayerRowHtml(p, p.id === myId ? '<span class="badge you">YOU</span>' : '');
           // Team swap buttons:
           // - Host can swap ANY player (including themselves)
@@ -723,7 +752,6 @@
       unassigned.forEach((p) => {
         const li = document.createElement('li');
         li.className = 'team-member';
-        li.style.setProperty('--team-color', '#666');
         li.innerHTML = `<div class="player-main">${lobbySwatchHtml(p)}<span class="player-name">${escapeHtml(p.name)}</span></div><div class="player-end"><span class="badge">UNASSIGNED</span></div>`;
         // Swap buttons: host can assign anyone, non-host only self
         const canSwap = amHost || p.id === myId;
@@ -903,18 +931,17 @@
         const membersRow = document.createElement('div');
         membersRow.className = 'team-block-members';
         teamOrder[tIdx].forEach((p) => {
-          membersRow.appendChild(buildPlayerPanel(p, t));
+          membersRow.appendChild(buildPlayerPanel(p));
         });
         teamBlock.appendChild(membersRow);
         strip.appendChild(teamBlock);
       });
 
       // Helper to build a player panel
-      function buildPlayerPanel(p, t) {
+      function buildPlayerPanel(p) {
         const idx = state.players.indexOf(p);
         const panel = document.createElement('div');
         panel.className = 'pp team-pp' + (idx === state.currentIndex ? ' active' : '') + (p.connected ? '' : ' off');
-        panel.style.setProperty('--tc', t.color);
         const pos = p.pos || [];
         const collected = p.collected || [];
         let chips = '';
@@ -1035,11 +1062,6 @@
       const g = document.createElement('div');
       g.className = 'goat' + (p.id === myId ? ' me' : '');
       g.style.background = p.color;
-      // In team mode, add team-colored ring
-      if (state.teamMode && state.teams && p.teamId != null) {
-        const pTeam = state.teams.find((t) => t.id === p.teamId);
-        if (pTeam) g.style.boxShadow = `0 2px 5px rgba(0,0,0,0.45), inset 0 0 0 1.5px rgba(255,255,255,0.6), 0 0 0 2px ${pTeam.color}`;
-      }
       g.textContent = p.name.charAt(0).toUpperCase();
       g.title = p.name;
       wrap.appendChild(g);
@@ -1255,12 +1277,10 @@
       const labelIdx = rowIdx++;
       const sorted = [...state.players].sort((a, b) => b.score - a.score || b.tops - a.tops);
       const playerRows = sorted.map((p) => {
-        const pTeam = state.teams.find((t) => t.id === p.teamId);
-        const teamDot = pTeam ? `<span class="sb-tdot" style="background:${pTeam.color}"></span>` : '';
         const bonusTag = p.bonus && p.bonus.length ? ` <span class="sb-bonus">✨+${p.bonusPoints}</span>` : '';
         const idx = rowIdx++;
         return `<div class="score-row score-row-sm" style="--i:${idx}">
-          <span class="sb-left">${teamDot}${escapeHtml(p.name)}${p.isBot ? ' 🤖' : ''}${bonusTag}</span>
+          <span class="sb-left">${playerCoinHtml(p, 'sm')} ${escapeHtml(p.name)}${p.isBot ? ' 🤖' : ''}${bonusTag}</span>
           ${winScoreRightHtml(p.score, p.tops)}
         </div>`;
       }).join('');
