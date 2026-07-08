@@ -115,7 +115,9 @@ app.get('/admin', (req, res) => {
     .history-sub { color: #93a0bf; font-size: 12px; margin-top: 3px; }
     .history-badges span { display: inline-block; padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 700; margin-left: 6px; }
     .badge-finished { background: rgba(6,214,160,0.18); color: #06d6a0; }
+    .badge-abandoned { background: rgba(255,93,108,0.18); color: #ff8a95; }
     .history-winner { font-size: 13px; font-weight: 700; color: #06d6a0; white-space: nowrap; }
+    .history-winner.abandoned { color: #ff8a95; }
     .history-table { width: 100%; border-collapse: collapse; font-size: 13px; }
     .history-table th, .history-table td { text-align: left; padding: 5px 8px; border-top: 1px solid rgba(255,255,255,0.05); }
     .history-table th { color: #93a0bf; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; }
@@ -163,6 +165,7 @@ app.get('/admin', (req, res) => {
     function fmtEndReason(reason) {
       if (reason === 'bonus') return 'All bonus tokens claimed';
       if (reason === 'empty') return '3 mountains emptied';
+      if (reason === 'abandoned') return 'Last player left mid-game';
       return reason || 'Completed';
     }
     function coin(color, name) {
@@ -193,11 +196,20 @@ app.get('/admin', (req, res) => {
       list.innerHTML = games.map((g) => {
         const badges = [
           g.teamMode ? '<span class="badge-team">TEAMS</span>' : '',
-          '<span class="badge-finished">FINISHED</span>',
+          g.abandoned ? '<span class="badge-abandoned">ABANDONED</span>' : '<span class="badge-finished">FINISHED</span>',
         ].join('');
-        const winnerLabel = g.teamMode && g.winnerTeam
-          ? 'Team ' + esc(g.winnerTeam) + (g.winner ? ' (' + esc(g.winner) + ')' : '')
-          : esc(g.winner || 'Unknown');
+        let winnerLabel, winnerIcon;
+        if (g.abandoned) {
+          winnerIcon = '🚪';
+          winnerLabel = g.teamMode && g.winnerTeam
+            ? 'Leader: Team ' + esc(g.winnerTeam)
+            : (g.winner ? 'Leader: ' + esc(g.winner) : 'No progress');
+        } else {
+          winnerIcon = '🏆';
+          winnerLabel = g.teamMode && g.winnerTeam
+            ? 'Team ' + esc(g.winnerTeam) + (g.winner ? ' (' + esc(g.winner) + ')' : '')
+            : esc(g.winner || 'Unknown');
+        }
         let stats = '<table class="history-table"><thead><tr>' +
           '<th>Player</th><th>Score</th><th>Points</th><th>Bonus</th><th>Tops</th><th>Sets</th>' +
           '</tr></thead><tbody>' + renderPlayerRows(g.players || [], g.winner) + '</tbody></table>';
@@ -217,7 +229,7 @@ app.get('/admin', (req, res) => {
               '<div class="history-title">Room ' + esc(g.code) + ' · ' + (g.playerCount || 0) + ' players</div>' +
               '<div class="history-sub">' + fmtDate(g.endedAt) + ' · ' + fmtDuration(g.durationMs) + ' · ' + esc(fmtEndReason(g.endReason)) + '</div>' +
             '</div>' +
-            '<div><div class="history-winner">🏆 ' + winnerLabel + '</div><div class="history-badges">' + badges + '</div></div>' +
+            '<div><div class="history-winner' + (g.abandoned ? ' abandoned' : '') + '">' + winnerIcon + ' ' + winnerLabel + '</div><div class="history-badges">' + badges + '</div></div>' +
           '</div>' + stats + '</div>';
       }).join('');
     }
@@ -879,14 +891,25 @@ function rankedTeams(room) {
     .sort((a, b) => b.score - a.score || b.tops - a.tops || b.highTop - a.highTop);
 }
 
-function recordGameHistory(room) {
+/**
+ * Record a completed or abandoned game into the in-memory history buffer.
+ *
+ * @param {object} room The room whose game just ended.
+ * @param {object} [options] Recording options.
+ * @param {boolean} [options.abandoned] True when the game was torn down before
+ *   reaching its natural end (e.g. the last human left mid-game). Abandoned
+ *   games still get recorded so solo/bot games do not silently disappear.
+ */
+function recordGameHistory(room, options = {}) {
+  const abandoned = !!options.abandoned;
   const entry = {
     code: room.code,
     endedAt: Date.now(),
     startedAt: room.startedAt || null,
     durationMs: room.startedAt ? Date.now() - room.startedAt : null,
     playerCount: room.players.length,
-    endReason: room.endReason || null,
+    endReason: abandoned ? 'abandoned' : (room.endReason || null),
+    abandoned,
     teamMode: room.teamMode || false,
     winner: null,
     winnerTeam: null,
@@ -914,11 +937,20 @@ function recordGameHistory(room) {
       }),
     }));
   }
-  // winner/winnerTeam are set after endGame sets them, so we call this at the end of endGame
-  const winner = room.players.find((p) => p.id === room.winnerId);
+  // For finished games the winner is set by endGame. For abandoned games there
+  // is no official winner, so fall back to the current leader for display.
+  let winner = room.players.find((p) => p.id === room.winnerId);
+  if (!winner && abandoned) {
+    const ranked = rankedPlayers(room);
+    winner = ranked.length ? ranked[0].p : null;
+  }
   entry.winner = winner ? winner.name : null;
   if (room.winnerTeamId != null && room.teams) {
     const wt = room.teams.find((t) => t.id === room.winnerTeamId);
+    entry.winnerTeam = wt ? wt.name : null;
+  } else if (abandoned && room.teamMode && room.teams) {
+    const ranked = rankedTeams(room);
+    const wt = ranked.length ? ranked[0].team : null;
     entry.winnerTeam = wt ? wt.name : null;
   }
   gameHistory.unshift(entry);
@@ -1713,6 +1745,11 @@ function handleDisconnect(socket, immediate = false) {
     if (!hasHuman(room)) {
       if (room.botTimer) clearTimeout(room.botTimer);
       if (room.watchdog) clearInterval(room.watchdog);
+      // The last human left an in-progress game. Record it as abandoned so it
+      // still appears in the admin history instead of vanishing silently.
+      if (room.started && !room.finished) {
+        recordGameHistory(room, { abandoned: true });
+      }
       delete rooms[room.code];
       return;
     }
