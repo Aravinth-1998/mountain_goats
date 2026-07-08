@@ -45,6 +45,32 @@
     const cls = 'swatch' + (sizeClass ? ' ' + sizeClass : '') + (p.id === myId ? ' me' : '');
     return `<span class="${cls}" style="background:${p.color}">${escapeHtml(p.name.charAt(0).toUpperCase())}</span>`;
   }
+  function lobbyPlayerEndIconHtml(p) {
+    if (p.id === state.hostId) {
+      return `<span class="host-icon" title="Host">👑</span>`;
+    }
+    return `<span class="player-type-icon ${p.isBot ? 'bot' : 'human'}" title="${p.isBot ? 'Bot' : 'Player'}">${p.isBot ? '🤖' : '👤'}</span>`;
+  }
+  function lobbyPlayerRowHtml(p, badgeHtml) {
+    const badge = badgeHtml || '';
+    return `<div class="player-main"><span class="swatch${p.id === myId ? ' me' : ''}" style="background:${p.color}">${escapeHtml(p.name.charAt(0).toUpperCase())}</span><span class="player-name">${escapeHtml(p.name)}</span></div><div class="player-end">${badge}${lobbyPlayerEndIconHtml(p)}</div>`;
+  }
+  function lobbyPlayerEndBeforeIcon(parent) {
+    const end = parent.querySelector('.player-end');
+    if (!end) return null;
+    return end.querySelector('.host-icon, .player-type-icon');
+  }
+  function appendKickBtn(parent, p, amHost) {
+    if (!amHost || p.id === myId) return;
+    const end = parent.querySelector('.player-end');
+    if (!end) return;
+    const x = document.createElement('button');
+    x.className = 'kick-btn';
+    x.textContent = '✕';
+    x.title = p.isBot ? 'Remove bot' : 'Kick player';
+    x.addEventListener('click', () => socket.emit('kickPlayer', { id: p.id }));
+    end.appendChild(x);
+  }
 
   // Enforce 4-digit limit on room code inputs
   $('join-code').addEventListener('input', function() {
@@ -543,11 +569,7 @@
           const li = document.createElement('li');
           li.className = 'team-member';
           li.style.setProperty('--team-color', team.color);
-          li.innerHTML = `<span class="swatch${p.id === myId ? ' me' : ''}" style="background:${p.color}">${escapeHtml(p.name.charAt(0).toUpperCase())}</span>
-            <span class="player-name">${escapeHtml(p.name)}</span>`;
-          if (p.id === state.hostId) li.innerHTML += `<span class="host-icon" title="Host">👑</span>`;
-          else li.innerHTML += `<span class="player-type-icon ${p.isBot ? 'bot' : 'human'}" title="${p.isBot ? 'Bot' : 'Player'}">${p.isBot ? '🤖' : '👤'}</span>`;
-          if (p.id === myId) li.innerHTML += `<span class="badge you">YOU</span>`;
+          li.innerHTML = lobbyPlayerRowHtml(p, p.id === myId ? '<span class="badge you">YOU</span>' : '');
           // Team swap buttons:
           // - Host can swap ANY player (including themselves)
           // - Non-host can only swap THEMSELVES
@@ -573,16 +595,9 @@
               });
               swapWrap.appendChild(btn);
             });
-            li.appendChild(swapWrap);
+            li.querySelector('.player-end').insertBefore(swapWrap, lobbyPlayerEndBeforeIcon(li));
           }
-          if (amHost && p.id !== myId) {
-            const x = document.createElement('button');
-            x.className = 'kick-btn';
-            x.textContent = '✕';
-            x.title = p.isBot ? 'Remove bot' : 'Kick player';
-            x.addEventListener('click', () => socket.emit('kickPlayer', { id: p.id }));
-            li.appendChild(x);
-          }
+          appendKickBtn(li, p, amHost);
           ul.appendChild(li);
         });
       });
@@ -601,9 +616,7 @@
         const li = document.createElement('li');
         li.className = 'team-member';
         li.style.setProperty('--team-color', '#666');
-        li.innerHTML = `<span class="swatch${p.id === myId ? ' me' : ''}" style="background:${p.color}">${escapeHtml(p.name.charAt(0).toUpperCase())}</span>
-          <span class="player-name">${escapeHtml(p.name)}</span>
-          <span class="badge">UNASSIGNED</span>`;
+        li.innerHTML = `<div class="player-main"><span class="swatch${p.id === myId ? ' me' : ''}" style="background:${p.color}">${escapeHtml(p.name.charAt(0).toUpperCase())}</span><span class="player-name">${escapeHtml(p.name)}</span></div><div class="player-end"><span class="badge">UNASSIGNED</span></div>`;
         // Swap buttons: host can assign anyone, non-host only self
         const canSwap = amHost || p.id === myId;
         if (canSwap && state.teams.length > 0) {
@@ -624,35 +637,17 @@
             });
             swapWrap.appendChild(btn);
           });
-          li.appendChild(swapWrap);
+          li.querySelector('.player-end').appendChild(swapWrap);
         }
-        if (amHost && p.id !== myId) {
-          const x = document.createElement('button');
-          x.className = 'kick-btn';
-          x.textContent = '✕';
-          x.title = p.isBot ? 'Remove bot' : 'Kick player';
-          x.addEventListener('click', () => socket.emit('kickPlayer', { id: p.id }));
-          li.appendChild(x);
-        }
+        appendKickBtn(li, p, amHost);
         ul.appendChild(li);
       });
     } else {
       // Standard mode: render flat player list
       state.players.forEach((p) => {
         const li = document.createElement('li');
-        li.innerHTML = `<span class="swatch${p.id === myId ? ' me' : ''}" style="background:${p.color}">${escapeHtml(p.name.charAt(0).toUpperCase())}</span>
-          <span class="player-name">${escapeHtml(p.name)}</span>`;
-        if (p.id === state.hostId) li.innerHTML += `<span class="host-icon" title="Host">👑</span>`;
-        else li.innerHTML += `<span class="player-type-icon ${p.isBot ? 'bot' : 'human'}" title="${p.isBot ? 'Bot' : 'Player'}">${p.isBot ? '🤖' : '👤'}</span>`;
-        if (p.id === myId) li.innerHTML += `<span class="badge you">YOU</span>`;
-        if (amHost && p.id !== myId) {
-          const x = document.createElement('button');
-          x.className = 'kick-btn';
-          x.textContent = '✕';
-          x.title = p.isBot ? 'Remove bot' : 'Kick player';
-          x.addEventListener('click', () => socket.emit('kickPlayer', { id: p.id }));
-          li.appendChild(x);
-        }
+        li.innerHTML = lobbyPlayerRowHtml(p, p.id === myId ? '<span class="badge you">YOU</span>' : '');
+        appendKickBtn(li, p, amHost);
         ul.appendChild(li);
       });
     }

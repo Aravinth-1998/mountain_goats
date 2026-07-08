@@ -336,10 +336,18 @@ input.input-error:focus { border-color: var(--danger); background: rgba(255,93,1
 /* Player list (lobby) */
 .player-list { list-style: none; padding: 0; margin: 14px 0; display: flex; flex-direction: column; gap: 10px; }
 .player-list li {
-  display: flex; align-items: center; gap: 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
   background: rgba(255,255,255,0.05);
   border: 1px solid var(--card-border);
   border-radius: 14px; padding: 12px 14px;
+}
+.player-main {
+  display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0;
+}
+.player-end {
+  display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-shrink: 0;
 }
 .swatch {
   width: 32px; height: 32px; border-radius: 50%; flex: 0 0 auto;
@@ -388,34 +396,31 @@ input.input-error:focus { border-color: var(--danger); background: rgba(255,93,1
 .swatch.sm.me::after {
   border-radius: 3px;
 }
-.player-name { font-weight: 600; }
-.badge { margin-left: auto; font-size: 11px; padding: 4px 8px; border-radius: 999px; background: rgba(255,209,102,0.15); color: var(--gold); font-weight: 700; order: 96; }
+.player-name { min-width: 0; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.badge { font-size: 11px; padding: 4px 8px; border-radius: 999px; background: rgba(255,209,102,0.15); color: var(--gold); font-weight: 700; white-space: nowrap; }
 .badge.you { background: rgba(6,214,160,0.15); color: var(--green); }
 .badge.off { background: rgba(255,93,108,0.15); color: var(--danger); }
 .badge.bot { background: rgba(143,125,255,0.18); color: #b9aaff; }
 .host-icon {
-  margin-left: auto; flex: 0 0 auto;
+  flex: 0 0 auto;
   width: 26px; height: 26px; border-radius: 8px;
   display: flex; align-items: center; justify-content: center;
   background: rgba(255,209,102,0.15);
   border: 1px solid rgba(255,209,102,0.3);
   font-size: 14px; line-height: 1;
-  order: 97;
 }
 .kick-btn {
-  margin-left: auto; flex: 0 0 auto;
+  flex: 0 0 auto;
   width: 26px; height: 26px; border-radius: 8px;
   border: 1px solid var(--card-border); cursor: pointer;
   background: rgba(255,93,108,0.12); color: var(--danger);
   font-size: 13px; font-weight: 800;
-  order: 98;
 }
 .player-type-icon {
   flex: 0 0 auto;
   width: 26px; height: 26px; border-radius: 8px;
   display: flex; align-items: center; justify-content: center;
   font-size: 14px; line-height: 1;
-  order: 99;
 }
 .player-type-icon.bot {
   background: rgba(143,125,255,0.15);
@@ -647,7 +652,7 @@ input.input-error:focus { border-color: var(--danger); background: rgba(255,93,1
 
 /* Lobby: team swap buttons */
 .team-swap {
-  display: inline-flex; gap: 4px; margin-left: auto;
+  display: inline-flex; gap: 4px;
 }
 .team-swap-btn {
   width: 22px; height: 22px; border-radius: 6px;
