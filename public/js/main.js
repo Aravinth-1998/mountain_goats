@@ -11,6 +11,10 @@
   const selected = new Set(); // selected die indices for the current group
   let selSig = '';
   let autoEndTimer = null; // timer for auto-ending turn when no groups possible
+  let colorPickerEl = null;
+  let colorPickerOutsideHandler = null;
+
+  const PLAYER_COLORS = ['#e63946', '#4f7cff', '#e67e22', '#9b59b6', '#06d6a0', '#ff6b9d', '#ffd166', '#2ec4b6', '#8338ec', '#118ab2'];
 
   const screens = {
     loading: document.getElementById('screen-loading'),
@@ -51,9 +55,110 @@
     }
     return `<span class="player-type-icon ${p.isBot ? 'bot' : 'human'}" title="${p.isBot ? 'Bot' : 'Player'}">${p.isBot ? '🤖' : '👤'}</span>`;
   }
+  function canPickLobbyColor(p) {
+    return p.id === myId || (state && state.hostId === myId);
+  }
+  function lobbySwatchHtml(p) {
+    const clickable = canPickLobbyColor(p) ? ' swatch-clickable' : '';
+    const title = clickable
+      ? (p.id === myId ? 'Change colour' : `Change ${p.name}'s colour`)
+      : '';
+    return `<span class="swatch${p.id === myId ? ' me' : ''}${clickable}" style="background:${p.color}"${clickable ? ` role="button" tabindex="0" title="${escapeHtml(title)}"` : ''}>${escapeHtml(p.name.charAt(0).toUpperCase())}</span>`;
+  }
   function lobbyPlayerRowHtml(p, badgeHtml) {
     const badge = badgeHtml || '';
-    return `<div class="player-main"><span class="swatch${p.id === myId ? ' me' : ''}" style="background:${p.color}">${escapeHtml(p.name.charAt(0).toUpperCase())}</span><span class="player-name">${escapeHtml(p.name)}</span></div><div class="player-end">${badge}${lobbyPlayerEndIconHtml(p)}</div>`;
+    return `<div class="player-main">${lobbySwatchHtml(p)}<span class="player-name">${escapeHtml(p.name)}</span></div><div class="player-end">${badge}${lobbyPlayerEndIconHtml(p)}</div>`;
+  }
+  function getPlayerColors() {
+    return (state && state.playerColors) || PLAYER_COLORS;
+  }
+  function closeColorPicker() {
+    if (colorPickerEl) {
+      colorPickerEl.remove();
+      colorPickerEl = null;
+    }
+    if (colorPickerOutsideHandler) {
+      document.removeEventListener('click', colorPickerOutsideHandler);
+      colorPickerOutsideHandler = null;
+    }
+  }
+  let colorApplyLock = false;
+  function applyLobbyColor(color, playerId) {
+    if (colorApplyLock || !state) return;
+    const player = state.players.find((pl) => pl.id === playerId);
+    if (!player || player.color === color) {
+      closeColorPicker();
+      return;
+    }
+    colorApplyLock = true;
+    closeColorPicker();
+    socket.emit('setPlayerColor', { color, playerId }, (res) => {
+      colorApplyLock = false;
+      if (res && res.error) toast(res.error);
+    });
+  }
+  function openColorPicker(anchor, p) {
+    closeColorPicker();
+    const usedByOthers = new Set(state.players.filter((pl) => pl.id !== p.id).map((pl) => pl.color));
+    const pop = document.createElement('div');
+    pop.className = 'color-picker-pop';
+    pop.dataset.playerId = p.id;
+    const grid = document.createElement('div');
+    grid.className = 'color-picker-grid';
+    getPlayerColors().forEach((color) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'color-opt';
+      btn.style.background = color;
+      btn.dataset.color = color;
+      const taken = usedByOthers.has(color);
+      if (taken) {
+        btn.classList.add('taken');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="color-opt-x">X</span>';
+      } else {
+        if (p.color === color) btn.classList.add('current');
+        const pickColor = (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          applyLobbyColor(color, p.id);
+        };
+        btn.addEventListener('click', pickColor);
+        btn.addEventListener('touchend', pickColor, { passive: false });
+      }
+      grid.appendChild(btn);
+    });
+    pop.appendChild(grid);
+    pop.addEventListener('click', (e) => e.stopPropagation());
+    document.body.appendChild(pop);
+    colorPickerEl = pop;
+    const rect = anchor.getBoundingClientRect();
+    const popW = pop.offsetWidth;
+    const popH = pop.offsetHeight;
+    let top = rect.bottom + 8;
+    let left = rect.left;
+    if (left + popW > window.innerWidth - 8) left = window.innerWidth - popW - 8;
+    if (left < 8) left = 8;
+    if (top + popH > window.innerHeight - 8) top = rect.top - popH - 8;
+    pop.style.top = `${top}px`;
+    pop.style.left = `${left}px`;
+    setTimeout(() => {
+      colorPickerOutsideHandler = (e) => {
+        if (e.target.closest('.color-picker-pop') || e.target.closest('.swatch-clickable')) return;
+        closeColorPicker();
+      };
+      document.addEventListener('click', colorPickerOutsideHandler);
+    }, 0);
+  }
+  function attachLobbySwatch(li, p) {
+    if (!canPickLobbyColor(p)) return;
+    const swatch = li.querySelector('.swatch-clickable');
+    if (!swatch) return;
+    swatch.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (colorPickerEl) closeColorPicker();
+      else openColorPicker(swatch, p);
+    });
   }
   function lobbyPlayerEndBeforeIcon(parent) {
     const end = parent.querySelector('.player-end');
@@ -533,6 +638,7 @@
   }
 
   function renderLobby() {
+    closeColorPicker();
     $('lobby-code').textContent = state.code;
     const amHost = state.hostId === myId;
 
@@ -598,6 +704,7 @@
             li.querySelector('.player-end').insertBefore(swapWrap, lobbyPlayerEndBeforeIcon(li));
           }
           appendKickBtn(li, p, amHost);
+          attachLobbySwatch(li, p);
           ul.appendChild(li);
         });
       });
@@ -616,7 +723,7 @@
         const li = document.createElement('li');
         li.className = 'team-member';
         li.style.setProperty('--team-color', '#666');
-        li.innerHTML = `<div class="player-main"><span class="swatch${p.id === myId ? ' me' : ''}" style="background:${p.color}">${escapeHtml(p.name.charAt(0).toUpperCase())}</span><span class="player-name">${escapeHtml(p.name)}</span></div><div class="player-end"><span class="badge">UNASSIGNED</span></div>`;
+        li.innerHTML = `<div class="player-main">${lobbySwatchHtml(p)}<span class="player-name">${escapeHtml(p.name)}</span></div><div class="player-end"><span class="badge">UNASSIGNED</span></div>`;
         // Swap buttons: host can assign anyone, non-host only self
         const canSwap = amHost || p.id === myId;
         if (canSwap && state.teams.length > 0) {
@@ -640,6 +747,7 @@
           li.querySelector('.player-end').appendChild(swapWrap);
         }
         appendKickBtn(li, p, amHost);
+        attachLobbySwatch(li, p);
         ul.appendChild(li);
       });
     } else {
@@ -648,6 +756,7 @@
         const li = document.createElement('li');
         li.innerHTML = lobbyPlayerRowHtml(p, p.id === myId ? '<span class="badge you">YOU</span>' : '');
         appendKickBtn(li, p, amHost);
+        attachLobbySwatch(li, p);
         ul.appendChild(li);
       });
     }

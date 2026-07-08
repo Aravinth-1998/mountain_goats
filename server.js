@@ -280,7 +280,7 @@ const MOUNTAIN_DEFS = [
 const BONUS_DEFS = [15, 12, 9, 6];
 const NUM_DICE = 4;
 const MAX_PLAYERS = 6;
-const PLAYER_COLORS = ['#e63946', '#4f7cff', '#e67e22', '#9b59b6', '#06d6a0', '#ff6b9d'];
+const PLAYER_COLORS = ['#e63946', '#4f7cff', '#e67e22', '#9b59b6', '#06d6a0', '#ff6b9d', '#ffd166', '#2ec4b6', '#8338ec', '#118ab2'];
 // Bot names by creation order: 1st Z, 2nd Y, 3rd X, 4th W, 5th V (random pick from each pair)
 const BOT_NAME_POOLS = [
   ['Zorro', 'Zenith'],
@@ -587,6 +587,7 @@ function publicState(room) {
     adjustable: room.adjustable,
     rolled: room.rolled,
     mountains: room.mountains, // {value, height, color, fullStack, chips}
+    playerColors: PLAYER_COLORS,
     players: room.players.map((p) => {
       const pTeam = getTeamOfPlayer(room, p.id);
       return {
@@ -1164,6 +1165,22 @@ io.on('connection', (socket) => {
     }
     pushLog(room, `${bot.name} was added.`);
     broadcast(room);
+  });
+
+  socket.on('setPlayerColor', ({ color, playerId }, cb) => {
+    const room = findRoomBySocket(socket.id);
+    if (!room || room.started) return cb && cb({ error: 'Cannot change colour now.' });
+    if (!color || !PLAYER_COLORS.includes(color)) return cb && cb({ error: 'Invalid colour.' });
+    const targetId = playerId || socket.id;
+    const target = room.players.find((p) => p.id === targetId);
+    if (!target) return cb && cb({ error: 'Player not found.' });
+    if (targetId !== socket.id && room.hostId !== socket.id) return cb && cb({ error: 'Not allowed.' });
+    if (targetId === socket.id && target.isBot) return cb && cb({ error: 'Not allowed.' });
+    if (room.players.some((p) => p.id !== targetId && p.color === color)) return cb && cb({ error: 'Colour already taken.' });
+    if (target.color === color) return cb && cb({ ok: true });
+    target.color = color;
+    broadcast(room);
+    cb && cb({ ok: true });
   });
 
   socket.on('removeBot', ({ id }) => {
