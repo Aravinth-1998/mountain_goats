@@ -22,6 +22,7 @@
  */
 
 const path = require('path');
+const fs = require('fs');
 const http = require('http');
 const express = require('express');
 const { Server } = require('socket.io');
@@ -555,11 +556,54 @@ function buildTeams(room, numTeams) {
 const rooms = {}; // code -> room
 const gameHistory = []; // completed games from the last 2 days
 const HISTORY_RETENTION_MS = 2 * 24 * 60 * 60 * 1000;
+const HISTORY_DIR = process.env.GAME_HISTORY_DIR || path.join(__dirname, 'data');
+const HISTORY_FILE = process.env.GAME_HISTORY_FILE || path.join(HISTORY_DIR, 'game-history.json');
 
 function pruneGameHistory() {
   const cutoff = Date.now() - HISTORY_RETENTION_MS;
   while (gameHistory.length && gameHistory[gameHistory.length - 1].endedAt < cutoff) {
     gameHistory.pop();
+  }
+}
+
+/**
+ * Load persisted game history from disk into the in-memory buffer.
+ * Invalid or missing files are ignored so the server can still start.
+ */
+function loadGameHistory() {
+  try {
+    if (!fs.existsSync(HISTORY_FILE)) return;
+    const raw = fs.readFileSync(HISTORY_FILE, 'utf8');
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) {
+      console.warn('[history] Invalid game history file; starting fresh.');
+      return;
+    }
+    gameHistory.length = 0;
+    parsed.forEach((entry) => {
+      if (entry && typeof entry.endedAt === 'number') {
+        gameHistory.push(entry);
+      }
+    });
+    gameHistory.sort((a, b) => b.endedAt - a.endedAt);
+    pruneGameHistory();
+    console.log(`[history] Loaded ${gameHistory.length} game(s) from ${HISTORY_FILE}`);
+  } catch (err) {
+    console.error('[history] Failed to load game history:', err.message);
+  }
+}
+
+/**
+ * Write the in-memory game history buffer to disk (atomic replace).
+ */
+function persistGameHistory() {
+  try {
+    fs.mkdirSync(HISTORY_DIR, { recursive: true });
+    const tmpFile = HISTORY_FILE + '.tmp';
+    fs.writeFileSync(tmpFile, JSON.stringify(gameHistory), 'utf8');
+    fs.renameSync(tmpFile, HISTORY_FILE);
+  } catch (err) {
+    console.error('[history] Failed to save game history:', err.message);
   }
 }
 
@@ -955,6 +999,7 @@ function recordGameHistory(room, options = {}) {
   }
   gameHistory.unshift(entry);
   pruneGameHistory();
+  persistGameHistory();
 }
 
 function endGame(room) {
@@ -1757,6 +1802,8 @@ function handleDisconnect(socket, immediate = false) {
   broadcast(room);
   scheduleBot(room, 1200); // slight extra delay so the disconnect message is visible
 }
+
+loadGameHistory();
 
 server.listen(PORT, () => {
   console.log(`Mountain Goats running on http://localhost:${PORT}`);
