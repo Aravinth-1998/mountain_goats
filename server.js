@@ -26,6 +26,7 @@ const fs = require('fs');
 const http = require('http');
 const express = require('express');
 const { Server } = require('socket.io');
+const db = require('./db');
 
 const app = express();
 const server = http.createServer(app);
@@ -567,10 +568,10 @@ function pruneGameHistory() {
 }
 
 /**
- * Load persisted game history from disk into the in-memory buffer.
+ * Load game history from disk into the in-memory buffer (local dev fallback).
  * Invalid or missing files are ignored so the server can still start.
  */
-function loadGameHistory() {
+function loadGameHistoryFromFile() {
   try {
     if (!fs.existsSync(HISTORY_FILE)) return;
     const raw = fs.readFileSync(HISTORY_FILE, 'utf8');
@@ -594,9 +595,42 @@ function loadGameHistory() {
 }
 
 /**
+ * Load game history from the database or local JSON file.
+ *
+ * @returns {Promise<void>}
+ */
+async function loadGameHistory() {
+  if (db.isEnabled()) {
+    try {
+      await db.init();
+      await db.pruneGameHistory(HISTORY_RETENTION_MS);
+      const entries = await db.loadGameHistory(HISTORY_RETENTION_MS);
+      gameHistory.length = 0;
+      entries.forEach((entry) => gameHistory.push(entry));
+      pruneGameHistory();
+      console.log(`[history] Loaded ${gameHistory.length} game(s) from database`);
+
+      if (gameHistory.length === 0) {
+        loadGameHistoryFromFile();
+        if (gameHistory.length > 0) {
+          for (const entry of gameHistory) {
+            await db.saveGameHistory(entry);
+          }
+          console.log(`[history] Migrated ${gameHistory.length} game(s) from JSON to database`);
+        }
+      }
+      return;
+    } catch (err) {
+      console.error('[history] Database load failed, falling back to file:', err.message);
+    }
+  }
+  loadGameHistoryFromFile();
+}
+
+/**
  * Write the in-memory game history buffer to disk (atomic replace).
  */
-function persistGameHistory() {
+function persistGameHistoryToFile() {
   try {
     fs.mkdirSync(HISTORY_DIR, { recursive: true });
     const tmpFile = HISTORY_FILE + '.tmp';
@@ -605,6 +639,22 @@ function persistGameHistory() {
   } catch (err) {
     console.error('[history] Failed to save game history:', err.message);
   }
+}
+
+/**
+ * Persist the most recently recorded game (in-memory buffer front).
+ */
+function persistGameHistory() {
+  const entry = gameHistory[0];
+  if (!entry) return;
+
+  if (db.isEnabled()) {
+    db.saveGameHistory(entry)
+      .then(() => db.pruneGameHistory(HISTORY_RETENTION_MS))
+      .catch((err) => console.error('[history] Database save failed:', err.message));
+    return;
+  }
+  persistGameHistoryToFile();
 }
 
 function createRoom(options = {}) {
@@ -1803,9 +1853,15 @@ function handleDisconnect(socket, immediate = false) {
   scheduleBot(room, 1200); // slight extra delay so the disconnect message is visible
 }
 
-loadGameHistory();
-
-server.listen(PORT, () => {
-  console.log(`Mountain Goats running on http://localhost:${PORT}`);
-});
+loadGameHistory()
+  .then(() => {
+    server.listen(PORT, () => {
+      const storage = db.isEnabled() ? 'PostgreSQL' : 'local JSON file';
+      console.log(`Mountain Goats running on http://localhost:${PORT} (history: ${storage})`);
+    });
+  })
+  .catch((err) => {
+    console.error('[startup] Failed to load game history:', err.message);
+    process.exit(1);
+  });
 

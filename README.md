@@ -52,10 +52,30 @@ local IP (e.g. `http://192.168.1.5:3000`) while on the same Wi‑Fi.
 
 ---
 
+## Database (optional, recommended for Render)
+
+Game history is stored in **PostgreSQL** when `DATABASE_URL` is set (Neon, Supabase,
+or Render Postgres). Without it, history is written to `data/game-history.json`,
+which **does not survive** Render restarts.
+
+### Free Postgres (Neon example)
+
+1. Create a free project at [neon.tech](https://neon.tech).
+2. Copy the **connection string** (starts with `postgresql://`).
+3. On Render → your web service → **Environment** → add:
+   - `DATABASE_URL` = your connection string
+4. Redeploy. The server creates the `game_history` table on first start.
+
+Local dev: copy `.env.example` to `.env` and set `DATABASE_URL`, or omit it to
+use the JSON file fallback.
+
+---
+
 ## 🗂️ Project structure
 ```
 .
 ├── server.js            # Express + Socket.IO server, rooms & game logic
+├── db.js                # PostgreSQL game history (when DATABASE_URL is set)
 ├── package.json
 ├── render.yaml          # Render blueprint
 └── public/
