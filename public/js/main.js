@@ -7,6 +7,11 @@
     reconnectionAttempts: Infinity,
   });
 
+  window.addEventListener('pagehide', () => {
+    socket.io.reconnection(false);
+    socket.disconnect();
+  });
+
   let socketAuthInFlight = null;
   let socketConnectionHasAuth = false;
 
