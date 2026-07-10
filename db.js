@@ -166,6 +166,7 @@ async function init() {
       UPDATE users SET gaming_name = LEFT(display_name, 16)
       WHERE gaming_name IS NULL AND display_name IS NOT NULL AND display_name <> ''
     `);
+    await setupUserTablePolicies(p);
     connected = true;
     console.log(`${LOG_PREFIX} Schema ready`);
     return true;
@@ -173,6 +174,57 @@ async function init() {
     logConnectionHint(err);
     await resetPool();
     throw err;
+  }
+}
+
+/**
+ * Allow signed-in Supabase users to read and update their own profile row
+ * via the browser client (PostgREST + RLS).
+ *
+ * @param {import('pg').Pool} p Postgres pool.
+ * @returns {Promise<void>}
+ */
+async function setupUserTablePolicies(p) {
+  await p.query('ALTER TABLE users ENABLE ROW LEVEL SECURITY');
+  await p.query('GRANT USAGE ON SCHEMA public TO authenticated');
+  await p.query('GRANT SELECT, INSERT, UPDATE ON users TO authenticated');
+
+  await p.query('DROP POLICY IF EXISTS users_select_own ON users');
+  await p.query(`
+    CREATE POLICY users_select_own ON users
+    FOR SELECT TO authenticated
+    USING (auth.uid() = id)
+  `);
+
+  await p.query('DROP POLICY IF EXISTS users_insert_own ON users');
+  await p.query(`
+    CREATE POLICY users_insert_own ON users
+    FOR INSERT TO authenticated
+    WITH CHECK (auth.uid() = id)
+  `);
+
+  await p.query('DROP POLICY IF EXISTS users_update_own ON users');
+  await p.query(`
+    CREATE POLICY users_update_own ON users
+    FOR UPDATE TO authenticated
+    USING (auth.uid() = id)
+    WITH CHECK (auth.uid() = id)
+  `);
+}
+
+/**
+ * Ensure the database schema is ready (lazy init for API routes).
+ *
+ * @returns {Promise<boolean>}
+ */
+async function ensureConnected() {
+  if (connected) return true;
+  if (!isEnabled()) return false;
+  try {
+    return await init();
+  } catch (err) {
+    console.error(`${LOG_PREFIX} ensureConnected failed:`, err.message);
+    return false;
   }
 }
 
@@ -350,6 +402,7 @@ module.exports = {
   upsertAuthUser,
   getGamingName,
   saveGamingName,
+  ensureConnected,
   resetPool,
   close,
 };

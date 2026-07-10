@@ -129,7 +129,7 @@ async function attachAuthToSocket(socket, accessToken, db) {
   socket.authGoogleName = resolveGoogleName(payload);
   socket.authAvatarUrl = resolveAvatarUrl(payload);
   socket.authGamingName = null;
-  if (db.isConnected()) {
+  if (await db.ensureConnected()) {
     await db.upsertAuthUser({
       id: socket.authUserId,
       googleName: socket.authGoogleName,

@@ -70,6 +70,68 @@
   }
 
   /**
+   * Resolve a gaming name from a users table row.
+   *
+   * @param {object|null} row Users table row.
+   * @returns {string|null}
+   */
+  function gamingNameFromRow(row) {
+    if (!row) return null;
+    if (row.gaming_name) return truncateName(row.gaming_name);
+    if (row.display_name) return truncateName(row.display_name);
+    return null;
+  }
+
+  /**
+   * Load gaming name directly from Supabase (works cross-device).
+   *
+   * @param {string} userId Supabase user id.
+   * @returns {Promise<string|null>}
+   */
+  async function fetchGamingNameFromSupabase(userId) {
+    if (!supabaseClient || !userId) return null;
+    try {
+      const { data, error } = await supabaseClient
+        .from('users')
+        .select('gaming_name, display_name')
+        .eq('id', userId)
+        .maybeSingle();
+      if (error) {
+        console.warn('[auth] supabase read gaming name:', error.code, error.message);
+        return null;
+      }
+      return gamingNameFromRow(data);
+    } catch (err) {
+      console.error('[auth] supabase read gaming name failed:', err);
+      return null;
+    }
+  }
+
+  /**
+   * Load gaming name via the game server API.
+   *
+   * @returns {Promise<string|null>}
+   */
+  async function fetchGamingNameFromServer() {
+    const token = await getAccessToken();
+    if (!token) return null;
+    try {
+      const res = await fetch('/api/me/gaming-name', {
+        headers: { Authorization: 'Bearer ' + token },
+      });
+      if (!res.ok) {
+        console.warn('[auth] server gaming name fetch failed:', res.status);
+        return null;
+      }
+      const data = await res.json();
+      return data.gamingName ? truncateName(data.gamingName) : null;
+    } catch (err) {
+      console.error('[auth] server gaming name fetch failed:', err);
+      return null;
+    }
+  }
+
+  /**
    * Fetch the saved gaming name for the current signed-in user.
    *
    * @param {string} userId Supabase user id.
@@ -77,37 +139,85 @@
    */
   async function fetchSavedGamingName(userId) {
     const cached = readCachedGamingName(userId);
-    const token = await getAccessToken();
-    if (!token) return cached;
 
-    try {
-      const res = await fetch('/api/me/gaming-name', {
-        headers: { Authorization: 'Bearer ' + token },
-      });
-      if (res.status === 401 || res.status === 503) {
-        console.warn('[auth] gaming name fetch failed:', res.status);
-        return cached;
-      }
-      if (!res.ok) return cached;
-      const data = await res.json();
-      const gamingName = data.gamingName ? truncateName(data.gamingName) : null;
-      if (gamingName) {
-        writeCachedGamingName(userId, gamingName);
-        return gamingName;
-      }
-      if (cached) {
-        await saveGamingName(cached);
-        return cached;
-      }
-      return null;
-    } catch (err) {
-      console.error('[auth] fetch gaming name failed:', err);
+    let gamingName = await fetchGamingNameFromSupabase(userId);
+    if (!gamingName) {
+      gamingName = await fetchGamingNameFromServer();
+    }
+
+    if (gamingName) {
+      writeCachedGamingName(userId, gamingName);
+      return gamingName;
+    }
+
+    if (cached) {
+      await saveGamingName(cached);
       return cached;
+    }
+
+    return null;
+  }
+
+  /**
+   * Save gaming name directly to Supabase.
+   *
+   * @param {string} userId Supabase user id.
+   * @param {string} gamingName In-game name.
+   * @returns {Promise<boolean>}
+   */
+  async function saveGamingNameToSupabase(userId, gamingName) {
+    if (!supabaseClient || !userId || !gamingName) return false;
+    try {
+      const { error } = await supabaseClient.from('users').upsert(
+        {
+          id: userId,
+          gaming_name: truncateName(gamingName),
+          last_seen_at: new Date().toISOString(),
+        },
+        { onConflict: 'id' }
+      );
+      if (error) {
+        console.warn('[auth] supabase save gaming name:', error.code, error.message);
+        return false;
+      }
+      return true;
+    } catch (err) {
+      console.error('[auth] supabase save gaming name failed:', err);
+      return false;
     }
   }
 
   /**
-   * Persist gaming name via API and local cache.
+   * Save gaming name via the game server API.
+   *
+   * @param {string} gamingName In-game name.
+   * @returns {Promise<boolean>}
+   */
+  async function saveGamingNameToServer(gamingName) {
+    const token = await getAccessToken();
+    if (!token) return false;
+    try {
+      const res = await fetch('/api/me/gaming-name', {
+        method: 'POST',
+        headers: {
+          Authorization: 'Bearer ' + token,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ gamingName: truncateName(gamingName) }),
+      });
+      if (!res.ok) {
+        console.warn('[auth] server save gaming name failed:', res.status);
+        return false;
+      }
+      return true;
+    } catch (err) {
+      console.error('[auth] server save gaming name failed:', err);
+      return false;
+    }
+  }
+
+  /**
+   * Persist gaming name to Supabase, server, and local cache.
    *
    * @param {string} gamingName In-game name.
    * @returns {Promise<void>}
@@ -118,23 +228,9 @@
 
     writeCachedGamingName(profile.userId, name);
 
-    const token = await getAccessToken();
-    if (!token) return;
-
-    try {
-      const res = await fetch('/api/me/gaming-name', {
-        method: 'POST',
-        headers: {
-          Authorization: 'Bearer ' + token,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ gamingName: name }),
-      });
-      if (!res.ok) {
-        console.warn('[auth] save gaming name failed:', res.status);
-      }
-    } catch (err) {
-      console.error('[auth] save gaming name failed:', err);
+    const savedToSupabase = await saveGamingNameToSupabase(profile.userId, name);
+    if (!savedToSupabase) {
+      await saveGamingNameToServer(name);
     }
   }
 
@@ -196,23 +292,37 @@
   }
 
   /**
+   * Load and apply the saved gaming name with short retries after sign-in.
+   *
+   * @param {string} userId Supabase user id.
+   * @param {string} [event] Supabase auth event name.
+   * @returns {Promise<string|null>}
+   */
+  async function loadAndApplyGamingName(userId, event) {
+    let savedName = await fetchSavedGamingName(userId);
+    if (!savedName && (event === 'SIGNED_IN' || event === 'INITIAL_SESSION' || event === 'INIT')) {
+      await new Promise((resolve) => setTimeout(resolve, 400));
+      savedName = await fetchSavedGamingName(userId);
+    }
+    applyGamingNameToInput(savedName);
+    return savedName;
+  }
+
+  /**
    * Refresh profile from the current Supabase session.
    *
    * @param {object|null} session Supabase session.
+   * @param {string} [event] Supabase auth event name.
    * @returns {Promise<void>}
    */
-  async function applySession(session) {
+  async function applySession(session, event) {
     const wasSignedIn = profile.isSignedIn;
-    const previousUserId = profile.userId;
     profile = profileFromUser(session && session.user ? session.user : null);
     updateAuthUI();
 
     if (profile.isSignedIn) {
-      const savedName = await fetchSavedGamingName(profile.userId);
-      applyGamingNameToInput(savedName);
+      await loadAndApplyGamingName(profile.userId, event);
     } else if (wasSignedIn) {
-      applyGamingNameToInput(null);
-    } else if (previousUserId !== profile.userId) {
       applyGamingNameToInput(null);
     }
 
@@ -244,12 +354,12 @@
         },
       });
 
-      supabaseClient.auth.onAuthStateChange((_event, session) => {
-        applySession(session).catch((err) => console.error('[auth] session update failed:', err));
+      supabaseClient.auth.onAuthStateChange((event, session) => {
+        applySession(session, event).catch((err) => console.error('[auth] session update failed:', err));
       });
 
       const { data: { session } } = await supabaseClient.auth.getSession();
-      await applySession(session);
+      await applySession(session, 'INIT');
 
       const btnGoogle = document.getElementById('btn-google-signin');
       if (btnGoogle) {
@@ -293,7 +403,7 @@
     if (!supabaseClient) return;
     const { error } = await supabaseClient.auth.signOut();
     if (error) throw error;
-    await applySession(null);
+    await applySession(null, 'SIGNED_OUT');
   }
 
   /**
