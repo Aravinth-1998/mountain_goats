@@ -1199,6 +1199,28 @@ function startWatchdog(room) {
 // ----------------------------------------------------------------------------
 // Bot AI
 // ----------------------------------------------------------------------------
+
+/**
+ * Mark extra 1s as re-faceable when more than one 1 is rolled.
+ *
+ * @param {object} room Active room with dice set.
+ */
+function applyOnesRule(room) {
+  const ones = room.dice.map((d, i) => (d === 1 ? i : -1)).filter((i) => i >= 0);
+  room.adjustable = ones.length >= 2 ? ones.slice(0, ones.length - 1) : [];
+}
+
+/**
+ * Roll four dice for the current turn and apply the multiple-1s rule.
+ *
+ * @param {object} room Active room.
+ */
+function rollDiceForTurn(room) {
+  room.dice = Array.from({ length: NUM_DICE }, () => 1 + Math.floor(Math.random() * 6));
+  room.diceUsed = room.dice.map(() => false);
+  applyOnesRule(room);
+}
+
 // Score a single possible group (indices + target mountain) for the bot.
 function scoreGroup(room, bot, indices, mi) {
   const m = room.mountains[mi];
@@ -1260,8 +1282,10 @@ function scoreGroup(room, bot, indices, mi) {
 }
 
 // Enumerate all subsets of unused dice, evaluate each valid group, pick the best.
-function botChooseGroup(room, bot) {
-  const unused = room.dice.map((_, i) => i).filter((i) => !room.diceUsed[i]);
+function botChooseGroup(room, bot, diceOverride, diceUsedOverride) {
+  const dice = diceOverride || room.dice;
+  const diceUsed = diceUsedOverride || room.diceUsed;
+  const unused = dice.map((_, i) => i).filter((i) => !diceUsed[i]);
   const n = unused.length;
   let best = null;
 
@@ -1270,7 +1294,7 @@ function botChooseGroup(room, bot) {
     const indices = [];
     for (let b = 0; b < n; b++) {
       if (mask & (1 << b)) {
-        sum += room.dice[unused[b]];
+        sum += dice[unused[b]];
         indices.push(unused[b]);
       }
     }
@@ -1285,6 +1309,72 @@ function botChooseGroup(room, bot) {
   }
 
   return best && best.score > -Infinity ? best : null;
+}
+
+/**
+ * Score a full greedy bot turn using the given dice faces (simulation only).
+ *
+ * @param {object} room Active room.
+ * @param {object} bot Current bot player.
+ * @param {number[]} dice Dice faces to simulate.
+ * @returns {number} Sum of chosen group scores for the turn.
+ */
+function simulateGreedyBotTurn(room, bot, dice) {
+  const simUsed = dice.map(() => false);
+  let totalScore = 0;
+
+  while (true) {
+    const group = botChooseGroup(room, bot, dice, simUsed);
+    if (!group) break;
+    totalScore += group.score;
+    group.indices.forEach((idx) => {
+      simUsed[idx] = true;
+    });
+  }
+
+  return totalScore;
+}
+
+/**
+ * Re-face all extra 1s before the bot plays any dice groups.
+ *
+ * @param {object} room Active room.
+ * @param {object} bot Current bot player.
+ * @param {string} label Log label for the acting player.
+ */
+function botOptimizeAdjustableDice(room, bot, label) {
+  if (!room.adjustable.length) return;
+
+  const adjustable = room.adjustable.slice();
+  const originalFaces = adjustable.map((index) => room.dice[index]);
+  const comboCount = Math.pow(6, adjustable.length);
+  const simDice = room.dice.slice();
+  let bestScore = -Infinity;
+  let bestFaces = originalFaces.slice();
+
+  for (let combo = 0; combo < comboCount; combo++) {
+    let remainder = combo;
+    for (let j = 0; j < adjustable.length; j++) {
+      simDice[adjustable[j]] = (remainder % 6) + 1;
+      remainder = Math.floor(remainder / 6);
+    }
+    const score = simulateGreedyBotTurn(room, bot, simDice);
+    if (score > bestScore) {
+      bestScore = score;
+      bestFaces = adjustable.map((index) => simDice[index]);
+    }
+  }
+
+  let changed = false;
+  adjustable.forEach((index, j) => {
+    if (room.dice[index] !== bestFaces[j]) changed = true;
+    room.dice[index] = bestFaces[j];
+  });
+  room.adjustable = [];
+
+  if (changed) {
+    pushLog(room, `${label} re-faced dice to ${bestFaces.join(', ')}.`);
+  }
 }
 
 // Returns true if the current player should be auto-played (bot or disconnected human).
@@ -1317,14 +1407,19 @@ function botAct(room) {
     const label = cur.isBot ? cur.name : `Bot (for ${cur.name})`;
 
     if (!room.rolled) {
-      room.dice = Array.from({ length: NUM_DICE }, () => 1 + Math.floor(Math.random() * 6));
-      room.diceUsed = room.dice.map(() => false);
-      room.adjustable = [];
+      rollDiceForTurn(room);
       room.rolled = true;
       pushLog(room, `${label} rolled ${room.dice.join(', ')}.`);
+      if (room.adjustable.length) {
+        botOptimizeAdjustableDice(room, cur, label);
+      }
       broadcast(room);
       scheduleBot(room, 850);
       return;
+    }
+
+    if (room.adjustable.length) {
+      botOptimizeAdjustableDice(room, cur, label);
     }
 
     const group = botChooseGroup(room, cur);
@@ -1845,13 +1940,7 @@ io.on('connection', (socket) => {
     const current = room.players[room.currentIndex];
     if (!current || current.id !== socket.id || room.rolled) return;
 
-    room.dice = Array.from({ length: NUM_DICE }, () => 1 + Math.floor(Math.random() * 6));
-    room.diceUsed = room.dice.map(() => false);
-
-    // "1s" rule: if more than one die shows 1, all but one may be re-faced.
-    const ones = room.dice.map((d, i) => (d === 1 ? i : -1)).filter((i) => i >= 0);
-    room.adjustable = ones.length >= 2 ? ones.slice(0, ones.length - 1) : [];
-
+    rollDiceForTurn(room);
     room.rolled = true;
     pushLog(room, `${current.name} rolled ${room.dice.join(', ')}.`);
     broadcast(room);
