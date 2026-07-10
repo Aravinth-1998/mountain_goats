@@ -230,7 +230,6 @@
   function updateAuthUI() {
     const authBottom = document.getElementById('auth-bottom');
     const signedOut = document.getElementById('auth-bottom-signed-out');
-    const signedIn = document.getElementById('auth-bottom-signed-in');
     const nameInput = document.getElementById('home-name');
 
     if (!authBottom) return;
@@ -246,18 +245,15 @@
       return;
     }
 
-    authBottom.style.display = '';
-
     if (profile.isSignedIn) {
-      if (signedOut) signedOut.style.display = 'none';
-      if (signedIn) signedIn.style.display = '';
+      authBottom.style.display = 'none';
       if (nameInput) {
         nameInput.placeholder = 'Choose your GOAT name';
         nameInput.readOnly = false;
       }
     } else {
+      authBottom.style.display = '';
       if (signedOut) signedOut.style.display = '';
-      if (signedIn) signedIn.style.display = 'none';
       if (nameInput) {
         nameInput.placeholder = 'Enter your GOAT name';
         nameInput.readOnly = false;
@@ -269,25 +265,25 @@
   }
 
   /**
-   * Set a W/L element to win% / loss% with colored spans.
+   * Set a Win/Loss element to win and loss counts with colored spans.
    *
    * @param {string} elementId Target element id.
    * @param {number} won Matches won.
-   * @param {number} played Matches played.
+   * @param {number} lost Matches lost.
    */
-  function setWinLossEl(elementId, won, played) {
+  function setWinLossEl(elementId, won, lost) {
     const el = document.getElementById(elementId);
     if (!el) return;
-    if (!played) {
+    const wins = Number(won) || 0;
+    const losses = Number(lost) || 0;
+    if (wins + losses === 0) {
       el.textContent = '\u2014';
       return;
     }
-    const winPct = Math.round((won / played) * 100);
-    const lossPct = 100 - winPct;
     el.innerHTML =
-      `<span class="stats-wl-win">${winPct}</span>` +
+      `<span class="stats-wl-win">${wins}</span>` +
       '/' +
-      `<span class="stats-wl-loss">${lossPct}</span>`;
+      `<span class="stats-wl-loss">${losses}</span>`;
   }
 
   /**
@@ -322,6 +318,7 @@
   function applyMatchStatsToDrawer(stats) {
     const played = stats && typeof stats.matchesPlayed === 'number' ? stats.matchesPlayed : 0;
     const won = stats && typeof stats.matchesWon === 'number' ? stats.matchesWon : 0;
+    const lost = stats && typeof stats.matchesLost === 'number' ? stats.matchesLost : 0;
     const standard = stats && stats.standard ? stats.standard : { played: 0, won: 0, lost: 0 };
     const team = stats && stats.team ? stats.team : { played: 0, won: 0, lost: 0 };
     const winStreak = stats && typeof stats.winStreak === 'number' ? stats.winStreak : 0;
@@ -341,9 +338,9 @@
     if (bestStreakEl) bestStreakEl.textContent = String(bestWinStreak);
     if (streakRow) streakRow.classList.toggle('stats-row-streak-active', winStreak > 0);
 
-    setWinLossEl('profile-stat-wl', won, played);
-    setWinLossEl('profile-standard-wl', standard.won || 0, standard.played || 0);
-    setWinLossEl('profile-team-wl', team.won || 0, team.played || 0);
+    setWinLossEl('profile-stat-wl', won, lost);
+    setWinLossEl('profile-standard-wl', standard.won || 0, standard.lost || 0);
+    setWinLossEl('profile-team-wl', team.won || 0, team.lost || 0);
   }
 
   /**
@@ -377,10 +374,12 @@
   function setStatsAccordionOpen(open) {
     const accordionBtn = document.getElementById('profile-stats-accordion-btn');
     const accordionBody = document.getElementById('profile-stats-accordion-body');
+    const accordion = accordionBtn ? accordionBtn.closest('.stats-accordion') : null;
     if (!accordionBtn || !accordionBody) return;
 
     accordionBtn.classList.toggle('open', open);
     accordionBody.classList.toggle('open', open);
+    if (accordion) accordion.classList.toggle('is-expanded', open);
     accordionBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
   }
 
@@ -786,6 +785,7 @@
    */
   async function signOut() {
     if (!supabaseClient) return;
+    closeProfileStatsDrawer({ immediate: true });
     const { error } = await supabaseClient.auth.signOut();
     if (error) throw error;
     await applySession(null, 'SIGNED_OUT');

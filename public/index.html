@@ -37,21 +37,21 @@
         <button type="button" id="profile-stats-close" class="stats-drawer-close" aria-label="Close profile sidebar">&times;</button>
       </div>
 
-      <div class="stats-drawer-scroll">
-        <div class="card profile-header">
-          <img id="profile-drawer-avatar" class="profile-header-avatar" src="" alt="" />
-          <div class="profile-header-text">
-            <p id="profile-display-name" class="profile-display-name"></p>
-            <p id="profile-goat-name" class="profile-goat-name"></p>
-          </div>
+      <div class="card profile-header">
+        <img id="profile-drawer-avatar" class="profile-header-avatar" src="" alt="" />
+        <div class="profile-header-text">
+          <p id="profile-display-name" class="profile-display-name"></p>
+          <p id="profile-goat-name" class="profile-goat-name"></p>
         </div>
+      </div>
 
-        <div class="card stats-accordion">
-          <button type="button" id="profile-stats-accordion-btn" class="stats-accordion-btn open" aria-expanded="true" aria-controls="profile-stats-accordion-body">
-            <span>Stats</span>
-            <span class="toggle-arrow" aria-hidden="true">&#9662;</span>
-          </button>
-          <div id="profile-stats-accordion-body" class="stats-accordion-body open">
+      <div class="card stats-accordion is-expanded">
+        <button type="button" id="profile-stats-accordion-btn" class="stats-accordion-btn open" aria-expanded="true" aria-controls="profile-stats-accordion-body">
+          <span>Stats</span>
+          <span class="toggle-arrow" aria-hidden="true">&#9662;</span>
+        </button>
+        <div id="profile-stats-accordion-body" class="stats-accordion-body open">
+          <div class="stats-drawer-scroll">
             <div class="stats-rows">
               <p class="stats-section-label">Overall</p>
               <div class="stats-row">
@@ -59,7 +59,7 @@
                 <span class="stats-row-value" id="profile-stat-played">0</span>
               </div>
               <div class="stats-row">
-                <span class="stats-row-label">W/L</span>
+                <span class="stats-row-label">Win/Loss</span>
                 <span class="stats-row-value" id="profile-stat-wl">&mdash;</span>
               </div>
 
@@ -69,18 +69,18 @@
                 <span class="stats-row-value" id="profile-standard-played">0</span>
               </div>
               <div class="stats-row">
-                <span class="stats-row-label">W/L</span>
+                <span class="stats-row-label">Win/Loss</span>
                 <span class="stats-row-value" id="profile-standard-wl">&mdash;</span>
               </div>
 
               <div class="stats-section-divider" aria-hidden="true"></div>
-              <p class="stats-section-label team-label-stats">Team</p>
+              <p class="stats-section-label">Team</p>
               <div class="stats-row">
                 <span class="stats-row-label">Played</span>
                 <span class="stats-row-value" id="profile-team-played">0</span>
               </div>
               <div class="stats-row">
-                <span class="stats-row-label">W/L</span>
+                <span class="stats-row-label">Win/Loss</span>
                 <span class="stats-row-value" id="profile-team-wl">&mdash;</span>
               </div>
 
@@ -97,6 +97,10 @@
             </div>
           </div>
         </div>
+      </div>
+
+      <div class="stats-drawer-footer">
+        <button type="button" id="btn-signout" class="btn btn-ghost btn-block profile-signout-btn">Sign out</button>
       </div>
     </aside>
 
@@ -121,13 +125,6 @@
       <div id="auth-bottom-signed-out">
         <button type="button" id="btn-google-signin" class="btn btn-google">Sign in with Google</button>
         <p class="muted center auth-divider">or play as guest</p>
-      </div>
-      <div id="auth-bottom-signed-in" style="display:none">
-        <div class="auth-bottom-signed-in">
-          <span class="auth-bottom-dot" aria-hidden="true"></span>
-          <span>Signed in with Google</span>
-          <button type="button" id="btn-signout" class="auth-link">Sign out</button>
-        </div>
       </div>
     </div>
 

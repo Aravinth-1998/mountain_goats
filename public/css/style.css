@@ -944,7 +944,8 @@ input.input-error:focus { border-color: var(--danger); background: rgba(255,93,1
   box-shadow: -12px 0 40px rgba(0, 0, 0, 0.35);
   display: flex;
   flex-direction: column;
-  padding: 18px 16px 20px;
+  gap: 12px;
+  padding: 18px 14px 16px 16px;
   transform: translateX(100%);
   pointer-events: none;
   transition: transform 0.28s ease;
@@ -964,11 +965,28 @@ input.input-error:focus { border-color: var(--danger); background: rgba(255,93,1
 #screen-home .stats-drawer-scroll {
   flex: 1;
   min-height: 0;
+  overflow-x: hidden;
   overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding-right: 2px;
+  overscroll-behavior: contain;
+  padding-right: 4px;
+  margin-right: -2px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(79, 124, 255, 0.5) rgba(255, 255, 255, 0.06);
+}
+#screen-home .stats-drawer-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+#screen-home .stats-drawer-scroll::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 999px;
+}
+#screen-home .stats-drawer-scroll::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(79, 124, 255, 0.55), rgba(79, 124, 255, 0.35));
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+#screen-home .stats-drawer-scroll::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, rgba(79, 124, 255, 0.75), rgba(79, 124, 255, 0.5));
 }
 #screen-home .stats-drawer-header {
   display: flex;
@@ -976,7 +994,21 @@ input.input-error:focus { border-color: var(--danger); background: rgba(255,93,1
   justify-content: space-between;
   gap: 12px;
   flex-shrink: 0;
-  margin-bottom: 4px;
+  margin-bottom: 0;
+}
+#screen-home .stats-drawer-footer {
+  flex-shrink: 0;
+  margin-top: auto;
+  padding-top: 12px;
+  border-top: 1px solid var(--card-border);
+  background: var(--card);
+}
+#screen-home .profile-signout-btn {
+  color: #ff8a96;
+  border-color: rgba(255, 138, 150, 0.35);
+}
+#screen-home .profile-signout-btn:hover {
+  background: rgba(255, 138, 150, 0.08);
 }
 #screen-home .stats-drawer-title {
   font-family: 'Fredoka', sans-serif;
@@ -1003,6 +1035,8 @@ input.input-error:focus { border-color: var(--danger); background: rgba(255,93,1
   align-items: center;
   gap: 12px;
   padding: 14px;
+  flex-shrink: 0;
+  margin: 0;
 }
 #screen-home .profile-header-avatar {
   width: 48px;
@@ -1040,8 +1074,16 @@ input.input-error:focus { border-color: var(--danger); background: rgba(255,93,1
   font-weight: 500;
 }
 #screen-home .stats-accordion {
+  flex: 0 0 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
   padding: 0;
   overflow: hidden;
+}
+#screen-home .stats-accordion.is-expanded {
+  flex: 1;
+  min-height: 0;
 }
 #screen-home .stats-accordion-btn {
   display: flex;
@@ -1059,6 +1101,7 @@ input.input-error:focus { border-color: var(--danger); background: rgba(255,93,1
   font-family: 'Fredoka', sans-serif;
   letter-spacing: 0.3px;
   transition: background 0.2s;
+  flex-shrink: 0;
 }
 #screen-home .stats-accordion-btn.open {
   padding-bottom: 8px;
@@ -1079,10 +1122,15 @@ input.input-error:focus { border-color: var(--danger); background: rgba(255,93,1
   max-height: 0;
   overflow: hidden;
   transition: max-height 0.35s ease;
+  flex: 0 0 auto;
 }
 #screen-home .stats-accordion-body.open {
-  max-height: 2000px;
-  overflow: visible;
+  flex: 1;
+  min-height: 0;
+  max-height: none;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 #screen-home .stats-rows {
   padding: 6px 16px 18px;
@@ -1102,9 +1150,6 @@ input.input-error:focus { border-color: var(--danger); background: rgba(255,93,1
 }
 #screen-home .stats-section-label:first-child {
   margin-top: 0;
-}
-#screen-home .stats-section-label.team-label-stats {
-  color: var(--primary);
 }
 #screen-home .stats-section-divider {
   height: 1px;
