@@ -97,8 +97,14 @@ use the JSON file fallback.
 
 ## Google Sign-In (optional)
 
-Optional **Sign in with Google** via **Supabase Auth**. Signed-in players get a
-verified display name stored in the `users` table. Guests can still type a name.
+Optional **Sign in with Google** via **Supabase Auth**. Signed-in players choose a
+custom GOAT name that syncs across devices. Guests can still type a name.
+
+**How names are stored:**
+
+- **Cross-device autofill:** Supabase Auth `user_metadata.gaming_name` (client)
+- **Server gameplay / reconnect:** `users.gaming_name` in Postgres (written on create/join)
+- **Google profile audit:** `users.google_name` and `users.avatar_url` on sign-in
 
 ### 1. Supabase
 
@@ -118,7 +124,7 @@ verified display name stored in the `users` table. Guests can still type a name.
 
 | Key | Purpose |
 |-----|---------|
-| `SUPABASE_URL` | Project URL (required on server for token verification and cross-device name sync) |
+| `SUPABASE_URL` | Project URL (required on server for socket token verification) |
 | `SUPABASE_ANON_KEY` | Public anon key (required on server for token verification) |
 | `SUPABASE_JWT_SECRET` | Optional legacy fallback for local JWT verification |
 | `DATABASE_URL` | Session pooler URL (creates `users` + `game_history` tables) |
@@ -126,10 +132,11 @@ verified display name stored in the `users` table. Guests can still type a name.
 Redeploy after adding env vars. The Google button appears on the home screen when
 `SUPABASE_URL` and `SUPABASE_ANON_KEY` are set.
 
-Gaming names sync cross-device via **Supabase Auth user metadata** (`gaming_name`).
-No database setup is required for name sync. After deploy, sign in, enter your GOAT
-name, and tap Create Room or Join Room once — the name follows your Google account
-on every device.
+After sign-in, enter your GOAT name and create or join a room once. The name is
+saved to your Google account and autofills on other browsers and devices.
+
+**Rejoin after refresh:** guests use `mg_name` + `mg_code` in localStorage;
+signed-in users rejoin with `mg_code` and their name from Supabase Auth metadata.
 
 ---
 

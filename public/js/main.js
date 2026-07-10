@@ -50,12 +50,12 @@
   const $ = (id) => document.getElementById(id);
 
   /**
-   * Resolve display name for create/join (Google profile or guest input).
+   * Resolve gaming name for create/join (signed-in input or guest input).
    *
    * @returns {string}
    */
   function getPlayName() {
-    if (window.MGAuth) return window.MGAuth.getDisplayNameForPlay();
+    if (window.MGAuth) return window.MGAuth.getGamingNameForPlay();
     return $('home-name').value.trim();
   }
 
@@ -69,7 +69,7 @@
   }
 
   /**
-   * Persist gaming name for signed-in users (DB + local cache).
+   * Persist gaming name for signed-in users via Supabase Auth metadata.
    *
    * @param {string} name Resolved in-game name.
    */
@@ -80,7 +80,21 @@
   }
 
   /**
-   * Validate guest name or return signed-in display name.
+   * Store room rejoin keys after a successful create/join.
+   *
+   * @param {string} name Resolved in-game name.
+   * @param {string} code Room code.
+   */
+  function storeRejoinKeys(name, code) {
+    localStorage.setItem('mg_code', code);
+    if (!isSignedIn()) {
+      localStorage.setItem('mg_name', name);
+    }
+    persistSignedInGamingName(name);
+  }
+
+  /**
+   * Validate guest name or return signed-in gaming name.
    *
    * @returns {string|null}
    */
@@ -302,7 +316,6 @@
   $('btn-create').addEventListener('click', () => {
     const name = requirePlayName();
     if (!name) return;
-    persistSignedInGamingName(name);
     $('home-error').textContent = '';
     setHomeLoading('create');
     socket.emit('createRoom', { name }, (res) => {
@@ -310,9 +323,7 @@
       if (res.error) return ($('home-error').textContent = res.error);
       leftRoom = false;
       myId = res.youId;
-      localStorage.setItem('mg_name', name);
-      localStorage.setItem('mg_code', res.code);
-      persistSignedInGamingName(name);
+      storeRejoinKeys(name, res.code);
     });
   });
 
@@ -320,7 +331,6 @@
   $('btn-goto-join').addEventListener('click', () => {
     const name = requirePlayName();
     if (!name) return;
-    persistSignedInGamingName(name);
     $('home-error').textContent = '';
     show('join');
     refreshPublicRooms();
@@ -348,9 +358,7 @@
       if (res.error) return ($('join-error').textContent = res.error);
       leftRoom = false;
       myId = res.youId;
-      localStorage.setItem('mg_name', name);
-      localStorage.setItem('mg_code', res.code);
-      persistSignedInGamingName(name);
+      storeRejoinKeys(name, res.code);
       stopPublicRoomsRefresh();
     });
   });
@@ -401,9 +409,7 @@
               if (res.error) return ($('join-error').textContent = res.error);
               leftRoom = false;
               myId = res.youId;
-              localStorage.setItem('mg_name', name);
-              localStorage.setItem('mg_code', res.code);
-              persistSignedInGamingName(name);
+              storeRejoinKeys(name, res.code);
               stopPublicRoomsRefresh();
             });
           });
@@ -634,15 +640,14 @@
   // ===================== SOCKET =====================
   socket.on('connect', () => {
     const code = localStorage.getItem('mg_code');
-    const storedName = localStorage.getItem('mg_name');
+    const storedName = isSignedIn() ? '' : localStorage.getItem('mg_name');
     const name = getPlayName() || storedName;
     if (code && name) {
       leftRoom = false;
       socket.emit('joinRoom', { name, code }, (res) => {
         if (res && res.ok) {
           myId = res.youId;
-          localStorage.setItem('mg_name', name);
-          persistSignedInGamingName(name);
+          storeRejoinKeys(name, code);
         } else {
           localStorage.removeItem('mg_code');
           localStorage.removeItem('mg_name');

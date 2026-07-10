@@ -33,7 +33,6 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-app.use(express.json({ limit: '4kb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 app.get('/healthz', (req, res) => res.send('ok'));
 
@@ -42,50 +41,6 @@ app.get('/api/public-config', (req, res) => {
     supabaseUrl: process.env.SUPABASE_URL || '',
     supabaseAnonKey: process.env.SUPABASE_ANON_KEY || '',
   });
-});
-
-app.get('/api/me/gaming-name', async (req, res) => {
-  if (!auth.isAuthConfigured()) {
-    return res.status(503).json({ error: 'Auth not configured' });
-  }
-  const header = req.headers.authorization || '';
-  const token = header.startsWith('Bearer ') ? header.slice(7) : '';
-  if (!token) return res.status(401).json({ error: 'Unauthorized' });
-  try {
-    const payload = await auth.verifyAccessToken(token);
-    const metaName = auth.resolveGamingNameFromPayload(payload);
-    if (!(await db.ensureConnected())) {
-      return res.json({ gamingName: metaName });
-    }
-    const dbName = await db.getGamingName(payload.sub);
-    res.json({ gamingName: metaName || dbName });
-  } catch (err) {
-    console.warn(`${auth.LOG_PREFIX} gaming-name GET failed:`, err.message);
-    res.status(401).json({ error: 'Invalid token' });
-  }
-});
-
-app.post('/api/me/gaming-name', async (req, res) => {
-  if (!auth.isAuthConfigured()) {
-    return res.status(503).json({ error: 'Auth not configured' });
-  }
-  const header = req.headers.authorization || '';
-  const token = header.startsWith('Bearer ') ? header.slice(7) : '';
-  if (!token) return res.status(401).json({ error: 'Unauthorized' });
-  const gamingName = String(req.body && req.body.gamingName || '').trim().slice(0, 16);
-  if (!gamingName) return res.status(400).json({ error: 'gamingName required' });
-  try {
-    const payload = await auth.verifyAccessToken(token);
-    if (!(await db.ensureConnected())) {
-      console.warn(`${auth.LOG_PREFIX} gaming-name POST: database not connected`);
-      return res.status(503).json({ error: 'Database unavailable' });
-    }
-    await db.saveGamingName(payload.sub, gamingName);
-    res.json({ ok: true, gamingName });
-  } catch (err) {
-    console.warn(`${auth.LOG_PREFIX} gaming-name POST failed:`, err.message);
-    res.status(401).json({ error: 'Invalid token' });
-  }
 });
 
 // Admin secret key - set via environment variable or defaults to a random key

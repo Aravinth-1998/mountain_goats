@@ -175,7 +175,6 @@ function resolvePlayerName(socket, clientName) {
 module.exports = {
   LOG_PREFIX,
   isAuthConfigured,
-  verifySupabaseToken,
   verifyAccessToken,
   resolveGoogleName,
   resolveGamingNameFromPayload,

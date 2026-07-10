@@ -166,12 +166,6 @@ async function init() {
       UPDATE users SET gaming_name = LEFT(display_name, 16)
       WHERE gaming_name IS NULL AND display_name IS NOT NULL AND display_name <> ''
     `);
-    await p.query(`
-      UPDATE users SET display_name = gaming_name
-      WHERE (display_name IS NULL OR display_name = '')
-        AND gaming_name IS NOT NULL AND gaming_name <> ''
-    `);
-    await setupUserTablePolicies(p);
     connected = true;
     console.log(`${LOG_PREFIX} Schema ready`);
     return true;
@@ -180,41 +174,6 @@ async function init() {
     await resetPool();
     throw err;
   }
-}
-
-/**
- * Allow signed-in Supabase users to read and update their own profile row
- * via the browser client (PostgREST + RLS).
- *
- * @param {import('pg').Pool} p Postgres pool.
- * @returns {Promise<void>}
- */
-async function setupUserTablePolicies(p) {
-  await p.query('ALTER TABLE users ENABLE ROW LEVEL SECURITY');
-  await p.query('GRANT USAGE ON SCHEMA public TO authenticated');
-  await p.query('GRANT SELECT, INSERT, UPDATE ON users TO authenticated');
-
-  await p.query('DROP POLICY IF EXISTS users_select_own ON users');
-  await p.query(`
-    CREATE POLICY users_select_own ON users
-    FOR SELECT TO authenticated
-    USING (auth.uid() = id)
-  `);
-
-  await p.query('DROP POLICY IF EXISTS users_insert_own ON users');
-  await p.query(`
-    CREATE POLICY users_insert_own ON users
-    FOR INSERT TO authenticated
-    WITH CHECK (auth.uid() = id)
-  `);
-
-  await p.query('DROP POLICY IF EXISTS users_update_own ON users');
-  await p.query(`
-    CREATE POLICY users_update_own ON users
-    FOR UPDATE TO authenticated
-    USING (auth.uid() = id)
-    WITH CHECK (auth.uid() = id)
-  `);
 }
 
 /**
@@ -315,8 +274,8 @@ async function upsertAuthUser(user) {
   if (!p || !connected) return;
 
   await p.query(
-    `INSERT INTO users (id, google_name, avatar_url, display_name, last_seen_at)
-     VALUES ($1, $2, $3, '', NOW())
+    `INSERT INTO users (id, google_name, avatar_url, last_seen_at)
+     VALUES ($1, $2, $3, NOW())
      ON CONFLICT (id) DO UPDATE SET
        google_name = EXCLUDED.google_name,
        avatar_url = EXCLUDED.avatar_url,
@@ -365,27 +324,13 @@ async function saveGamingName(userId, gamingName) {
   if (!name) return;
 
   await p.query(
-    `INSERT INTO users (id, gaming_name, display_name, last_seen_at)
-     VALUES ($1, $2, $2, NOW())
+    `INSERT INTO users (id, gaming_name, last_seen_at)
+     VALUES ($1, $2, NOW())
      ON CONFLICT (id) DO UPDATE SET
        gaming_name = EXCLUDED.gaming_name,
-       display_name = EXCLUDED.display_name,
        last_seen_at = NOW()`,
     [userId, name]
   );
-}
-
-/**
- * @deprecated Use upsertAuthUser instead.
- * @param {object} user User fields.
- * @returns {Promise<void>}
- */
-async function upsertUser(user) {
-  await upsertAuthUser({
-    id: user.id,
-    googleName: user.displayName,
-    avatarUrl: user.avatarUrl,
-  });
 }
 
 /**
@@ -407,7 +352,6 @@ module.exports = {
   loadGameHistory,
   saveGameHistory,
   pruneGameHistory,
-  upsertUser,
   upsertAuthUser,
   getGamingName,
   saveGamingName,
