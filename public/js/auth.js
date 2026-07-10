@@ -300,14 +300,9 @@
    * Update signed-in / signed-out UI on the home screen.
    */
   function updateAuthUI() {
-    const authBottom = document.getElementById('auth-bottom');
-    const signedOut = document.getElementById('auth-bottom-signed-out');
     const nameInput = document.getElementById('home-name');
 
-    if (!authBottom) return;
-
     if (!configured) {
-      authBottom.style.display = 'none';
       if (nameInput) {
         nameInput.disabled = false;
         nameInput.readOnly = false;
@@ -318,14 +313,11 @@
     }
 
     if (profile.isSignedIn) {
-      authBottom.style.display = 'none';
       if (nameInput) {
         nameInput.placeholder = 'Choose your GOAT name';
         nameInput.readOnly = false;
       }
     } else {
-      authBottom.style.display = '';
-      if (signedOut) signedOut.style.display = '';
       if (nameInput) {
         nameInput.placeholder = 'Enter your GOAT name';
         nameInput.readOnly = false;
@@ -577,20 +569,37 @@
   }
 
   /**
-   * Show or hide the profile avatar button on the home screen.
+   * Show profile avatar or guest Google sign-in button on the home screen.
    */
   function updateProfileStatsFab() {
     const fab = document.getElementById('profile-stats-fab');
     const avatar = document.getElementById('profile-stats-avatar');
-    if (!fab || !avatar) return;
+    const signInG = document.getElementById('profile-stats-signin-g');
+    if (!fab || !avatar || !signInG) return;
 
-    if (!configured || !profile.isSignedIn) {
+    if (!configured) {
       fab.hidden = true;
       return;
     }
 
     fab.hidden = false;
-    setAvatarImage(avatar, profile.avatarUrl, profile.displayName);
+    fab.classList.toggle('is-guest', !profile.isSignedIn);
+
+    if (profile.isSignedIn) {
+      avatar.hidden = false;
+      signInG.hidden = true;
+      signInG.setAttribute('aria-hidden', 'true');
+      fab.setAttribute('aria-label', 'Your profile');
+      fab.setAttribute('aria-controls', 'profile-stats-drawer');
+      setAvatarImage(avatar, profile.avatarUrl, profile.displayName);
+      return;
+    }
+
+    avatar.hidden = true;
+    signInG.hidden = false;
+    signInG.setAttribute('aria-hidden', 'false');
+    fab.setAttribute('aria-label', 'Sign in with Google');
+    fab.removeAttribute('aria-controls');
   }
 
   /**
@@ -612,7 +621,11 @@
     setStatsPanelOpen(false);
 
     fab.addEventListener('click', () => {
-      openProfileStatsDrawer().catch((err) => console.error('[auth] open profile drawer failed:', err));
+      if (profile.isSignedIn) {
+        openProfileStatsDrawer().catch((err) => console.error('[auth] open profile drawer failed:', err));
+      } else {
+        signInWithGoogle().catch((err) => console.error('[auth] sign in failed:', err));
+      }
     });
 
     backdrop.addEventListener('click', closeProfileStatsDrawer);
@@ -832,12 +845,6 @@
       applySessionFast(session, 'INIT');
       finishAuthBootstrap();
 
-      const btnGoogle = document.getElementById('btn-google-signin');
-      if (btnGoogle) {
-        btnGoogle.addEventListener('click', () => {
-          signInWithGoogle().catch((err) => console.error('[auth] sign in failed:', err));
-        });
-      }
       const btnSignOut = document.getElementById('btn-signout');
       if (btnSignOut) {
         btnSignOut.addEventListener('click', () => {
