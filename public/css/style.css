@@ -241,6 +241,10 @@ body { background-color: var(--bg-0); }
   min-height: 18px;
   padding-bottom: 10px;
 }
+.online-count.is-loading {
+  color: var(--muted);
+  font-weight: 500;
+}
 
 /* Card */
 .card {
@@ -940,11 +944,12 @@ input.input-error:focus { border-color: var(--danger); background: rgba(255,93,1
   box-shadow: -12px 0 40px rgba(0, 0, 0, 0.35);
   display: flex;
   flex-direction: column;
-  padding: 18px 16px 24px;
+  padding: 18px 16px 20px;
   transform: translateX(100%);
   pointer-events: none;
   transition: transform 0.28s ease;
   will-change: transform;
+  overflow: hidden;
 }
 #screen-home .stats-drawer.is-open {
   transform: translateX(0);
@@ -956,12 +961,22 @@ input.input-error:focus { border-color: var(--danger); background: rgba(255,93,1
     transition: none !important;
   }
 }
+#screen-home .stats-drawer-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-right: 2px;
+}
 #screen-home .stats-drawer-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 16px;
+  flex-shrink: 0;
+  margin-bottom: 4px;
 }
 #screen-home .stats-drawer-title {
   font-family: 'Fredoka', sans-serif;
@@ -982,6 +997,47 @@ input.input-error:focus { border-color: var(--danger); background: rgba(255,93,1
 }
 #screen-home .stats-drawer-close:hover {
   color: var(--text);
+}
+#screen-home .profile-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+}
+#screen-home .profile-header-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+  border: 2px solid rgba(79, 124, 255, 0.35);
+}
+#screen-home .profile-header-text {
+  min-width: 0;
+}
+#screen-home .profile-display-name {
+  margin: 0 0 2px;
+  font-family: 'Fredoka', sans-serif;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#screen-home .profile-goat-name {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--gold);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#screen-home .profile-goat-name.is-empty {
+  color: var(--muted);
+  font-style: italic;
+  font-weight: 500;
 }
 #screen-home .stats-accordion {
   padding: 0;
@@ -1022,27 +1078,49 @@ input.input-error:focus { border-color: var(--danger); background: rgba(255,93,1
 #screen-home .stats-accordion-body {
   max-height: 0;
   overflow: hidden;
-  transition: max-height 0.3s ease;
+  transition: max-height 0.35s ease;
 }
 #screen-home .stats-accordion-body.open {
-  max-height: 240px;
+  max-height: 2000px;
+  overflow: visible;
 }
 #screen-home .stats-rows {
   padding: 6px 16px 18px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
+}
+#screen-home .stats-section-label {
+  margin: 10px 0 2px;
+  padding: 0 2px;
+  font-family: 'Fredoka', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+#screen-home .stats-section-label:first-child {
+  margin-top: 0;
+}
+#screen-home .stats-section-label.team-label-stats {
+  color: var(--primary);
+}
+#screen-home .stats-section-divider {
+  height: 1px;
+  margin: 4px 2px;
+  background: var(--card-border);
 }
 #screen-home .stats-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 10px 12px;
+  padding: 9px 12px;
   border-radius: 10px;
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid var(--card-border);
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
 }
 #screen-home .stats-row-label {
@@ -1058,6 +1136,15 @@ input.input-error:focus { border-color: var(--danger); background: rgba(255,93,1
 }
 #screen-home .stats-row-loss .stats-row-value {
   color: #ff8a96;
+}
+#screen-home .stats-wl-win {
+  color: var(--gold);
+}
+#screen-home .stats-wl-loss {
+  color: #ff8a96;
+}
+#screen-home .stats-row-streak-active .stats-row-value {
+  color: var(--gold);
 }
 
 /* Auth (Google sign-in) - bottom strip */

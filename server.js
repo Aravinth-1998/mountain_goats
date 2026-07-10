@@ -53,7 +53,11 @@ app.post('/api/me/sync', async (req, res) => {
   try {
     const profile = await auth.syncAuthUser(token, db);
     console.log(`${auth.LOG_PREFIX} synced user ${profile.userId}`);
-    res.json({ ok: true, userId: profile.userId });
+    res.json({
+      ok: true,
+      userId: profile.userId,
+      gamingName: profile.gamingName || null,
+    });
   } catch (err) {
     console.warn(`${auth.LOG_PREFIX} /api/me/sync failed:`, err.message);
     res.status(401).json({ error: err.message || 'Invalid token' });
@@ -74,10 +78,15 @@ app.get('/api/me/stats', async (req, res) => {
       return res.status(503).json({ error: 'Database unavailable' });
     }
     const stats = await db.getMatchStats(userId);
+    const emptyMode = { played: 0, won: 0, lost: 0 };
     res.json({
       matchesPlayed: stats ? stats.played : 0,
       matchesWon: stats ? stats.won : 0,
       matchesLost: stats ? stats.lost : 0,
+      winStreak: stats ? stats.winStreak : 0,
+      bestWinStreak: stats ? stats.bestWinStreak : 0,
+      standard: stats ? stats.standard : emptyMode,
+      team: stats ? stats.team : emptyMode,
     });
   } catch (err) {
     console.warn(`${auth.LOG_PREFIX} /api/me/stats failed:`, err.message);
@@ -1150,11 +1159,12 @@ function getWinningAuthUserIds(room) {
  * Build per-user win/loss updates for completed games.
  *
  * @param {object} room Finished room with winner fields set.
- * @returns {{ userId: string, won: boolean }[]}
+ * @returns {{ userId: string, won: boolean, teamMode: boolean }[]}
  */
 function buildMatchStatUpdates(room) {
   const winners = getWinningAuthUserIds(room);
   const seenUserIds = new Set();
+  const teamMode = !!room.teamMode;
   const updates = [];
   getSignedInParticipants(room).forEach((player) => {
     if (seenUserIds.has(player.authUserId)) return;
@@ -1162,6 +1172,7 @@ function buildMatchStatUpdates(room) {
     updates.push({
       userId: player.authUserId,
       won: winners.has(player.authUserId),
+      teamMode,
     });
   });
   return updates;
@@ -1185,6 +1196,10 @@ async function recordMatchStatsForRoom(room) {
       matchesPlayed: stats.played,
       matchesWon: stats.won,
       matchesLost: stats.lost,
+      winStreak: stats.winStreak,
+      bestWinStreak: stats.bestWinStreak,
+      standard: stats.standard,
+      team: stats.team,
     });
   }
 }
@@ -1574,7 +1589,7 @@ io.use(async (socket, next) => {
   const token = socket.handshake.auth && socket.handshake.auth.token;
   if (token && auth.isAuthConfigured()) {
     try {
-      await auth.attachAuthToSocket(socket, token, db);
+      await auth.attachAuthToSocketLight(socket, token);
     } catch (err) {
       console.warn(`${auth.LOG_PREFIX} Invalid token on connect:`, err.message);
     }

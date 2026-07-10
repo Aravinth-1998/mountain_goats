@@ -1,29 +1,70 @@
 /* Mountain Goats - client */
 (async function () {
-  if (window.MGAuthReady) {
-    await window.MGAuthReady;
-  }
-
-  const initialToken = window.MGAuth ? (await window.MGAuth.getAccessToken()) : null;
   const socket = io({
-    auth: { token: initialToken || '' },
+    auth: { token: '' },
     reconnectionDelay: 500,
     reconnectionDelayMax: 5000,
     reconnectionAttempts: Infinity,
   });
 
+  let socketAuthInFlight = null;
+  let socketConnectionHasAuth = false;
+
+  /**
+   * Ensure the socket handshake includes a signed-in JWT before gameplay emits.
+   *
+   * @returns {Promise<void>}
+   */
+  async function ensureSocketAuth() {
+    if (!window.MGAuth || !isSignedIn()) return;
+    if (socketAuthInFlight) return socketAuthInFlight;
+
+    socketAuthInFlight = (async () => {
+      const token = (await window.MGAuth.getAccessToken()) || '';
+      if (!token) return;
+
+      const hadToken = socket.auth.token;
+      socket.auth.token = token;
+
+      if (!socket.connected) {
+        await new Promise((resolve) => {
+          if (socket.connected) {
+            resolve();
+            return;
+          }
+          socket.once('connect', resolve);
+          socket.connect();
+        });
+        return;
+      }
+
+      if (!socketConnectionHasAuth || hadToken !== token) {
+        await new Promise((resolve) => {
+          socket.once('connect', resolve);
+          socket.disconnect().connect();
+        });
+      }
+    })().finally(() => {
+      socketAuthInFlight = null;
+    });
+
+    return socketAuthInFlight;
+  }
+
   socket.io.on('reconnect_attempt', async () => {
-    if (window.MGAuth) {
+    if (window.MGAuth && isSignedIn()) {
       socket.auth.token = (await window.MGAuth.getAccessToken()) || '';
+    } else {
+      socket.auth.token = '';
     }
   });
 
   window.addEventListener('mg-auth-changed', async (event) => {
-    if (!window.MGAuth || !event.detail || !event.detail.shouldReconnect) return;
-    socket.auth.token = (await window.MGAuth.getAccessToken()) || '';
-    if (socket.connected) {
-      socket.disconnect().connect();
+    if (!window.MGAuth || !event.detail) return;
+    if (event.detail.shouldReconnect) {
+      await ensureSocketAuth();
     }
+    tryRejoin();
   });
 
   let myId = null;
@@ -322,11 +363,12 @@
   });
 
   // ===================== HOME =====================
-  $('btn-create').addEventListener('click', () => {
+  $('btn-create').addEventListener('click', async () => {
     const name = requirePlayName();
     if (!name) return;
     $('home-error').textContent = '';
     setHomeLoading('create');
+    await ensureSocketAuth();
     socket.emit('createRoom', { name }, (res) => {
       clearHomeLoading();
       if (res.error) return ($('home-error').textContent = res.error);
@@ -353,7 +395,7 @@
   });
 
   // Join Room (from join screen)
-  $('btn-join').addEventListener('click', () => {
+  $('btn-join').addEventListener('click', async () => {
     const name = getPlayName();
     const code = String($('join-code').value || '').trim().slice(0, 4);
     if (!name) return ($('join-error').textContent = 'Please enter your name on the home screen.');
@@ -361,6 +403,7 @@
     $('join-error').textContent = '';
     $('btn-join').disabled = true;
     $('btn-join').innerHTML = '<span class="spin">⏳</span> Joining…';
+    await ensureSocketAuth();
     socket.emit('joinRoom', { name, code }, (res) => {
       $('btn-join').disabled = false;
       $('btn-join').textContent = 'Join Room';
@@ -406,12 +449,13 @@
         `;
         const joinBtn = card.querySelector('.pr-join');
         if (!full) {
-          joinBtn.addEventListener('click', () => {
+          joinBtn.addEventListener('click', async () => {
             const name = getPlayName();
             if (!name) return ($('join-error').textContent = 'Please enter your name on the home screen.');
             $('join-error').textContent = '';
             joinBtn.disabled = true;
             joinBtn.innerHTML = '<span class="spin">⏳</span>';
+            await ensureSocketAuth();
             socket.emit('joinRoom', { name, code: r.code }, (res) => {
               joinBtn.disabled = false;
               joinBtn.textContent = 'Join';
@@ -593,6 +637,43 @@
     else toast('Room code: ' + state.code);
   }
   let leftRoom = false; // flag to ignore state broadcasts after leaving
+  let rejoinInFlight = false;
+
+  /**
+   * Rejoin a saved room when socket is ready and a play name is available.
+   */
+  async function tryRejoin() {
+    if (!socket.connected || rejoinInFlight || leftRoom || state) return;
+
+    const code = localStorage.getItem('mg_code');
+    if (!code) {
+      if (screens.loading.classList.contains('active')) show('home');
+      return;
+    }
+
+    const storedName = isSignedIn() ? '' : localStorage.getItem('mg_name');
+    const name = getPlayName() || storedName;
+    if (!name) return;
+
+    if (isSignedIn()) {
+      await ensureSocketAuth();
+    }
+
+    rejoinInFlight = true;
+    leftRoom = false;
+    socket.emit('joinRoom', { name, code }, (res) => {
+      rejoinInFlight = false;
+      if (res && res.ok) {
+        myId = res.youId;
+        storeRejoinKeys(name, code);
+      } else {
+        localStorage.removeItem('mg_code');
+        localStorage.removeItem('mg_name');
+        show('home');
+      }
+    });
+  }
+
   function leaveToHome() {
     leftRoom = true;
     socket.emit('leaveRoom');
@@ -647,29 +728,15 @@
   });
 
   // ===================== SOCKET =====================
+  let connectErrors = 0;
+
   socket.on('connect', () => {
-    const code = localStorage.getItem('mg_code');
-    const storedName = isSignedIn() ? '' : localStorage.getItem('mg_name');
-    const name = getPlayName() || storedName;
-    if (code && name) {
-      leftRoom = false;
-      socket.emit('joinRoom', { name, code }, (res) => {
-        if (res && res.ok) {
-          myId = res.youId;
-          storeRejoinKeys(name, code);
-        } else {
-          localStorage.removeItem('mg_code');
-          localStorage.removeItem('mg_name');
-          show('home');
-        }
-      });
-    } else {
-      show('home');
-    }
+    connectErrors = 0;
+    socketConnectionHasAuth = Boolean(socket.auth.token);
+    tryRejoin();
   });
 
   // Track consecutive connection failures — only give up after several.
-  let connectErrors = 0;
   socket.on('connect_error', () => {
     connectErrors++;
     if (screens.loading.classList.contains('active') && connectErrors >= 5) {
@@ -678,12 +745,13 @@
       show('home');
     }
   });
-  socket.on('connect', () => { connectErrors = 0; });
 
   // Online player count
   socket.on('onlineCount', (count) => {
     const el = $('online-count');
-    if (el) el.textContent = `🟢 ${count} player${count !== 1 ? 's' : ''} online`;
+    if (!el) return;
+    el.classList.remove('is-loading');
+    el.textContent = `\u{1F7E2} ${count} player${count !== 1 ? 's' : ''} online`;
   });
 
   socket.on('match-stats', (stats) => {

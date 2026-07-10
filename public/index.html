@@ -37,24 +37,63 @@
         <button type="button" id="profile-stats-close" class="stats-drawer-close" aria-label="Close profile sidebar">&times;</button>
       </div>
 
-      <div class="card stats-accordion">
-        <button type="button" id="profile-stats-accordion-btn" class="stats-accordion-btn open" aria-expanded="true" aria-controls="profile-stats-accordion-body">
-          <span>Stats</span>
-          <span class="toggle-arrow" aria-hidden="true">&#9662;</span>
-        </button>
-        <div id="profile-stats-accordion-body" class="stats-accordion-body open">
-          <div class="stats-rows">
-            <div class="stats-row">
-              <span class="stats-row-label">Matches played</span>
-              <span class="stats-row-value" id="profile-stat-played">0</span>
-            </div>
-            <div class="stats-row stats-row-win">
-              <span class="stats-row-label">Matches won</span>
-              <span class="stats-row-value" id="profile-stat-won">0</span>
-            </div>
-            <div class="stats-row stats-row-loss">
-              <span class="stats-row-label">Matches lost</span>
-              <span class="stats-row-value" id="profile-stat-lost">0</span>
+      <div class="stats-drawer-scroll">
+        <div class="card profile-header">
+          <img id="profile-drawer-avatar" class="profile-header-avatar" src="" alt="" />
+          <div class="profile-header-text">
+            <p id="profile-display-name" class="profile-display-name"></p>
+            <p id="profile-goat-name" class="profile-goat-name"></p>
+          </div>
+        </div>
+
+        <div class="card stats-accordion">
+          <button type="button" id="profile-stats-accordion-btn" class="stats-accordion-btn open" aria-expanded="true" aria-controls="profile-stats-accordion-body">
+            <span>Stats</span>
+            <span class="toggle-arrow" aria-hidden="true">&#9662;</span>
+          </button>
+          <div id="profile-stats-accordion-body" class="stats-accordion-body open">
+            <div class="stats-rows">
+              <p class="stats-section-label">Overall</p>
+              <div class="stats-row">
+                <span class="stats-row-label">Matches played</span>
+                <span class="stats-row-value" id="profile-stat-played">0</span>
+              </div>
+              <div class="stats-row">
+                <span class="stats-row-label">W/L</span>
+                <span class="stats-row-value" id="profile-stat-wl">&mdash;</span>
+              </div>
+
+              <p class="stats-section-label">Standard</p>
+              <div class="stats-row">
+                <span class="stats-row-label">Played</span>
+                <span class="stats-row-value" id="profile-standard-played">0</span>
+              </div>
+              <div class="stats-row">
+                <span class="stats-row-label">W/L</span>
+                <span class="stats-row-value" id="profile-standard-wl">&mdash;</span>
+              </div>
+
+              <div class="stats-section-divider" aria-hidden="true"></div>
+              <p class="stats-section-label team-label-stats">Team</p>
+              <div class="stats-row">
+                <span class="stats-row-label">Played</span>
+                <span class="stats-row-value" id="profile-team-played">0</span>
+              </div>
+              <div class="stats-row">
+                <span class="stats-row-label">W/L</span>
+                <span class="stats-row-value" id="profile-team-wl">&mdash;</span>
+              </div>
+
+              <div class="stats-section-divider" aria-hidden="true"></div>
+              <p class="stats-section-label">Streaks</p>
+              <div class="stats-row" id="profile-streak-current-row">
+                <span class="stats-row-label">Current win streak</span>
+                <span class="stats-row-value" id="profile-stat-streak">0</span>
+              </div>
+              <div class="stats-row">
+                <span class="stats-row-label">Best win streak</span>
+                <span class="stats-row-value" id="profile-stat-best-streak">0</span>
+              </div>
             </div>
           </div>
         </div>
@@ -65,7 +104,7 @@
       <div class="goat-emoji">🐐</div>
       <h1>Mountain Goats</h1>
       <p class="tagline">Race your herd over the peaks. Play live with friends.</p>
-      <p id="online-count" class="online-count"></p>
+      <p id="online-count" class="online-count is-loading">Checking players...</p>
     </div>
 
     <input id="home-name" type="text" maxlength="16" placeholder="Enter your GOAT name" autocomplete="off" style="text-align:center" />

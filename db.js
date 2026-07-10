@@ -165,6 +165,14 @@ async function init() {
     await p.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS matches_played INT NOT NULL DEFAULT 0');
     await p.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS matches_won INT NOT NULL DEFAULT 0');
     await p.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS matches_lost INT NOT NULL DEFAULT 0');
+    await p.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS win_streak INT NOT NULL DEFAULT 0');
+    await p.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS best_win_streak INT NOT NULL DEFAULT 0');
+    await p.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS standard_matches_played INT NOT NULL DEFAULT 0');
+    await p.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS standard_matches_won INT NOT NULL DEFAULT 0');
+    await p.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS standard_matches_lost INT NOT NULL DEFAULT 0');
+    await p.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS team_matches_played INT NOT NULL DEFAULT 0');
+    await p.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS team_matches_won INT NOT NULL DEFAULT 0');
+    await p.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS team_matches_lost INT NOT NULL DEFAULT 0');
     await p.query(`ALTER TABLE users ALTER COLUMN display_name SET DEFAULT ''`);
     await p.query(`
       UPDATE users SET display_name = COALESCE(NULLIF(display_name, ''), google_name, '')
@@ -344,10 +352,36 @@ async function saveGamingName(userId, gamingName) {
 }
 
 /**
+ * Map a users row to normalized match stats.
+ *
+ * @param {object} row Database row.
+ * @returns {{ played: number, won: number, lost: number, winStreak: number, bestWinStreak: number, standard: { played: number, won: number, lost: number }, team: { played: number, won: number, lost: number } }}
+ */
+function rowToMatchStats(row) {
+  return {
+    played: Number(row.matches_played),
+    won: Number(row.matches_won),
+    lost: Number(row.matches_lost),
+    winStreak: Number(row.win_streak),
+    bestWinStreak: Number(row.best_win_streak),
+    standard: {
+      played: Number(row.standard_matches_played),
+      won: Number(row.standard_matches_won),
+      lost: Number(row.standard_matches_lost),
+    },
+    team: {
+      played: Number(row.team_matches_played),
+      won: Number(row.team_matches_won),
+      lost: Number(row.team_matches_lost),
+    },
+  };
+}
+
+/**
  * Increment match stats for signed-in users who finished a game.
  *
- * @param {{ userId: string, won: boolean }[]} updates One entry per user.
- * @returns {Promise<Map<string, { played: number, won: number, lost: number }>>}
+ * @param {{ userId: string, won: boolean, teamMode: boolean }[]} updates One entry per user.
+ * @returns {Promise<Map<string, { played: number, won: number, lost: number, winStreak: number, bestWinStreak: number, standard: { played: number, won: number, lost: number }, team: { played: number, won: number, lost: number } }>>}
  */
 async function recordMatchStats(updates) {
   const p = getPool();
@@ -356,28 +390,38 @@ async function recordMatchStats(updates) {
 
   const params = [];
   const valueRows = updates.map((entry, index) => {
-    const paramIndex = index * 2;
-    params.push(entry.userId, entry.won);
-    return `($${paramIndex + 1}::uuid, $${paramIndex + 2}::boolean)`;
+    const paramIndex = index * 3;
+    params.push(entry.userId, entry.won, !!entry.teamMode);
+    return `($${paramIndex + 1}::uuid, $${paramIndex + 2}::boolean, $${paramIndex + 3}::boolean)`;
   });
 
   const result = await p.query(
     `UPDATE users AS u SET
        matches_played = u.matches_played + 1,
        matches_won = u.matches_won + CASE WHEN v.won THEN 1 ELSE 0 END,
-       matches_lost = u.matches_lost + CASE WHEN v.won THEN 0 ELSE 1 END
-     FROM (VALUES ${valueRows.join(', ')}) AS v(id, won)
+       matches_lost = u.matches_lost + CASE WHEN v.won THEN 0 ELSE 1 END,
+       standard_matches_played = u.standard_matches_played + CASE WHEN NOT v.team_mode THEN 1 ELSE 0 END,
+       standard_matches_won = u.standard_matches_won + CASE WHEN NOT v.team_mode AND v.won THEN 1 ELSE 0 END,
+       standard_matches_lost = u.standard_matches_lost + CASE WHEN NOT v.team_mode AND NOT v.won THEN 1 ELSE 0 END,
+       team_matches_played = u.team_matches_played + CASE WHEN v.team_mode THEN 1 ELSE 0 END,
+       team_matches_won = u.team_matches_won + CASE WHEN v.team_mode AND v.won THEN 1 ELSE 0 END,
+       team_matches_lost = u.team_matches_lost + CASE WHEN v.team_mode AND NOT v.won THEN 1 ELSE 0 END,
+       win_streak = CASE WHEN v.won THEN u.win_streak + 1 ELSE 0 END,
+       best_win_streak = GREATEST(
+         u.best_win_streak,
+         CASE WHEN v.won THEN u.win_streak + 1 ELSE u.best_win_streak END
+       )
+     FROM (VALUES ${valueRows.join(', ')}) AS v(id, won, team_mode)
      WHERE u.id = v.id
-     RETURNING u.id, u.matches_played, u.matches_won, u.matches_lost`,
+     RETURNING u.id, u.matches_played, u.matches_won, u.matches_lost,
+       u.win_streak, u.best_win_streak,
+       u.standard_matches_played, u.standard_matches_won, u.standard_matches_lost,
+       u.team_matches_played, u.team_matches_won, u.team_matches_lost`,
     params
   );
 
   result.rows.forEach((row) => {
-    resultMap.set(row.id, {
-      played: Number(row.matches_played),
-      won: Number(row.matches_won),
-      lost: Number(row.matches_lost),
-    });
+    resultMap.set(row.id, rowToMatchStats(row));
   });
   return resultMap;
 }
@@ -386,29 +430,39 @@ async function recordMatchStats(updates) {
  * Load match win/loss stats for a signed-in user.
  *
  * @param {string} userId Auth user UUID.
- * @returns {Promise<{ played: number, won: number, lost: number }|null>}
+ * @returns {Promise<{ played: number, won: number, lost: number, winStreak: number, bestWinStreak: number, standard: { played: number, won: number, lost: number }, team: { played: number, won: number, lost: number } }|null>}
  */
 async function getMatchStats(userId) {
   const p = getPool();
   if (!p || !connected || !userId) return null;
 
   const result = await p.query(
-    `SELECT matches_played, matches_won, matches_lost
+    `SELECT matches_played, matches_won, matches_lost,
+            win_streak, best_win_streak,
+            standard_matches_played, standard_matches_won, standard_matches_lost,
+            team_matches_played, team_matches_won, team_matches_lost
      FROM users
      WHERE id = $1`,
     [userId]
   );
 
   if (!result.rows.length) {
-    return { played: 0, won: 0, lost: 0 };
+    return rowToMatchStats({
+      matches_played: 0,
+      matches_won: 0,
+      matches_lost: 0,
+      win_streak: 0,
+      best_win_streak: 0,
+      standard_matches_played: 0,
+      standard_matches_won: 0,
+      standard_matches_lost: 0,
+      team_matches_played: 0,
+      team_matches_won: 0,
+      team_matches_lost: 0,
+    });
   }
 
-  const row = result.rows[0];
-  return {
-    played: Number(row.matches_played),
-    won: Number(row.matches_won),
-    lost: Number(row.matches_lost),
-  };
+  return rowToMatchStats(result.rows[0]);
 }
 
 /**

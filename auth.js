@@ -178,6 +178,21 @@ async function attachAuthToSocket(socket, accessToken, db) {
 }
 
 /**
+ * Attach verified auth fields to a socket from JWT only (no database sync).
+ *
+ * @param {import('socket.io').Socket} socket Connected socket.
+ * @param {string} accessToken Supabase access token.
+ * @returns {Promise<void>}
+ */
+async function attachAuthToSocketLight(socket, accessToken) {
+  const payload = await verifyAccessToken(accessToken);
+  socket.authUserId = payload.sub;
+  socket.authGoogleName = resolveGoogleName(payload);
+  socket.authGamingName = resolveGamingNameFromPayload(payload);
+  socket.authAvatarUrl = resolveAvatarUrl(payload);
+}
+
+/**
  * Resolve the in-game player name from client input or saved gaming name.
  *
  * @param {import('socket.io').Socket} socket Connected socket.
@@ -202,6 +217,7 @@ module.exports = {
   resolveGamingNameFromPayload,
   resolveAvatarUrl,
   attachAuthToSocket,
+  attachAuthToSocketLight,
   syncAuthUser,
   resolvePlayerName,
 };

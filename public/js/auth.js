@@ -2,6 +2,7 @@
 (function () {
   const NAME_MAX_LEN = 16;
   const GAMING_NAME_KEY = 'gaming_name';
+  const GAMING_NAME_CACHE_KEY = 'mg_gaming_name';
 
   let supabaseClient = null;
   let configured = false;
@@ -9,6 +10,8 @@
   let statsSidebarBound = false;
   let profileDrawerClosing = false;
   const PROFILE_DRAWER_MS = 280;
+  let resolveAuthBootstrapped = null;
+  let resolveAuthReady = null;
 
   /**
    * Truncate a name to the game name limit.
@@ -92,6 +95,43 @@
   }
 
   /**
+   * Read cached GOAT name for instant display on reload.
+   *
+   * @returns {string|null}
+   */
+  function readCachedGamingName() {
+    const name = localStorage.getItem(GAMING_NAME_CACHE_KEY);
+    return name ? truncateName(name) : null;
+  }
+
+  /**
+   * Persist GOAT name locally for signed-in fast bootstrap.
+   *
+   * @param {string} gamingName In-game name.
+   */
+  function cacheGamingName(gamingName) {
+    const name = truncateName(gamingName);
+    if (!name) return;
+    localStorage.setItem(GAMING_NAME_CACHE_KEY, name);
+  }
+
+  /**
+   * Clear cached GOAT name on sign-out.
+   */
+  function clearCachedGamingName() {
+    localStorage.removeItem(GAMING_NAME_CACHE_KEY);
+  }
+
+  /**
+   * Show loading placeholder while the saved GOAT name is fetched.
+   */
+  function setGamingNameLoadingPlaceholder() {
+    const nameInput = document.getElementById('home-name');
+    if (!nameInput || nameInput.value.trim()) return;
+    nameInput.placeholder = 'Loading your GOAT name...';
+  }
+
+  /**
    * Load gaming name from Supabase Auth profile.
    *
    * @param {object|null} sessionUser User from the current session.
@@ -162,6 +202,8 @@
     const savedToAuth = await saveGamingNameToAuthProfile(name);
     if (!savedToAuth) {
       console.warn('[auth] could not save gaming name to auth profile');
+    } else {
+      cacheGamingName(name);
     }
   }
 
@@ -227,19 +269,81 @@
   }
 
   /**
+   * Set a W/L element to win% / loss% with colored spans.
+   *
+   * @param {string} elementId Target element id.
+   * @param {number} won Matches won.
+   * @param {number} played Matches played.
+   */
+  function setWinLossEl(elementId, won, played) {
+    const el = document.getElementById(elementId);
+    if (!el) return;
+    if (!played) {
+      el.textContent = '\u2014';
+      return;
+    }
+    const winPct = Math.round((won / played) * 100);
+    const lossPct = 100 - winPct;
+    el.innerHTML =
+      `<span class="stats-wl-win">${winPct}</span>` +
+      '/' +
+      `<span class="stats-wl-loss">${lossPct}</span>`;
+  }
+
+  /**
+   * Apply profile header fields in the drawer.
+   */
+  function applyProfileHeaderToDrawer() {
+    const avatar = document.getElementById('profile-drawer-avatar');
+    const displayNameEl = document.getElementById('profile-display-name');
+    const goatNameEl = document.getElementById('profile-goat-name');
+    if (!avatar || !displayNameEl || !goatNameEl) return;
+
+    const avatarUrl = profile.avatarUrl || buildAvatarFallbackUrl(profile.displayName);
+    avatar.src = avatarUrl;
+    avatar.alt = profile.displayName ? `${profile.displayName} profile photo` : 'Your profile photo';
+    displayNameEl.textContent = profile.displayName || 'Player';
+
+    const goatName = getGamingNameForPlay();
+    if (goatName) {
+      goatNameEl.textContent = goatName;
+      goatNameEl.classList.remove('is-empty');
+    } else {
+      goatNameEl.textContent = 'Choose your GOAT name';
+      goatNameEl.classList.add('is-empty');
+    }
+  }
+
+  /**
    * Apply match stats to the profile drawer UI.
    *
-   * @param {{matchesPlayed?: number, matchesWon?: number, matchesLost?: number}|null} stats Stats payload.
+   * @param {object|null} stats Stats payload from GET /api/me/stats.
    */
   function applyMatchStatsToDrawer(stats) {
-    const playedEl = document.getElementById('profile-stat-played');
-    const wonEl = document.getElementById('profile-stat-won');
-    const lostEl = document.getElementById('profile-stat-lost');
-    if (!playedEl || !wonEl || !lostEl) return;
+    const played = stats && typeof stats.matchesPlayed === 'number' ? stats.matchesPlayed : 0;
+    const won = stats && typeof stats.matchesWon === 'number' ? stats.matchesWon : 0;
+    const standard = stats && stats.standard ? stats.standard : { played: 0, won: 0, lost: 0 };
+    const team = stats && stats.team ? stats.team : { played: 0, won: 0, lost: 0 };
+    const winStreak = stats && typeof stats.winStreak === 'number' ? stats.winStreak : 0;
+    const bestWinStreak = stats && typeof stats.bestWinStreak === 'number' ? stats.bestWinStreak : 0;
 
-    playedEl.textContent = String(stats && typeof stats.matchesPlayed === 'number' ? stats.matchesPlayed : 0);
-    wonEl.textContent = String(stats && typeof stats.matchesWon === 'number' ? stats.matchesWon : 0);
-    lostEl.textContent = String(stats && typeof stats.matchesLost === 'number' ? stats.matchesLost : 0);
+    const playedEl = document.getElementById('profile-stat-played');
+    const standardPlayedEl = document.getElementById('profile-standard-played');
+    const teamPlayedEl = document.getElementById('profile-team-played');
+    const streakEl = document.getElementById('profile-stat-streak');
+    const bestStreakEl = document.getElementById('profile-stat-best-streak');
+    const streakRow = document.getElementById('profile-streak-current-row');
+
+    if (playedEl) playedEl.textContent = String(played);
+    if (standardPlayedEl) standardPlayedEl.textContent = String(standard.played || 0);
+    if (teamPlayedEl) teamPlayedEl.textContent = String(team.played || 0);
+    if (streakEl) streakEl.textContent = String(winStreak);
+    if (bestStreakEl) bestStreakEl.textContent = String(bestWinStreak);
+    if (streakRow) streakRow.classList.toggle('stats-row-streak-active', winStreak > 0);
+
+    setWinLossEl('profile-stat-wl', won, played);
+    setWinLossEl('profile-standard-wl', standard.won || 0, standard.played || 0);
+    setWinLossEl('profile-team-wl', team.won || 0, team.played || 0);
   }
 
   /**
@@ -347,12 +451,14 @@
     if (!fab || !backdrop || !drawer || !profile.isSignedIn) return;
 
     if (!drawer.hidden && drawer.classList.contains('is-open')) {
+      applyProfileHeaderToDrawer();
       const stats = await fetchMatchStats();
       applyMatchStatsToDrawer(stats);
       return;
     }
 
     profileDrawerClosing = false;
+    applyProfileHeaderToDrawer();
     backdrop.hidden = false;
     drawer.hidden = false;
     backdrop.classList.remove('is-open');
@@ -432,37 +538,95 @@
   }
 
   /**
-   * Load and apply the saved gaming name with short retries after sign-in.
+   * Apply session state immediately (metadata, cache, UI). Does not sync to server.
+   *
+   * @param {object|null} session Supabase session.
+   * @param {string} [event] Supabase auth event name.
+   */
+  function applySessionFast(session, event) {
+    const wasSignedIn = profile.isSignedIn;
+    const sessionUser = session && session.user ? session.user : null;
+    profile = profileFromUser(sessionUser);
+    updateAuthUI();
+
+    if (profile.isSignedIn) {
+      let name = gamingNameFromUserMetadata(sessionUser);
+      if (!name) name = readCachedGamingName();
+      if (name) {
+        applyGamingNameToInput(name);
+      } else {
+        setGamingNameLoadingPlaceholder();
+      }
+      return;
+    }
+
+    if (wasSignedIn) {
+      clearCachedGamingName();
+      applyGamingNameToInput(null);
+      window.dispatchEvent(new CustomEvent('mg-auth-changed', {
+        detail: { signedIn: false, event },
+      }));
+    }
+  }
+
+  let enrichInFlight = null;
+  let enrichInFlightUserId = '';
+  let syncInFlight = null;
+
+  /**
+   * Sync user to server and resolve gaming name in the background.
    *
    * @param {object|null} sessionUser User from the current session.
    * @param {string} [event] Supabase auth event name.
-   * @returns {Promise<string|null>}
+   * @returns {Promise<void>}
    */
-  async function loadAndApplyGamingName(sessionUser, event) {
-    let savedName = gamingNameFromUserMetadata(sessionUser);
-    if (savedName) {
-      applyGamingNameToInput(savedName);
+  async function enrichSession(sessionUser, event) {
+    if (!profile.isSignedIn) return;
+
+    if (enrichInFlight && enrichInFlightUserId === profile.userId) {
+      return enrichInFlight;
     }
 
-    if (!savedName) {
-      savedName = await fetchSavedGamingName(sessionUser);
-    }
+    enrichInFlightUserId = profile.userId;
+    enrichInFlight = (async () => {
+      const syncResult = await syncUserToServer();
+      let savedName = gamingNameFromUserMetadata(sessionUser);
+      if (!savedName && syncResult && syncResult.gamingName) {
+        savedName = truncateName(syncResult.gamingName);
+      }
+      if (!savedName) {
+        savedName = await fetchSavedGamingName(sessionUser);
+      }
+      if (!savedName && event === 'SIGNED_IN') {
+        await new Promise((resolve) => setTimeout(resolve, 500));
+        savedName = await fetchSavedGamingName(sessionUser);
+      }
 
-    if (!savedName && (event === 'SIGNED_IN' || event === 'INITIAL_SESSION' || event === 'INIT')) {
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      savedName = await fetchSavedGamingName(sessionUser);
-    }
+      if (savedName) {
+        cacheGamingName(savedName);
+        applyGamingNameToInput(savedName);
+      } else {
+        setGamingNameLoadingPlaceholder();
+      }
 
-    applyGamingNameToInput(savedName);
-    return savedName;
+      const shouldReconnect = event === 'SIGNED_IN';
+      window.dispatchEvent(new CustomEvent('mg-auth-changed', {
+        detail: { signedIn: true, event, shouldReconnect },
+      }));
+    })().finally(() => {
+      enrichInFlight = null;
+      enrichInFlightUserId = '';
+    });
+
+    return enrichInFlight;
   }
 
   /**
-   * Persist the signed-in user to the server database.
+   * Perform the server sync request.
    *
-   * @returns {Promise<void>}
+   * @returns {Promise<{ gamingName: string|null }|false>}
    */
-  async function syncUserToServer() {
+  async function doSyncUserToServer() {
     const token = await getAccessToken();
     if (!token) return false;
     try {
@@ -475,11 +639,27 @@
         console.warn('[auth] sync user failed:', res.status, detail);
         return false;
       }
-      return true;
+      const data = await res.json();
+      const gamingName = data.gamingName ? truncateName(data.gamingName) : null;
+      if (gamingName) cacheGamingName(gamingName);
+      return { gamingName };
     } catch (err) {
       console.warn('[auth] sync user failed:', err);
       return false;
     }
+  }
+
+  /**
+   * Persist the signed-in user to the server database.
+   *
+   * @returns {Promise<{ gamingName: string|null }|false>}
+   */
+  async function syncUserToServer() {
+    if (syncInFlight) return syncInFlight;
+    syncInFlight = doSyncUserToServer().finally(() => {
+      syncInFlight = null;
+    });
+    return syncInFlight;
   }
 
   /**
@@ -490,21 +670,30 @@
    * @returns {Promise<void>}
    */
   async function applySession(session, event) {
-    const wasSignedIn = profile.isSignedIn;
-    const sessionUser = session && session.user ? session.user : null;
-    profile = profileFromUser(sessionUser);
-    updateAuthUI();
-
+    applySessionFast(session, event);
     if (profile.isSignedIn) {
-      await syncUserToServer();
-      await loadAndApplyGamingName(sessionUser, event);
-      const shouldReconnect = event === 'SIGNED_IN' || event === 'INITIAL_SESSION' || event === 'INIT';
-      window.dispatchEvent(new CustomEvent('mg-auth-changed', {
-        detail: { signedIn: true, event, shouldReconnect },
-      }));
-    } else if (wasSignedIn) {
-      applyGamingNameToInput(null);
-      window.dispatchEvent(new CustomEvent('mg-auth-changed', { detail: { signedIn: false, event } }));
+      const sessionUser = session && session.user ? session.user : null;
+      await enrichSession(sessionUser, event);
+    }
+  }
+
+  /**
+   * Mark auth bootstrap complete so the socket can connect.
+   */
+  function finishAuthBootstrap() {
+    if (resolveAuthBootstrapped) {
+      resolveAuthBootstrapped();
+      resolveAuthBootstrapped = null;
+    }
+  }
+
+  /**
+   * Mark full auth init complete.
+   */
+  function finishAuthReady() {
+    if (resolveAuthReady) {
+      resolveAuthReady();
+      resolveAuthReady = null;
     }
   }
 
@@ -522,6 +711,8 @@
       if (!cfg.supabaseUrl || !cfg.supabaseAnonKey || !window.supabase) {
         configured = false;
         updateAuthUI();
+        finishAuthBootstrap();
+        finishAuthReady();
         return;
       }
       configured = true;
@@ -534,11 +725,18 @@
       });
 
       supabaseClient.auth.onAuthStateChange((event, session) => {
-        applySession(session, event).catch((err) => console.error('[auth] session update failed:', err));
+        applySessionFast(session, event);
+        if (profile.isSignedIn) {
+          const sessionUser = session && session.user ? session.user : null;
+          enrichSession(sessionUser, event).catch((err) => {
+            console.error('[auth] session enrichment failed:', err);
+          });
+        }
       });
 
       const { data: { session } } = await supabaseClient.auth.getSession();
-      await applySession(session, 'INIT');
+      applySessionFast(session, 'INIT');
+      finishAuthBootstrap();
 
       const btnGoogle = document.getElementById('btn-google-signin');
       if (btnGoogle) {
@@ -552,10 +750,18 @@
           signOut().catch((err) => console.error('[auth] sign out failed:', err));
         });
       }
+
+      if (profile.isSignedIn) {
+        const sessionUser = session && session.user ? session.user : null;
+        await enrichSession(sessionUser, 'INIT');
+      }
+      finishAuthReady();
     } catch (err) {
       console.error('[auth] init failed:', err);
       configured = false;
       updateAuthUI();
+      finishAuthBootstrap();
+      finishAuthReady();
     }
   }
 
@@ -635,5 +841,12 @@
     isConfigured,
   };
 
-  window.MGAuthReady = init();
+  window.MGAuthBootstrapped = new Promise((resolve) => {
+    resolveAuthBootstrapped = resolve;
+  });
+  window.MGAuthReady = new Promise((resolve) => {
+    resolveAuthReady = resolve;
+  });
+
+  init();
 })();

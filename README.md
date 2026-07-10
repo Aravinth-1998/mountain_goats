@@ -105,7 +105,7 @@ custom GOAT name that syncs across devices. Guests can still type a name.
 - **Cross-device autofill:** Supabase Auth `user_metadata.gaming_name` (client)
 - **Server gameplay / reconnect:** `users.gaming_name` in Postgres (written on create/join)
 - **Google profile audit:** `users.google_name` and `users.avatar_url` on sign-in
-- **Match stats (signed-in only):** `users.matches_played`, `matches_won`, `matches_lost` — updated when a game finishes naturally; win count shown on the end scorecard when you win
+- **Match stats (signed-in only):** `users.matches_played`, `matches_won`, `matches_lost`, plus Standard/Team breakdown, win streaks, and profile drawer on the home screen — updated when a game finishes naturally; win count shown on the end scorecard when you win
 
 ### 1. Supabase
 
