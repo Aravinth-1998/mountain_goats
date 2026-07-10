@@ -265,25 +265,51 @@
   }
 
   /**
-   * Set a Win/Loss element to win and loss counts with colored spans.
+   * Render the win/loss ratio bar for a stats mode block.
    *
-   * @param {string} elementId Target element id.
+   * @param {HTMLElement|null} container Bar container element.
    * @param {number} won Matches won.
    * @param {number} lost Matches lost.
    */
-  function setWinLossEl(elementId, won, lost) {
-    const el = document.getElementById(elementId);
-    if (!el) return;
+  function renderModeStatsBar(container, won, lost) {
+    if (!container) return;
+    container.innerHTML = '';
     const wins = Number(won) || 0;
     const losses = Number(lost) || 0;
-    if (wins + losses === 0) {
-      el.textContent = '\u2014';
+    const total = wins + losses;
+    if (total === 0) {
+      const empty = document.createElement('span');
+      empty.className = 'stats-mode-bar-empty';
+      container.appendChild(empty);
       return;
     }
-    el.innerHTML =
-      `<span class="stats-wl-win">${wins}</span>` +
-      '/' +
-      `<span class="stats-wl-loss">${losses}</span>`;
+    const winSpan = document.createElement('span');
+    winSpan.className = 'stats-mode-bar-win';
+    winSpan.style.width = `${(wins / total) * 100}%`;
+    const lossSpan = document.createElement('span');
+    lossSpan.className = 'stats-mode-bar-loss';
+    lossSpan.style.width = `${(losses / total) * 100}%`;
+    container.appendChild(winSpan);
+    container.appendChild(lossSpan);
+  }
+
+  /**
+   * Apply won/played/lost values and bar for one stats mode.
+   *
+   * @param {string} prefix Element id prefix (overall, standard, team).
+   * @param {number} played Matches played.
+   * @param {number} won Matches won.
+   * @param {number} lost Matches lost.
+   */
+  function applyModeStatsBlock(prefix, played, won, lost) {
+    const winEl = document.getElementById(`profile-${prefix}-won`);
+    const playedEl = document.getElementById(`profile-${prefix}-played`);
+    const lossEl = document.getElementById(`profile-${prefix}-lost`);
+    const barEl = document.getElementById(`profile-${prefix}-bar`);
+    if (winEl) winEl.textContent = String(won);
+    if (playedEl) playedEl.textContent = String(played);
+    if (lossEl) lossEl.textContent = String(lost);
+    renderModeStatsBar(barEl, won, lost);
   }
 
   /**
@@ -324,23 +350,17 @@
     const winStreak = stats && typeof stats.winStreak === 'number' ? stats.winStreak : 0;
     const bestWinStreak = stats && typeof stats.bestWinStreak === 'number' ? stats.bestWinStreak : 0;
 
-    const playedEl = document.getElementById('profile-stat-played');
-    const standardPlayedEl = document.getElementById('profile-standard-played');
-    const teamPlayedEl = document.getElementById('profile-team-played');
     const streakEl = document.getElementById('profile-stat-streak');
     const bestStreakEl = document.getElementById('profile-stat-best-streak');
-    const streakRow = document.getElementById('profile-streak-current-row');
+    const streakLine = document.getElementById('profile-streak-line');
 
-    if (playedEl) playedEl.textContent = String(played);
-    if (standardPlayedEl) standardPlayedEl.textContent = String(standard.played || 0);
-    if (teamPlayedEl) teamPlayedEl.textContent = String(team.played || 0);
     if (streakEl) streakEl.textContent = String(winStreak);
     if (bestStreakEl) bestStreakEl.textContent = String(bestWinStreak);
-    if (streakRow) streakRow.classList.toggle('stats-row-streak-active', winStreak > 0);
+    if (streakLine) streakLine.classList.toggle('is-active', winStreak > 0);
 
-    setWinLossEl('profile-stat-wl', won, lost);
-    setWinLossEl('profile-standard-wl', standard.won || 0, standard.lost || 0);
-    setWinLossEl('profile-team-wl', team.won || 0, team.lost || 0);
+    applyModeStatsBlock('overall', played, won, lost);
+    applyModeStatsBlock('standard', standard.played || 0, standard.won || 0, standard.lost || 0);
+    applyModeStatsBlock('team', team.played || 0, team.won || 0, team.lost || 0);
   }
 
   /**
@@ -367,20 +387,24 @@
   }
 
   /**
-   * Toggle the Stats accordion open or closed.
+   * Expand or collapse the stats panel in the profile drawer.
    *
-   * @param {boolean} open Whether the accordion should be expanded.
+   * @param {boolean} open Whether the stats body should be visible.
    */
-  function setStatsAccordionOpen(open) {
-    const accordionBtn = document.getElementById('profile-stats-accordion-btn');
-    const accordionBody = document.getElementById('profile-stats-accordion-body');
-    const accordion = accordionBtn ? accordionBtn.closest('.stats-accordion') : null;
-    if (!accordionBtn || !accordionBody) return;
+  function setStatsPanelOpen(open) {
+    const panel = document.querySelector('#screen-home .stats-panel');
+    const toggle = document.getElementById('profile-stats-toggle');
+    const body = document.getElementById('profile-stats-body');
+    if (!panel || !toggle || !body) return;
 
-    accordionBtn.classList.toggle('open', open);
-    accordionBody.classList.toggle('open', open);
-    if (accordion) accordion.classList.toggle('is-expanded', open);
-    accordionBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    panel.classList.toggle('is-expanded', open);
+    toggle.classList.toggle('is-open', open);
+    toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+    if (open) {
+      body.hidden = false;
+    } else {
+      body.hidden = true;
+    }
   }
 
   /**
@@ -408,6 +432,7 @@
 
     const finishClose = () => {
       profileDrawerClosing = false;
+      setStatsPanelOpen(false);
       backdrop.classList.remove('is-open');
       backdrop.hidden = true;
       drawer.classList.remove('is-open');
@@ -510,12 +535,13 @@
     const backdrop = document.getElementById('profile-stats-backdrop');
     const drawer = document.getElementById('profile-stats-drawer');
     const closeBtn = document.getElementById('profile-stats-close');
-    const accordionBtn = document.getElementById('profile-stats-accordion-btn');
-    const accordionBody = document.getElementById('profile-stats-accordion-body');
+    const statsToggle = document.getElementById('profile-stats-toggle');
+    const statsBody = document.getElementById('profile-stats-body');
 
-    if (!fab || !backdrop || !drawer || !closeBtn || !accordionBtn || !accordionBody) return;
+    if (!fab || !backdrop || !drawer || !closeBtn || !statsToggle || !statsBody) return;
 
     statsSidebarBound = true;
+    setStatsPanelOpen(false);
 
     fab.addEventListener('click', () => {
       openProfileStatsDrawer().catch((err) => console.error('[auth] open profile drawer failed:', err));
@@ -524,9 +550,9 @@
     backdrop.addEventListener('click', closeProfileStatsDrawer);
     closeBtn.addEventListener('click', closeProfileStatsDrawer);
 
-    accordionBtn.addEventListener('click', () => {
-      const open = !accordionBody.classList.contains('open');
-      setStatsAccordionOpen(open);
+    statsToggle.addEventListener('click', () => {
+      const open = statsBody.hidden;
+      setStatsPanelOpen(open);
     });
 
     document.addEventListener('keydown', (event) => {

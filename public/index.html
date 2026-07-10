@@ -45,57 +45,55 @@
         </div>
       </div>
 
-      <div class="card stats-accordion is-expanded">
-        <button type="button" id="profile-stats-accordion-btn" class="stats-accordion-btn open" aria-expanded="true" aria-controls="profile-stats-accordion-body">
+      <div class="card stats-panel">
+        <button type="button" id="profile-stats-toggle" class="stats-panel-toggle" aria-expanded="false" aria-controls="profile-stats-body">
           <span>Stats</span>
           <span class="toggle-arrow" aria-hidden="true">&#9662;</span>
         </button>
-        <div id="profile-stats-accordion-body" class="stats-accordion-body open">
-          <div class="stats-drawer-scroll">
-            <div class="stats-rows">
-              <p class="stats-section-label">Overall</p>
-              <div class="stats-row">
-                <span class="stats-row-label">Matches played</span>
-                <span class="stats-row-value" id="profile-stat-played">0</span>
-              </div>
-              <div class="stats-row">
-                <span class="stats-row-label">Win/Loss</span>
-                <span class="stats-row-value" id="profile-stat-wl">&mdash;</span>
-              </div>
-
-              <p class="stats-section-label">Standard</p>
-              <div class="stats-row">
-                <span class="stats-row-label">Played</span>
-                <span class="stats-row-value" id="profile-standard-played">0</span>
-              </div>
-              <div class="stats-row">
-                <span class="stats-row-label">Win/Loss</span>
-                <span class="stats-row-value" id="profile-standard-wl">&mdash;</span>
-              </div>
-
-              <div class="stats-section-divider" aria-hidden="true"></div>
-              <p class="stats-section-label">Team</p>
-              <div class="stats-row">
-                <span class="stats-row-label">Played</span>
-                <span class="stats-row-value" id="profile-team-played">0</span>
-              </div>
-              <div class="stats-row">
-                <span class="stats-row-label">Win/Loss</span>
-                <span class="stats-row-value" id="profile-team-wl">&mdash;</span>
-              </div>
-
-              <div class="stats-section-divider" aria-hidden="true"></div>
-              <p class="stats-section-label">Streaks</p>
-              <div class="stats-row" id="profile-streak-current-row">
-                <span class="stats-row-label">Current win streak</span>
-                <span class="stats-row-value" id="profile-stat-streak">0</span>
-              </div>
-              <div class="stats-row">
-                <span class="stats-row-label">Best win streak</span>
-                <span class="stats-row-value" id="profile-stat-best-streak">0</span>
-              </div>
+        <div id="profile-stats-body" class="stats-panel-body" hidden>
+          <div class="stats-bars">
+          <div class="stats-mode-block">
+            <p class="stats-mode-title">Overall</p>
+            <div class="stats-mode-nums">
+              <span class="stats-mode-win" id="profile-overall-won">0</span>
+              <span class="stats-mode-played" id="profile-overall-played">0</span>
+              <span class="stats-mode-loss" id="profile-overall-lost">0</span>
             </div>
+            <div class="stats-mode-labels">
+              <span>won</span><span>played</span><span>lost</span>
+            </div>
+            <div class="stats-mode-bar" id="profile-overall-bar" aria-hidden="true"></div>
           </div>
+          <div class="stats-mode-block">
+            <p class="stats-mode-title">Standard</p>
+            <div class="stats-mode-nums">
+              <span class="stats-mode-win" id="profile-standard-won">0</span>
+              <span class="stats-mode-played" id="profile-standard-played">0</span>
+              <span class="stats-mode-loss" id="profile-standard-lost">0</span>
+            </div>
+            <div class="stats-mode-labels">
+              <span>won</span><span>played</span><span>lost</span>
+            </div>
+            <div class="stats-mode-bar" id="profile-standard-bar" aria-hidden="true"></div>
+          </div>
+          <div class="stats-mode-block">
+            <p class="stats-mode-title">Team</p>
+            <div class="stats-mode-nums">
+              <span class="stats-mode-win" id="profile-team-won">0</span>
+              <span class="stats-mode-played" id="profile-team-played">0</span>
+              <span class="stats-mode-loss" id="profile-team-lost">0</span>
+            </div>
+            <div class="stats-mode-labels">
+              <span>won</span><span>played</span><span>lost</span>
+            </div>
+            <div class="stats-mode-bar" id="profile-team-bar" aria-hidden="true"></div>
+          </div>
+        </div>
+        <p class="stats-streaks-line" id="profile-streak-line">
+          Streak <span id="profile-stat-streak">0</span>
+          <span class="stats-streaks-sep" aria-hidden="true">&middot;</span>
+          Best <span id="profile-stat-best-streak">0</span>
+        </p>
         </div>
       </div>
 
