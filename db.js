@@ -2,13 +2,22 @@
  * PostgreSQL persistence for game history.
  * Set DATABASE_URL (Neon, Supabase, Render Postgres, etc.) to enable.
  * Without it, server.js falls back to a local JSON file.
+ *
+ * Supabase on Render: use the Session pooler URL (not the direct db.*.supabase.co
+ * host). Render often cannot reach Supabase direct connections over IPv6.
  */
 
+const dns = require('dns');
 const { Pool } = require('pg');
+
+if (typeof dns.setDefaultResultOrder === 'function') {
+  dns.setDefaultResultOrder('ipv4first');
+}
 
 const LOG_PREFIX = '[db]';
 
 let pool = null;
+let connected = false;
 
 /**
  * Returns true when DATABASE_URL is configured.
@@ -17,6 +26,46 @@ let pool = null;
  */
 function isEnabled() {
   return !!process.env.DATABASE_URL;
+}
+
+/**
+ * Returns true after a successful database init/connect.
+ *
+ * @returns {boolean}
+ */
+function isConnected() {
+  return connected;
+}
+
+/**
+ * Log a hint when Supabase direct host fails from IPv4-only hosts (e.g. Render).
+ *
+ * @param {Error} err Connection error.
+ */
+function logConnectionHint(err) {
+  const url = process.env.DATABASE_URL || '';
+  const msg = err && err.message ? err.message : '';
+  if (url.includes('db.') && url.includes('.supabase.co') && /ENETUNREACH|ETIMEDOUT|ECONNREFUSED/i.test(msg)) {
+    console.error(
+      `${LOG_PREFIX} Hint: Supabase direct connection failed from this host. ` +
+      'In Supabase Dashboard → Connect → use the Session pooler URI (host ends with .pooler.supabase.com, user postgres.PROJECT_REF).'
+    );
+  }
+}
+
+/**
+ * Close and reset the pool after a failed connection.
+ *
+ * @returns {Promise<void>}
+ */
+async function resetPool() {
+  connected = false;
+  if (pool) {
+    try {
+      await pool.end();
+    } catch (_) { /* ignore */ }
+    pool = null;
+  }
 }
 
 /**
@@ -35,9 +84,11 @@ function getPool() {
       connectionString: process.env.DATABASE_URL,
       ssl,
       max: 5,
+      connectionTimeoutMillis: 15000,
     });
     pool.on('error', (err) => {
       console.error(`${LOG_PREFIX} Pool error:`, err.message);
+      connected = false;
     });
   }
   return pool;
@@ -75,7 +126,8 @@ async function init() {
   const p = getPool();
   if (!p) return false;
 
-  await p.query(`
+  try {
+    await p.query(`
     CREATE TABLE IF NOT EXISTS game_history (
       id SERIAL PRIMARY KEY,
       code VARCHAR(16) NOT NULL,
@@ -93,13 +145,18 @@ async function init() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
-  await p.query(`
+    await p.query(`
     CREATE INDEX IF NOT EXISTS idx_game_history_ended_at
     ON game_history (ended_at DESC)
   `);
-
-  console.log(`${LOG_PREFIX} Schema ready`);
-  return true;
+    connected = true;
+    console.log(`${LOG_PREFIX} Schema ready`);
+    return true;
+  } catch (err) {
+    logConnectionHint(err);
+    await resetPool();
+    throw err;
+  }
 }
 
 /**
@@ -184,9 +241,11 @@ async function close() {
 
 module.exports = {
   isEnabled,
+  isConnected,
   init,
   loadGameHistory,
   saveGameHistory,
   pruneGameHistory,
+  resetPool,
   close,
 };

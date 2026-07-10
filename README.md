@@ -66,6 +66,30 @@ which **does not survive** Render restarts.
    - `DATABASE_URL` = your connection string
 4. Redeploy. The server creates the `game_history` table on first start.
 
+### Supabase on Render (important)
+
+Do **not** use the **Direct connection** URL (`db.xxxx.supabase.co:5432`). Render
+often cannot reach it over IPv6 (`ENETUNREACH` in logs).
+
+Use the **Session pooler** instead:
+
+1. Supabase Dashboard → **Connect** → **Connection string**
+2. Choose **Session pooler** (not Direct)
+3. Copy the URI. It looks like:
+   ```text
+   postgresql://postgres.nqdtoihdqqlombxbvpwb:[PASSWORD]@aws-0-ap-south-1.pooler.supabase.com:5432/postgres
+   ```
+   Note: username is `postgres.PROJECT_REF`, host ends with `.pooler.supabase.com`
+4. URL-encode special characters in the password (`@` → `%40`)
+5. Set as `DATABASE_URL` on Render and redeploy
+
+Success logs:
+```text
+[db] Schema ready
+[history] Loaded 0 game(s) from database
+Mountain Goats running on ... (history: PostgreSQL)
+```
+
 Local dev: copy `.env.example` to `.env` and set `DATABASE_URL`, or omit it to
 use the JSON file fallback.
 

@@ -556,6 +556,7 @@ function buildTeams(room, numTeams) {
 // ----------------------------------------------------------------------------
 const rooms = {}; // code -> room
 const gameHistory = []; // completed games from the last 2 days
+let historyStorage = 'file'; // 'postgresql' | 'file'
 const HISTORY_RETENTION_MS = 2 * 24 * 60 * 60 * 1000;
 const HISTORY_DIR = process.env.GAME_HISTORY_DIR || path.join(__dirname, 'data');
 const HISTORY_FILE = process.env.GAME_HISTORY_FILE || path.join(HISTORY_DIR, 'game-history.json');
@@ -609,6 +610,7 @@ async function loadGameHistory() {
       entries.forEach((entry) => gameHistory.push(entry));
       pruneGameHistory();
       console.log(`[history] Loaded ${gameHistory.length} game(s) from database`);
+      historyStorage = 'postgresql';
 
       if (gameHistory.length === 0) {
         loadGameHistoryFromFile();
@@ -621,9 +623,11 @@ async function loadGameHistory() {
       }
       return;
     } catch (err) {
+      await db.resetPool();
       console.error('[history] Database load failed, falling back to file:', err.message);
     }
   }
+  historyStorage = 'file';
   loadGameHistoryFromFile();
 }
 
@@ -648,7 +652,7 @@ function persistGameHistory() {
   const entry = gameHistory[0];
   if (!entry) return;
 
-  if (db.isEnabled()) {
+  if (historyStorage === 'postgresql' && db.isConnected()) {
     db.saveGameHistory(entry)
       .then(() => db.pruneGameHistory(HISTORY_RETENTION_MS))
       .catch((err) => console.error('[history] Database save failed:', err.message));
@@ -1856,7 +1860,7 @@ function handleDisconnect(socket, immediate = false) {
 loadGameHistory()
   .then(() => {
     server.listen(PORT, () => {
-      const storage = db.isEnabled() ? 'PostgreSQL' : 'local JSON file';
+      const storage = historyStorage === 'postgresql' ? 'PostgreSQL' : 'local JSON file';
       console.log(`Mountain Goats running on http://localhost:${PORT} (history: ${storage})`);
     });
   })
