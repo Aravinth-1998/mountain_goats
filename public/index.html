@@ -32,6 +32,20 @@
       <p id="online-count" class="online-count"></p>
     </div>
 
+    <div id="auth-section" class="card auth-section" style="display:none">
+      <div id="auth-signed-out">
+        <button type="button" id="btn-google-signin" class="btn btn-google btn-block">Sign in with Google</button>
+        <p class="muted center auth-divider">or play as guest</p>
+      </div>
+      <div id="auth-signed-in" style="display:none">
+        <div class="auth-profile">
+          <img id="auth-avatar" class="auth-avatar" alt="" width="36" height="36" />
+          <span id="auth-display-name" class="auth-display-name"></span>
+        </div>
+        <button type="button" id="btn-signout" class="btn btn-ghost btn-block btn-sm">Sign out</button>
+      </div>
+    </div>
+
     <input id="home-name" type="text" maxlength="16" placeholder="Enter your GOAT name" autocomplete="off" style="text-align:center" />
     <p id="home-name-error" class="error-msg" style="margin-top:4px"></p>
 
@@ -236,8 +250,10 @@
     </div>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="/socket.io/socket.io.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="/js/auth.js"></script>
   <script src="/js/main.js"></script>
 </body>
 </html>

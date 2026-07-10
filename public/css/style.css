@@ -868,6 +868,36 @@ input.input-error:focus { border-color: var(--danger); background: rgba(255,93,1
   display: flex; flex-direction: column; gap: 12px;
 }
 
+/* Auth (Google sign-in) */
+.auth-section { padding: 16px 20px; }
+.auth-divider { margin: 12px 0 0; font-size: 13px; }
+.auth-profile {
+  display: flex; align-items: center; gap: 12px;
+  margin-bottom: 12px; justify-content: center;
+}
+.auth-avatar {
+  width: 36px; height: 36px; border-radius: 50%;
+  object-fit: cover; border: 2px solid var(--card-border);
+  flex: 0 0 auto;
+}
+.auth-display-name { font-weight: 700; font-size: 15px; }
+.btn-google {
+  background: #fff;
+  color: #1f1f1f;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+}
+.btn-google:active { transform: scale(0.97); }
+.btn-sm { padding: 10px 14px; font-size: 14px; }
+input.input-readonly {
+  opacity: 0.85;
+  cursor: default;
+}
+input.input-readonly:focus {
+  border-color: var(--card-border);
+  background: rgba(255, 255, 255, 0.06);
+}
+
 /* ===== JOIN SCREEN ===== */
 #screen-join .topbar {
   margin-bottom: 4px;

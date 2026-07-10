@@ -149,6 +149,15 @@ async function init() {
     CREATE INDEX IF NOT EXISTS idx_game_history_ended_at
     ON game_history (ended_at DESC)
   `);
+    await p.query(`
+    CREATE TABLE IF NOT EXISTS users (
+      id UUID PRIMARY KEY,
+      display_name VARCHAR(64) NOT NULL,
+      avatar_url TEXT,
+      last_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
     connected = true;
     console.log(`${LOG_PREFIX} Schema ready`);
     return true;
@@ -228,6 +237,30 @@ async function saveGameHistory(entry) {
 }
 
 /**
+ * Insert or update a signed-in user profile.
+ *
+ * @param {object} user User fields.
+ * @param {string} user.id Supabase auth user id (JWT sub).
+ * @param {string} user.displayName Display name.
+ * @param {string|null} [user.avatarUrl] Avatar URL.
+ * @returns {Promise<void>}
+ */
+async function upsertUser(user) {
+  const p = getPool();
+  if (!p || !connected) return;
+
+  await p.query(
+    `INSERT INTO users (id, display_name, avatar_url, last_seen_at)
+     VALUES ($1, $2, $3, NOW())
+     ON CONFLICT (id) DO UPDATE SET
+       display_name = EXCLUDED.display_name,
+       avatar_url = EXCLUDED.avatar_url,
+       last_seen_at = NOW()`,
+    [user.id, user.displayName, user.avatarUrl || null]
+  );
+}
+
+/**
  * Close the pool (for graceful shutdown).
  *
  * @returns {Promise<void>}
@@ -246,6 +279,7 @@ module.exports = {
   loadGameHistory,
   saveGameHistory,
   pruneGameHistory,
+  upsertUser,
   resetPool,
   close,
 };

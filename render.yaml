@@ -8,7 +8,13 @@ services:
     envVars:
       - key: NODE_VERSION
         value: 18.20.4
-      # Add in the Render dashboard (Neon, Supabase, or Render Postgres):
+      # Add in the Render dashboard:
       # - key: DATABASE_URL
+      #   sync: false
+      # - key: SUPABASE_URL
+      #   sync: false
+      # - key: SUPABASE_ANON_KEY
+      #   sync: false
+      # - key: SUPABASE_JWT_SECRET
       #   sync: false
 

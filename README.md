@@ -8,7 +8,7 @@ premium mobile‑first UI.
 
 ## ✨ Features
 - **Create / Join rooms** with a 4‑letter code from the home page.
-- **Type your name** to create or join a game (2–6 players).
+- **Sign in with Google** (optional) or **play as guest** with a typed name.
 - **Everyone's live stats** (mountains conquered + steps climbed) are visible to all players.
 - **Premium, mobile‑first UI** — glassmorphism cards, animated dice & goats, clear high‑contrast board.
 - Reconnect support (refresh the page and you rejoin automatically).
@@ -95,17 +95,53 @@ use the JSON file fallback.
 
 ---
 
+## Google Sign-In (optional)
+
+Optional **Sign in with Google** via **Supabase Auth**. Signed-in players get a
+verified display name stored in the `users` table. Guests can still type a name.
+
+### 1. Supabase
+
+1. **Authentication → Providers → Google** — enable; add OAuth client ID/secret from Google Cloud (Web application).
+2. **Authentication → URL Configuration**
+   - Site URL: `https://your-app.onrender.com`
+   - Redirect URLs: `https://your-app.onrender.com`, `http://localhost:3000`
+3. **Project Settings → API** — copy Project URL, anon key, and JWT Secret.
+
+### 2. Google Cloud Console
+
+1. Create an OAuth 2.0 **Web application** client.
+2. **Authorized JavaScript origins:** your Render URL and `http://localhost:3000`
+3. **Authorized redirect URI:** Supabase callback (shown in Supabase Google provider settings), e.g. `https://xxxx.supabase.co/auth/v1/callback`
+
+### 3. Render environment variables
+
+| Key | Purpose |
+|-----|---------|
+| `SUPABASE_URL` | Project URL |
+| `SUPABASE_ANON_KEY` | Public anon key (safe for browser) |
+| `SUPABASE_JWT_SECRET` | Server-only JWT verification |
+| `DATABASE_URL` | Session pooler URL (creates `users` + `game_history` tables) |
+
+Redeploy after adding env vars. The Google button appears on the home screen when
+`SUPABASE_URL` and `SUPABASE_ANON_KEY` are set.
+
+---
+
 ## 🗂️ Project structure
 ```
 .
 ├── server.js            # Express + Socket.IO server, rooms & game logic
-├── db.js                # PostgreSQL game history (when DATABASE_URL is set)
+├── auth.js              # Supabase JWT verification
+├── db.js                # PostgreSQL (game_history, users)
 ├── package.json
 ├── render.yaml          # Render blueprint
 └── public/
     ├── index.html       # Home, lobby, game screens
     ├── css/style.css    # Premium UI
-    └── js/main.js       # Client: sockets, rendering, interactions
+    └── js/
+        ├── auth.js      # Supabase client, Google sign-in
+        └── main.js      # Client: sockets, rendering, interactions
 ```
 
 ## ⚙️ Tweakables (in `server.js`)

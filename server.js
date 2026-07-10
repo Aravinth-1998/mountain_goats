@@ -27,6 +27,7 @@ const http = require('http');
 const express = require('express');
 const { Server } = require('socket.io');
 const db = require('./db');
+const auth = require('./auth');
 
 const app = express();
 const server = http.createServer(app);
@@ -34,6 +35,13 @@ const io = new Server(server);
 
 app.use(express.static(path.join(__dirname, 'public')));
 app.get('/healthz', (req, res) => res.send('ok'));
+
+app.get('/api/public-config', (req, res) => {
+  res.json({
+    supabaseUrl: process.env.SUPABASE_URL || '',
+    supabaseAnonKey: process.env.SUPABASE_ANON_KEY || '',
+  });
+});
 
 // Admin secret key - set via environment variable or defaults to a random key
 const ADMIN_KEY = process.env.ADMIN_KEY || 'goat-admin-' + Math.random().toString(36).slice(2, 8);
@@ -693,7 +701,7 @@ function createRoom(options = {}) {
   return room;
 }
 
-function addPlayer(room, socketId, name, isBot = false) {
+function addPlayer(room, socketId, name, isBot = false, authUserId = null) {
   // Assign first unused color to ensure all players have unique colors
   const usedColors = new Set(room.players.map((p) => p.color));
   const color = PLAYER_COLORS.find((c) => !usedColors.has(c)) || PLAYER_COLORS[room.players.length % PLAYER_COLORS.length];
@@ -702,6 +710,7 @@ function addPlayer(room, socketId, name, isBot = false) {
     name,
     color,
     isBot,
+    authUserId: authUserId || null,
     pos: MOUNTAIN_DEFS.map(() => 0), // goat position per mountain (0 = foot)
     collected: MOUNTAIN_DEFS.map(() => 0), // Point Tokens collected per mountain
     bonus: [], // Bonus Token values claimed
@@ -1274,6 +1283,57 @@ function broadcastOnlineCount() {
   io.emit('onlineCount', count);
 }
 
+/**
+ * Find an existing human player for reconnect (auth id preferred over guest name).
+ *
+ * @param {object} room Room state.
+ * @param {import('socket.io').Socket} socket Connected socket.
+ * @param {string} name Resolved guest or display name.
+ * @returns {object|undefined}
+ */
+function findExistingPlayer(room, socket, name) {
+  return room.players.find((p) => {
+    if (p.isBot) return false;
+    if (socket.authUserId && p.authUserId) {
+      return p.authUserId === socket.authUserId;
+    }
+    if (!socket.authUserId && !p.authUserId) {
+      return p.name === name;
+    }
+    return false;
+  });
+}
+
+/**
+ * Returns true if the player identity is already in the room (new join, not reconnect).
+ *
+ * @param {object} room Room state.
+ * @param {import('socket.io').Socket} socket Connected socket.
+ * @param {string} name Resolved display name.
+ * @returns {boolean}
+ */
+function isPlayerIdentityTaken(room, socket, name) {
+  if (socket.authUserId) {
+    return room.players.some((p) => p.authUserId === socket.authUserId);
+  }
+  return room.players.some((p) => !p.isBot && !p.authUserId && p.name === name);
+}
+
+io.use(async (socket, next) => {
+  socket.authUserId = null;
+  socket.authDisplayName = null;
+  socket.authAvatarUrl = null;
+  const token = socket.handshake.auth && socket.handshake.auth.token;
+  if (token && auth.isAuthConfigured()) {
+    try {
+      await auth.attachAuthToSocket(socket, token, db);
+    } catch (err) {
+      console.warn(`${auth.LOG_PREFIX} Invalid token on connect:`, err.message);
+    }
+  }
+  next();
+});
+
 io.on('connection', (socket) => {
   // Send current online count to new client and broadcast to all
   broadcastOnlineCount();
@@ -1283,29 +1343,26 @@ io.on('connection', (socket) => {
   });
 
   socket.on('createRoom', ({ name, isPublic, maxPlayers }, cb) => {
-    name = (name || '').trim().slice(0, 16);
+    name = auth.resolvePlayerName(socket, name);
     if (!name) return cb && cb({ error: 'Please enter your name.' });
     const room = createRoom({ isPublic, maxPlayers });
     socket.join(room.code);
-    const player = addPlayer(room, socket.id, name);
+    const player = addPlayer(room, socket.id, name, false, socket.authUserId);
     pushLog(room, `${name} created the room.`);
     cb && cb({ ok: true, code: room.code, youId: player.id });
     broadcast(room);
   });
 
   socket.on('joinRoom', ({ name, code }, cb) => {
-    name = (name || '').trim().slice(0, 16);
+    name = auth.resolvePlayerName(socket, name);
     code = String(code || '').trim().slice(0, 4);
     const room = rooms[code];
     if (!room) return cb && cb({ error: 'Room not found.' });
     if (!name) return cb && cb({ error: 'Please enter your name.' });
 
     // Reconnect path:
-    // Match by name even if still marked connected — this handles the
-    // page-refresh race where the new socket arrives before the server
-    // fires the disconnect event for the old socket. Works for both
-    // lobby and in-game reconnection (e.g. mobile app switch).
-    const existing = room.players.find((p) => p.name === name && !p.isBot);
+    // Match by auth id (signed-in) or guest name. Handles page-refresh race.
+    const existing = findExistingPlayer(room, socket, name);
 
     if (existing) {
       const wasMyTurn = room.players[room.currentIndex] &&
@@ -1314,6 +1371,7 @@ io.on('connection', (socket) => {
       const oldId = existing.id;
       existing.id = socket.id;
       existing.connected = true;
+      if (name) existing.name = name;
       // Update team member references when player ID changes on reconnect
       if (room.teams && oldId !== socket.id) {
         room.teams.forEach((t) => {
@@ -1350,11 +1408,11 @@ io.on('connection', (socket) => {
 
     if (room.started) return cb && cb({ error: 'Game already started.' });
     if (room.players.length >= room.maxPlayers) return cb && cb({ error: 'Room is full.' });
-    if (room.players.some((p) => p.name === name)) {
+    if (isPlayerIdentityTaken(room, socket, name)) {
       return cb && cb({ error: 'Name already taken in this room.' });
     }
     socket.join(room.code);
-    const player = addPlayer(room, socket.id, name);
+    const player = addPlayer(room, socket.id, name, false, socket.authUserId);
     // Auto-assign to smallest team if team mode is active
     if (room.teamMode && room.teams) {
       const smallest = room.teams.reduce((a, b) => a.members.length <= b.members.length ? a : b);

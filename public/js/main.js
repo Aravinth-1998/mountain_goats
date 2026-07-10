@@ -1,9 +1,21 @@
 /* Mountain Goats - client */
-(function () {
+(async function () {
+  if (window.MGAuthReady) {
+    await window.MGAuthReady;
+  }
+
+  const initialToken = window.MGAuth ? (await window.MGAuth.getAccessToken()) : null;
   const socket = io({
+    auth: { token: initialToken || '' },
     reconnectionDelay: 500,
     reconnectionDelayMax: 5000,
     reconnectionAttempts: Infinity,
+  });
+
+  socket.io.on('reconnect_attempt', async () => {
+    if (window.MGAuth) {
+      socket.auth.token = (await window.MGAuth.getAccessToken()) || '';
+    }
   });
 
   let myId = null;
@@ -37,6 +49,46 @@
   };
   const $ = (id) => document.getElementById(id);
 
+  /**
+   * Resolve display name for create/join (Google profile or guest input).
+   *
+   * @returns {string}
+   */
+  function getPlayName() {
+    if (window.MGAuth) return window.MGAuth.getDisplayNameForPlay();
+    return $('home-name').value.trim();
+  }
+
+  /**
+   * Returns true when the user signed in with Google.
+   *
+   * @returns {boolean}
+   */
+  function isSignedIn() {
+    return !!(window.MGAuth && window.MGAuth.getAuthProfile().isSignedIn);
+  }
+
+  /**
+   * Validate guest name or return signed-in display name.
+   *
+   * @returns {string|null}
+   */
+  function requirePlayName() {
+    const name = getPlayName();
+    if (!name) {
+      if (!isSignedIn()) {
+        $('home-name').classList.add('input-error');
+        $('home-name-error').textContent = 'Please enter your name.';
+      } else {
+        $('home-name-error').textContent = 'Could not resolve your display name.';
+      }
+      return null;
+    }
+    $('home-name').classList.remove('input-error');
+    $('home-name-error').textContent = '';
+    return name;
+  }
+
   function show(name) {
     Object.values(screens).forEach((s) => s.classList.remove('active'));
     screens[name].classList.add('active');
@@ -44,7 +96,7 @@
 
   // If there's a saved session, show the loading screen immediately
   // so the user never sees the home page flash.
-  if (localStorage.getItem('mg_code') && localStorage.getItem('mg_name')) {
+  if (localStorage.getItem('mg_code') && (localStorage.getItem('mg_name') || isSignedIn())) {
     show('loading');
   }
   function toast(msg) {
@@ -239,13 +291,9 @@
 
   // ===================== HOME =====================
   $('btn-create').addEventListener('click', () => {
-    const name = $('home-name').value.trim();
-    if (!name) {
-      $('home-name').classList.add('input-error');
-      return ($('home-name-error').textContent = 'Please enter your name.');
-    }
-    $('home-name').classList.remove('input-error');
-    $('home-name-error').textContent = '';
+    const name = requirePlayName();
+    if (!name) return;
+    $('home-error').textContent = '';
     setHomeLoading('create');
     socket.emit('createRoom', { name }, (res) => {
       clearHomeLoading();
@@ -259,13 +307,8 @@
 
   // Navigate to Join screen
   $('btn-goto-join').addEventListener('click', () => {
-    const name = $('home-name').value.trim();
-    if (!name) {
-      $('home-name').classList.add('input-error');
-      return ($('home-name-error').textContent = 'Please enter your name.');
-    }
-    $('home-name').classList.remove('input-error');
-    $('home-name-error').textContent = '';
+    const name = requirePlayName();
+    if (!name) return;
     $('home-error').textContent = '';
     show('join');
     refreshPublicRooms();
@@ -280,7 +323,7 @@
 
   // Join Room (from join screen)
   $('btn-join').addEventListener('click', () => {
-    const name = $('home-name').value.trim();
+    const name = getPlayName();
     const code = String($('join-code').value || '').trim().slice(0, 4);
     if (!name) return ($('join-error').textContent = 'Please enter your name on the home screen.');
     if (!code || code.length < 4) return ($('join-error').textContent = 'Please enter the 4-digit room code.');
@@ -334,7 +377,7 @@
         const joinBtn = card.querySelector('.pr-join');
         if (!full) {
           joinBtn.addEventListener('click', () => {
-            const name = $('home-name').value.trim();
+            const name = getPlayName();
             if (!name) return ($('join-error').textContent = 'Please enter your name on the home screen.');
             $('join-error').textContent = '';
             joinBtn.disabled = true;
@@ -577,12 +620,14 @@
   // ===================== SOCKET =====================
   socket.on('connect', () => {
     const code = localStorage.getItem('mg_code');
-    const name = localStorage.getItem('mg_name');
+    const storedName = localStorage.getItem('mg_name');
+    const name = getPlayName() || storedName;
     if (code && name) {
       leftRoom = false;
       socket.emit('joinRoom', { name, code }, (res) => {
         if (res && res.ok) {
           myId = res.youId;
+          localStorage.setItem('mg_name', name);
         } else {
           localStorage.removeItem('mg_code');
           localStorage.removeItem('mg_name');
