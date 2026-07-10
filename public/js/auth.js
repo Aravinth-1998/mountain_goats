@@ -1,6 +1,7 @@
 /* Mountain Goats - Supabase Google auth (optional) */
 (function () {
   const NAME_MAX_LEN = 16;
+  const GAMING_NAME_KEY = 'gaming_name';
   const GAMING_NAME_PREFIX = 'mg_gn_';
 
   let supabaseClient = null;
@@ -70,6 +71,18 @@
   }
 
   /**
+   * Read gaming name from Supabase Auth user metadata (syncs cross-device).
+   *
+   * @param {object|null} user Supabase user object.
+   * @returns {string|null}
+   */
+  function gamingNameFromUserMetadata(user) {
+    if (!user || !user.user_metadata) return null;
+    const name = user.user_metadata[GAMING_NAME_KEY];
+    return name ? truncateName(name) : null;
+  }
+
+  /**
    * Resolve a gaming name from a users table row.
    *
    * @param {object|null} row Users table row.
@@ -83,12 +96,60 @@
   }
 
   /**
-   * Load gaming name directly from Supabase (works cross-device).
+   * Load gaming name from Supabase Auth profile (primary, cross-device).
+   *
+   * @param {object|null} sessionUser User from the current session.
+   * @returns {Promise<string|null>}
+   */
+  async function fetchGamingNameFromAuthProfile(sessionUser) {
+    let name = gamingNameFromUserMetadata(sessionUser);
+    if (name || !supabaseClient) return name;
+
+    try {
+      const { data, error } = await supabaseClient.auth.getUser();
+      if (error) {
+        console.warn('[auth] getUser failed:', error.message);
+        return null;
+      }
+      return gamingNameFromUserMetadata(data.user);
+    } catch (err) {
+      console.error('[auth] getUser failed:', err);
+      return null;
+    }
+  }
+
+  /**
+   * Save gaming name to Supabase Auth user metadata (primary, cross-device).
+   *
+   * @param {string} gamingName In-game name.
+   * @returns {Promise<boolean>}
+   */
+  async function saveGamingNameToAuthProfile(gamingName) {
+    if (!supabaseClient) return false;
+    const name = truncateName(gamingName);
+    if (!name) return false;
+    try {
+      const { error } = await supabaseClient.auth.updateUser({
+        data: { [GAMING_NAME_KEY]: name },
+      });
+      if (error) {
+        console.warn('[auth] updateUser gaming name failed:', error.message);
+        return false;
+      }
+      return true;
+    } catch (err) {
+      console.error('[auth] updateUser gaming name failed:', err);
+      return false;
+    }
+  }
+
+  /**
+   * Load gaming name directly from Supabase Postgres users table.
    *
    * @param {string} userId Supabase user id.
    * @returns {Promise<string|null>}
    */
-  async function fetchGamingNameFromSupabase(userId) {
+  async function fetchGamingNameFromSupabaseTable(userId) {
     if (!supabaseClient || !userId) return null;
     try {
       const { data, error } = await supabaseClient
@@ -97,12 +158,12 @@
         .eq('id', userId)
         .maybeSingle();
       if (error) {
-        console.warn('[auth] supabase read gaming name:', error.code, error.message);
+        console.warn('[auth] supabase table read:', error.code, error.message);
         return null;
       }
       return gamingNameFromRow(data);
     } catch (err) {
-      console.error('[auth] supabase read gaming name failed:', err);
+      console.error('[auth] supabase table read failed:', err);
       return null;
     }
   }
@@ -135,15 +196,15 @@
    * Fetch the saved gaming name for the current signed-in user.
    *
    * @param {string} userId Supabase user id.
+   * @param {object|null} sessionUser User from the current session.
    * @returns {Promise<string|null>}
    */
-  async function fetchSavedGamingName(userId) {
-    const cached = readCachedGamingName(userId);
+  async function fetchSavedGamingName(userId, sessionUser) {
+    let gamingName = await fetchGamingNameFromAuthProfile(sessionUser);
+    if (!gamingName) gamingName = await fetchGamingNameFromSupabaseTable(userId);
+    if (!gamingName) gamingName = await fetchGamingNameFromServer();
 
-    let gamingName = await fetchGamingNameFromSupabase(userId);
-    if (!gamingName) {
-      gamingName = await fetchGamingNameFromServer();
-    }
+    const cached = readCachedGamingName(userId);
 
     if (gamingName) {
       writeCachedGamingName(userId, gamingName);
@@ -159,30 +220,32 @@
   }
 
   /**
-   * Save gaming name directly to Supabase.
+   * Save gaming name to Supabase Postgres users table.
    *
    * @param {string} userId Supabase user id.
    * @param {string} gamingName In-game name.
    * @returns {Promise<boolean>}
    */
-  async function saveGamingNameToSupabase(userId, gamingName) {
+  async function saveGamingNameToSupabaseTable(userId, gamingName) {
     if (!supabaseClient || !userId || !gamingName) return false;
+    const name = truncateName(gamingName);
     try {
       const { error } = await supabaseClient.from('users').upsert(
         {
           id: userId,
-          gaming_name: truncateName(gamingName),
+          gaming_name: name,
+          display_name: name,
           last_seen_at: new Date().toISOString(),
         },
         { onConflict: 'id' }
       );
       if (error) {
-        console.warn('[auth] supabase save gaming name:', error.code, error.message);
+        console.warn('[auth] supabase table save:', error.code, error.message);
         return false;
       }
       return true;
     } catch (err) {
-      console.error('[auth] supabase save gaming name failed:', err);
+      console.error('[auth] supabase table save failed:', err);
       return false;
     }
   }
@@ -217,7 +280,7 @@
   }
 
   /**
-   * Persist gaming name to Supabase, server, and local cache.
+   * Persist gaming name to auth profile, DB, server, and local cache.
    *
    * @param {string} gamingName In-game name.
    * @returns {Promise<void>}
@@ -228,10 +291,13 @@
 
     writeCachedGamingName(profile.userId, name);
 
-    const savedToSupabase = await saveGamingNameToSupabase(profile.userId, name);
-    if (!savedToSupabase) {
-      await saveGamingNameToServer(name);
+    const savedToAuth = await saveGamingNameToAuthProfile(name);
+    if (!savedToAuth) {
+      console.warn('[auth] could not save gaming name to auth profile');
     }
+
+    await saveGamingNameToSupabaseTable(profile.userId, name);
+    await saveGamingNameToServer(name);
   }
 
   /**
@@ -295,15 +361,26 @@
    * Load and apply the saved gaming name with short retries after sign-in.
    *
    * @param {string} userId Supabase user id.
+   * @param {object|null} sessionUser User from the current session.
    * @param {string} [event] Supabase auth event name.
    * @returns {Promise<string|null>}
    */
-  async function loadAndApplyGamingName(userId, event) {
-    let savedName = await fetchSavedGamingName(userId);
-    if (!savedName && (event === 'SIGNED_IN' || event === 'INITIAL_SESSION' || event === 'INIT')) {
-      await new Promise((resolve) => setTimeout(resolve, 400));
-      savedName = await fetchSavedGamingName(userId);
+  async function loadAndApplyGamingName(userId, sessionUser, event) {
+    let savedName = gamingNameFromUserMetadata(sessionUser);
+    if (savedName) {
+      applyGamingNameToInput(savedName);
+      writeCachedGamingName(userId, savedName);
     }
+
+    if (!savedName) {
+      savedName = await fetchSavedGamingName(userId, sessionUser);
+    }
+
+    if (!savedName && (event === 'SIGNED_IN' || event === 'INITIAL_SESSION' || event === 'INIT')) {
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      savedName = await fetchSavedGamingName(userId, sessionUser);
+    }
+
     applyGamingNameToInput(savedName);
     return savedName;
   }
@@ -317,11 +394,12 @@
    */
   async function applySession(session, event) {
     const wasSignedIn = profile.isSignedIn;
-    profile = profileFromUser(session && session.user ? session.user : null);
+    const sessionUser = session && session.user ? session.user : null;
+    profile = profileFromUser(sessionUser);
     updateAuthUI();
 
     if (profile.isSignedIn) {
-      await loadAndApplyGamingName(profile.userId, event);
+      await loadAndApplyGamingName(profile.userId, sessionUser, event);
     } else if (wasSignedIn) {
       applyGamingNameToInput(null);
     }
@@ -371,6 +449,17 @@
       if (btnSignOut) {
         btnSignOut.addEventListener('click', () => {
           signOut().catch((err) => console.error('[auth] sign out failed:', err));
+        });
+      }
+
+      const nameInput = document.getElementById('home-name');
+      if (nameInput) {
+        nameInput.addEventListener('blur', () => {
+          if (!profile.isSignedIn) return;
+          const name = truncateName(nameInput.value);
+          if (name) {
+            saveGamingName(name).catch((err) => console.error('[auth] blur save failed:', err));
+          }
         });
       }
     } catch (err) {

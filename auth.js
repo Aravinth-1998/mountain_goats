@@ -105,6 +105,18 @@ function resolveGoogleName(payload) {
 }
 
 /**
+ * Resolve the saved in-game name from Supabase user metadata.
+ *
+ * @param {object} payload Decoded JWT payload or user object.
+ * @returns {string|null}
+ */
+function resolveGamingNameFromPayload(payload) {
+  const meta = payload.user_metadata || {};
+  const name = String(meta.gaming_name || '').trim().slice(0, NAME_MAX_LEN);
+  return name || null;
+}
+
+/**
  * Resolve avatar URL from a verified Supabase JWT payload.
  *
  * @param {object} payload Decoded JWT payload.
@@ -128,14 +140,18 @@ async function attachAuthToSocket(socket, accessToken, db) {
   socket.authUserId = payload.sub;
   socket.authGoogleName = resolveGoogleName(payload);
   socket.authAvatarUrl = resolveAvatarUrl(payload);
-  socket.authGamingName = null;
+  socket.authGamingName = resolveGamingNameFromPayload(payload);
   if (await db.ensureConnected()) {
     await db.upsertAuthUser({
       id: socket.authUserId,
       googleName: socket.authGoogleName,
       avatarUrl: socket.authAvatarUrl,
     });
-    socket.authGamingName = await db.getGamingName(socket.authUserId);
+    if (!socket.authGamingName) {
+      socket.authGamingName = await db.getGamingName(socket.authUserId);
+    } else {
+      await db.saveGamingName(socket.authUserId, socket.authGamingName);
+    }
   }
 }
 
@@ -162,6 +178,7 @@ module.exports = {
   verifySupabaseToken,
   verifyAccessToken,
   resolveGoogleName,
+  resolveGamingNameFromPayload,
   resolveAvatarUrl,
   attachAuthToSocket,
   resolvePlayerName,

@@ -166,6 +166,11 @@ async function init() {
       UPDATE users SET gaming_name = LEFT(display_name, 16)
       WHERE gaming_name IS NULL AND display_name IS NOT NULL AND display_name <> ''
     `);
+    await p.query(`
+      UPDATE users SET display_name = gaming_name
+      WHERE (display_name IS NULL OR display_name = '')
+        AND gaming_name IS NOT NULL AND gaming_name <> ''
+    `);
     await setupUserTablePolicies(p);
     connected = true;
     console.log(`${LOG_PREFIX} Schema ready`);
@@ -356,13 +361,17 @@ async function saveGamingName(userId, gamingName) {
     return;
   }
 
+  const name = String(gamingName || '').trim().slice(0, 16);
+  if (!name) return;
+
   await p.query(
-    `INSERT INTO users (id, gaming_name, last_seen_at)
-     VALUES ($1, $2, NOW())
+    `INSERT INTO users (id, gaming_name, display_name, last_seen_at)
+     VALUES ($1, $2, $2, NOW())
      ON CONFLICT (id) DO UPDATE SET
        gaming_name = EXCLUDED.gaming_name,
+       display_name = EXCLUDED.display_name,
        last_seen_at = NOW()`,
-    [userId, gamingName]
+    [userId, name]
   );
 }
 

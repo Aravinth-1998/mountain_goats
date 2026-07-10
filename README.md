@@ -126,10 +126,10 @@ verified display name stored in the `users` table. Guests can still type a name.
 Redeploy after adding env vars. The Google button appears on the home screen when
 `SUPABASE_URL` and `SUPABASE_ANON_KEY` are set.
 
-Gaming names sync cross-device via the Supabase `users` table. On first deploy
-after this update, the server applies row-level security automatically. If mobile
-or another browser still cannot load your name, run `scripts/setup-users-rls.sql`
-once in the Supabase SQL Editor, then sign in and create/join a room once.
+Gaming names sync cross-device via **Supabase Auth user metadata** (`gaming_name`).
+No database setup is required for name sync. After deploy, sign in, enter your GOAT
+name, and tap Create Room or Join Room once — the name follows your Google account
+on every device.
 
 ---
 

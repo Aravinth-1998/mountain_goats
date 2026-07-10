@@ -53,12 +53,12 @@ app.get('/api/me/gaming-name', async (req, res) => {
   if (!token) return res.status(401).json({ error: 'Unauthorized' });
   try {
     const payload = await auth.verifyAccessToken(token);
+    const metaName = auth.resolveGamingNameFromPayload(payload);
     if (!(await db.ensureConnected())) {
-      console.warn(`${auth.LOG_PREFIX} gaming-name GET: database not connected`);
-      return res.json({ gamingName: null });
+      return res.json({ gamingName: metaName });
     }
-    const gamingName = await db.getGamingName(payload.sub);
-    res.json({ gamingName });
+    const dbName = await db.getGamingName(payload.sub);
+    res.json({ gamingName: metaName || dbName });
   } catch (err) {
     console.warn(`${auth.LOG_PREFIX} gaming-name GET failed:`, err.message);
     res.status(401).json({ error: 'Invalid token' });

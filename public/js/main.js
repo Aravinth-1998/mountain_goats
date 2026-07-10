@@ -302,6 +302,7 @@
   $('btn-create').addEventListener('click', () => {
     const name = requirePlayName();
     if (!name) return;
+    persistSignedInGamingName(name);
     $('home-error').textContent = '';
     setHomeLoading('create');
     socket.emit('createRoom', { name }, (res) => {
@@ -319,6 +320,7 @@
   $('btn-goto-join').addEventListener('click', () => {
     const name = requirePlayName();
     if (!name) return;
+    persistSignedInGamingName(name);
     $('home-error').textContent = '';
     show('join');
     refreshPublicRooms();
