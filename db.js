@@ -383,6 +383,35 @@ async function recordMatchStats(updates) {
 }
 
 /**
+ * Load match win/loss stats for a signed-in user.
+ *
+ * @param {string} userId Auth user UUID.
+ * @returns {Promise<{ played: number, won: number, lost: number }|null>}
+ */
+async function getMatchStats(userId) {
+  const p = getPool();
+  if (!p || !connected || !userId) return null;
+
+  const result = await p.query(
+    `SELECT matches_played, matches_won, matches_lost
+     FROM users
+     WHERE id = $1`,
+    [userId]
+  );
+
+  if (!result.rows.length) {
+    return { played: 0, won: 0, lost: 0 };
+  }
+
+  const row = result.rows[0];
+  return {
+    played: Number(row.matches_played),
+    won: Number(row.matches_won),
+    lost: Number(row.matches_lost),
+  };
+}
+
+/**
  * Close the pool (for graceful shutdown).
  *
  * @returns {Promise<void>}
@@ -405,6 +434,7 @@ module.exports = {
   getGamingName,
   saveGamingName,
   recordMatchStats,
+  getMatchStats,
   ensureConnected,
   resetPool,
   close,

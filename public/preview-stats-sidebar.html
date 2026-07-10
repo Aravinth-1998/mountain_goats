@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Stats Sidebar Preview - Mountain Goats</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/style.css" />
+  <style>
+    /* Preview page chrome only */
+    .preview-page {
+      position: relative;
+      z-index: 1;
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 20px 16px 48px;
+    }
+    .preview-header {
+      text-align: center;
+      margin-bottom: 24px;
+    }
+    .preview-header h1 {
+      font-family: 'Fredoka', sans-serif;
+      font-size: 26px;
+      margin: 0 0 8px;
+    }
+    .preview-header p {
+      color: var(--muted);
+      font-size: 14px;
+      margin: 0;
+      line-height: 1.5;
+    }
+    .preview-controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: center;
+      margin-bottom: 24px;
+    }
+    .preview-controls button {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--card-border);
+      color: var(--text);
+      border-radius: 999px;
+      padding: 8px 14px;
+      font-size: 13px;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+    }
+    .preview-controls button.active {
+      background: rgba(79, 124, 255, 0.22);
+      border-color: rgba(79, 124, 255, 0.55);
+      color: #dbe6ff;
+    }
+    .preview-panel {
+      background: var(--card);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius);
+      padding: 16px;
+      box-shadow: var(--shadow);
+    }
+    .preview-panel h2 {
+      font-family: 'Fredoka', sans-serif;
+      font-size: 18px;
+      margin: 0 0 4px;
+    }
+    .preview-caption {
+      color: var(--muted);
+      font-size: 12px;
+      margin: 0 0 14px;
+      line-height: 1.4;
+    }
+    .preview-frame {
+      position: relative;
+      background: rgba(0, 0, 0, 0.18);
+      border: 1px dashed rgba(255, 255, 255, 0.1);
+      border-radius: 16px;
+      min-height: 560px;
+      overflow: hidden;
+    }
+    .preview-home {
+      position: relative;
+      max-width: 520px;
+      margin: 0 auto;
+      padding: 22px 16px 40px;
+      min-height: 560px;
+    }
+    .preview-hidden {
+      display: none !important;
+    }
+
+    /* Candidate stats sidebar UI (for review) */
+    .stats-fab {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      z-index: 40;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 3px;
+      border-radius: 50%;
+      border: 2px solid rgba(79, 124, 255, 0.45);
+      background: rgba(79, 124, 255, 0.12);
+      cursor: pointer;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+      overflow: hidden;
+    }
+    .stats-fab:hover {
+      border-color: rgba(79, 124, 255, 0.75);
+      background: rgba(79, 124, 255, 0.2);
+    }
+    .stats-fab-img {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      object-fit: cover;
+      display: block;
+    }
+    .stats-backdrop {
+      position: absolute;
+      inset: 0;
+      z-index: 45;
+      background: rgba(4, 8, 16, 0.55);
+      backdrop-filter: blur(2px);
+    }
+    .stats-drawer {
+      position: absolute;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 50;
+      width: min(300px, 88vw);
+      background: var(--card);
+      border-left: 1px solid var(--card-border);
+      box-shadow: -12px 0 40px rgba(0, 0, 0, 0.35);
+      display: flex;
+      flex-direction: column;
+      padding: 18px 16px 24px;
+      transform: translateX(0);
+      transition: transform 0.28s ease;
+    }
+    .stats-drawer-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .stats-drawer-title {
+      font-family: 'Fredoka', sans-serif;
+      font-size: 20px;
+      margin: 0;
+    }
+    .stats-drawer-close {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--card-border);
+      color: var(--muted);
+      width: 32px;
+      height: 32px;
+      border-radius: 10px;
+      font-size: 18px;
+      line-height: 1;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .stats-drawer-close:hover {
+      color: var(--text);
+    }
+    .stats-accordion {
+      padding: 0;
+      overflow: hidden;
+    }
+    .stats-accordion-btn {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      width: 100%;
+      padding: 14px 16px 12px;
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--text);
+      font-size: 15px;
+      font-weight: 700;
+      font-family: 'Fredoka', sans-serif;
+      letter-spacing: 0.3px;
+      transition: background 0.2s;
+    }
+    .stats-accordion-btn.open {
+      padding-bottom: 8px;
+    }
+    .stats-accordion-btn:hover {
+      background: rgba(255, 255, 255, 0.04);
+    }
+    .stats-accordion-btn .toggle-arrow {
+      display: inline-block;
+      font-size: 14px;
+      color: var(--muted);
+      transition: transform 0.3s ease;
+    }
+    .stats-accordion-btn.open .toggle-arrow {
+      transform: rotate(180deg);
+    }
+    .stats-accordion-body {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.3s ease;
+    }
+    .stats-accordion-body.open {
+      max-height: 240px;
+    }
+    .stats-rows {
+      padding: 6px 16px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .stats-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--card-border);
+      font-size: 14px;
+      font-weight: 600;
+    }
+    .stats-row-label {
+      color: var(--muted);
+    }
+    .stats-row-value {
+      font-variant-numeric: tabular-nums;
+      font-weight: 800;
+      color: var(--text);
+    }
+    .stats-row-win .stats-row-value {
+      color: var(--gold);
+    }
+    .stats-row-loss .stats-row-value {
+      color: #ff8a96;
+    }
+    .stats-note {
+      margin-top: 14px;
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-mountains" aria-hidden="true"></div>
+
+  <div class="preview-page">
+    <header class="preview-header">
+      <h1>Stats Sidebar Preview</h1>
+      <p>
+        Mockup for signed-in home screen profile button (Google avatar). Open at
+        <code>/preview-stats-sidebar.html</code> while the server is running.
+      </p>
+    </header>
+
+    <div class="preview-controls" role="tablist" aria-label="Preview scenarios">
+      <button type="button" class="active" data-scenario="signed-out">Signed out</button>
+      <button type="button" data-scenario="signed-in-closed">Signed in, drawer closed</button>
+      <button type="button" data-scenario="open-expanded">Drawer open, Stats expanded</button>
+      <button type="button" data-scenario="open-collapsed">Drawer open, Stats collapsed</button>
+      <button type="button" data-scenario="zero-stats">Drawer open, zero stats</button>
+    </div>
+
+    <section class="preview-panel" aria-labelledby="preview-title">
+      <h2 id="preview-title">Home screen mock</h2>
+      <p class="preview-caption" id="preview-caption">Guest view — no profile button in the top-right corner.</p>
+
+      <div class="preview-frame">
+        <div class="preview-home" id="preview-home">
+          <button type="button" id="preview-stats-fab" class="stats-fab preview-hidden" aria-label="Your profile">
+            <img
+              id="preview-profile-avatar"
+              class="stats-fab-img"
+              src="https://ui-avatars.com/api/?name=Aravinth+S&background=4f7cff&color=fff&size=72"
+              alt=""
+            />
+          </button>
+
+          <div class="brand">
+            <div class="goat-emoji">&#128016;</div>
+            <h1>Mountain Goats</h1>
+            <p class="tagline">Race your herd over the peaks. Play live with friends.</p>
+            <p class="online-count">&#128994; 4 players online</p>
+          </div>
+
+          <input type="text" value="AlpineGoat" maxlength="16" readonly style="text-align:center" aria-label="GOAT name (mock)" />
+
+          <div class="card home-actions" style="margin-top:16px">
+            <button type="button" class="btn btn-primary btn-block" disabled>Create Room</button>
+            <button type="button" class="btn btn-join btn-block" disabled>Join Room</button>
+          </div>
+
+          <div id="preview-auth-signed-out" class="auth-bottom">
+            <button type="button" class="btn btn-google" disabled>Sign in with Google</button>
+            <p class="muted center auth-divider">or play as guest</p>
+          </div>
+
+          <div id="preview-auth-signed-in" class="auth-bottom preview-hidden">
+            <div class="auth-bottom-signed-in">
+              <span class="auth-bottom-dot" aria-hidden="true"></span>
+              <span>Signed in with Google</span>
+              <button type="button" class="auth-link" disabled>Sign out</button>
+            </div>
+          </div>
+
+          <div id="preview-stats-backdrop" class="stats-backdrop preview-hidden" aria-hidden="true"></div>
+
+          <aside id="preview-stats-drawer" class="stats-drawer preview-hidden" aria-label="Profile stats">
+            <div class="stats-drawer-header">
+              <h3 class="stats-drawer-title">Your Profile</h3>
+              <button type="button" class="stats-drawer-close" aria-label="Close profile sidebar">&times;</button>
+            </div>
+
+            <div class="card stats-accordion">
+              <button type="button" id="preview-stats-accordion-btn" class="stats-accordion-btn open">
+                <span>Stats</span>
+                <span class="toggle-arrow" aria-hidden="true">&#9662;</span>
+              </button>
+              <div id="preview-stats-accordion-body" class="stats-accordion-body open">
+                <div class="stats-rows">
+                  <div class="stats-row">
+                    <span class="stats-row-label">Matches played</span>
+                    <span class="stats-row-value" id="preview-stat-played">12</span>
+                  </div>
+                  <div class="stats-row stats-row-win">
+                    <span class="stats-row-label">Matches won</span>
+                    <span class="stats-row-value" id="preview-stat-won">5</span>
+                  </div>
+                  <div class="stats-row stats-row-loss">
+                    <span class="stats-row-label">Matches lost</span>
+                    <span class="stats-row-value" id="preview-stat-lost">7</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </aside>
+        </div>
+      </div>
+
+      <p class="stats-note" id="preview-note">
+        Profile button appears only on the home screen for signed-in users. Uses the Google profile photo from Supabase Auth (<code>user_metadata.avatar_url</code> or <code>picture</code>). The drawer currently shows stats only.
+      </p>
+    </section>
+  </div>
+
+  <script>
+    (function () {
+      var scenarios = {
+        'signed-out': {
+          caption: 'Guest view — no profile button in the top-right corner.',
+          note: 'Profile button appears only on the home screen for signed-in users.',
+          signedIn: false,
+          drawerOpen: false,
+          accordionOpen: true,
+          played: 12,
+          won: 5,
+          lost: 7
+        },
+        'signed-in-closed': {
+          caption: 'Signed in — Google profile photo as top-right button; drawer closed.',
+          note: 'Avatar comes from Supabase session user_metadata after Google sign-in.',
+          signedIn: true,
+          drawerOpen: false,
+          accordionOpen: true,
+          played: 12,
+          won: 5,
+          lost: 7
+        },
+        'open-expanded': {
+          caption: 'Drawer open with Stats accordion expanded.',
+          note: 'Played / won / lost loaded from the users table via GET /api/me/stats (in real app).',
+          signedIn: true,
+          drawerOpen: true,
+          accordionOpen: true,
+          played: 12,
+          won: 5,
+          lost: 7
+        },
+        'open-collapsed': {
+          caption: 'Drawer open with Stats accordion collapsed.',
+          note: 'Tap the Stats header to expand or collapse the rows.',
+          signedIn: true,
+          drawerOpen: true,
+          accordionOpen: false,
+          played: 12,
+          won: 5,
+          lost: 7
+        },
+        'zero-stats': {
+          caption: 'New signed-in user with no completed games yet.',
+          note: 'All counts show 0 until the first naturally finished match.',
+          signedIn: true,
+          drawerOpen: true,
+          accordionOpen: true,
+          played: 0,
+          won: 0,
+          lost: 0
+        }
+      };
+
+      var fab = document.getElementById('preview-stats-fab');
+      var signedOut = document.getElementById('preview-auth-signed-out');
+      var signedIn = document.getElementById('preview-auth-signed-in');
+      var backdrop = document.getElementById('preview-stats-backdrop');
+      var drawer = document.getElementById('preview-stats-drawer');
+      var accordionBtn = document.getElementById('preview-stats-accordion-btn');
+      var accordionBody = document.getElementById('preview-stats-accordion-body');
+      var statPlayed = document.getElementById('preview-stat-played');
+      var statWon = document.getElementById('preview-stat-won');
+      var statLost = document.getElementById('preview-stat-lost');
+      var caption = document.getElementById('preview-caption');
+      var note = document.getElementById('preview-note');
+      var buttons = document.querySelectorAll('.preview-controls button');
+
+      function setAccordionOpen(open) {
+        accordionBtn.classList.toggle('open', open);
+        accordionBody.classList.toggle('open', open);
+        accordionBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      }
+
+      function applyScenario(key) {
+        var s = scenarios[key];
+        if (!s) return;
+
+        fab.classList.toggle('preview-hidden', !s.signedIn);
+        signedOut.classList.toggle('preview-hidden', s.signedIn);
+        signedIn.classList.toggle('preview-hidden', !s.signedIn);
+        backdrop.classList.toggle('preview-hidden', !s.drawerOpen);
+        drawer.classList.toggle('preview-hidden', !s.drawerOpen);
+
+        setAccordionOpen(s.accordionOpen);
+        statPlayed.textContent = String(s.played);
+        statWon.textContent = String(s.won);
+        statLost.textContent = String(s.lost);
+
+        caption.textContent = s.caption;
+        note.textContent = s.note;
+
+        buttons.forEach(function (btn) {
+          btn.classList.toggle('active', btn.getAttribute('data-scenario') === key);
+        });
+      }
+
+      accordionBtn.addEventListener('click', function () {
+        var open = !accordionBody.classList.contains('open');
+        setAccordionOpen(open);
+      });
+
+      fab.addEventListener('click', function () {
+        applyScenario('open-expanded');
+        document.querySelector('[data-scenario="open-expanded"]').classList.add('active');
+        document.querySelector('[data-scenario="signed-in-closed"]').classList.remove('active');
+      });
+
+      drawer.querySelector('.stats-drawer-close').addEventListener('click', function () {
+        applyScenario('signed-in-closed');
+        document.querySelector('[data-scenario="signed-in-closed"]').classList.add('active');
+        document.querySelector('[data-scenario="open-expanded"]').classList.remove('active');
+      });
+
+      buttons.forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          applyScenario(btn.getAttribute('data-scenario'));
+        });
+      });
+
+      applyScenario('signed-out');
+    })();
+  </script>
+</body>
+</html>

@@ -5,7 +5,10 @@
 
   let supabaseClient = null;
   let configured = false;
-  let profile = { isSignedIn: false, userId: '' };
+  let profile = { isSignedIn: false, userId: '', avatarUrl: null, displayName: '' };
+  let statsSidebarBound = false;
+  let profileDrawerClosing = false;
+  const PROFILE_DRAWER_MS = 280;
 
   /**
    * Truncate a name to the game name limit.
@@ -18,16 +21,62 @@
   }
 
   /**
+   * Resolve avatar URL from Supabase user metadata.
+   *
+   * @param {object|null} user Supabase user object.
+   * @returns {string|null}
+   */
+  function avatarUrlFromUser(user) {
+    if (!user || !user.user_metadata) return null;
+    const meta = user.user_metadata;
+    return meta.avatar_url || meta.picture || null;
+  }
+
+  /**
+   * Resolve a display name for avatar fallbacks.
+   *
+   * @param {object|null} user Supabase user object.
+   * @returns {string}
+   */
+  function displayNameFromUser(user) {
+    if (!user) return 'Player';
+    const meta = user.user_metadata || {};
+    const raw =
+      meta.full_name ||
+      meta.name ||
+      (user.email ? String(user.email).split('@')[0] : '') ||
+      'Player';
+    const name = String(raw).trim();
+    return name || 'Player';
+  }
+
+  /**
+   * Build a fallback avatar URL when Google photo is unavailable.
+   *
+   * @param {string} name Display name for initials.
+   * @returns {string}
+   */
+  function buildAvatarFallbackUrl(name) {
+    const encoded = encodeURIComponent(name || 'Player');
+    return `https://ui-avatars.com/api/?name=${encoded}&background=4f7cff&color=fff&size=72`;
+  }
+
+  /**
    * Build profile state from a Supabase session user.
    *
    * @param {object|null} user Supabase user or null when signed out.
-   * @returns {{isSignedIn: boolean, userId: string}}
+   * @returns {{isSignedIn: boolean, userId: string, avatarUrl: string|null, displayName: string}}
    */
   function profileFromUser(user) {
     if (!user) {
-      return { isSignedIn: false, userId: '' };
+      return { isSignedIn: false, userId: '', avatarUrl: null, displayName: '' };
     }
-    return { isSignedIn: true, userId: user.id || '' };
+    return {
+      isSignedIn: true,
+      userId: user.id || '',
+      avatarUrl: avatarUrlFromUser(user),
+      displayName: displayNameFromUser(user),
+    };
   }
 
   /**
@@ -151,6 +200,7 @@
         nameInput.readOnly = false;
         nameInput.placeholder = 'Enter your GOAT name';
       }
+      updateProfileStatsFab();
       return;
     }
 
@@ -170,7 +220,215 @@
         nameInput.placeholder = 'Enter your GOAT name';
         nameInput.readOnly = false;
       }
+      closeProfileStatsDrawer({ immediate: true });
     }
+
+    updateProfileStatsFab();
+  }
+
+  /**
+   * Apply match stats to the profile drawer UI.
+   *
+   * @param {{matchesPlayed?: number, matchesWon?: number, matchesLost?: number}|null} stats Stats payload.
+   */
+  function applyMatchStatsToDrawer(stats) {
+    const playedEl = document.getElementById('profile-stat-played');
+    const wonEl = document.getElementById('profile-stat-won');
+    const lostEl = document.getElementById('profile-stat-lost');
+    if (!playedEl || !wonEl || !lostEl) return;
+
+    playedEl.textContent = String(stats && typeof stats.matchesPlayed === 'number' ? stats.matchesPlayed : 0);
+    wonEl.textContent = String(stats && typeof stats.matchesWon === 'number' ? stats.matchesWon : 0);
+    lostEl.textContent = String(stats && typeof stats.matchesLost === 'number' ? stats.matchesLost : 0);
+  }
+
+  /**
+   * Fetch match stats for the signed-in user.
+   *
+   * @returns {Promise<object|null>}
+   */
+  async function fetchMatchStats() {
+    const token = await getAccessToken();
+    if (!token) return null;
+    try {
+      const res = await fetch('/api/me/stats', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        console.warn('[auth] fetch match stats failed:', res.status);
+        return null;
+      }
+      return await res.json();
+    } catch (err) {
+      console.warn('[auth] fetch match stats failed:', err);
+      return null;
+    }
+  }
+
+  /**
+   * Toggle the Stats accordion open or closed.
+   *
+   * @param {boolean} open Whether the accordion should be expanded.
+   */
+  function setStatsAccordionOpen(open) {
+    const accordionBtn = document.getElementById('profile-stats-accordion-btn');
+    const accordionBody = document.getElementById('profile-stats-accordion-body');
+    if (!accordionBtn || !accordionBody) return;
+
+    accordionBtn.classList.toggle('open', open);
+    accordionBody.classList.toggle('open', open);
+    accordionBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  }
+
+  /**
+   * Returns true when the profile stats drawer is open or closing.
+   *
+   * @returns {boolean}
+   */
+  function isProfileStatsDrawerOpen() {
+    const drawer = document.getElementById('profile-stats-drawer');
+    return !!(drawer && !drawer.hidden && drawer.classList.contains('is-open'));
+  }
+
+  /**
+   * Close the profile stats drawer.
+   *
+   * @param {{ immediate?: boolean }} [options] Skip animation when true.
+   */
+  function closeProfileStatsDrawer(options) {
+    const immediate = !!(options && options.immediate);
+    const fab = document.getElementById('profile-stats-fab');
+    const backdrop = document.getElementById('profile-stats-backdrop');
+    const drawer = document.getElementById('profile-stats-drawer');
+    if (!fab || !backdrop || !drawer || drawer.hidden) return;
+    if (profileDrawerClosing) return;
+
+    const finishClose = () => {
+      profileDrawerClosing = false;
+      backdrop.classList.remove('is-open');
+      backdrop.hidden = true;
+      drawer.classList.remove('is-open');
+      drawer.hidden = true;
+      backdrop.setAttribute('aria-hidden', 'true');
+      fab.setAttribute('aria-expanded', 'false');
+    };
+
+    if (immediate || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      finishClose();
+      return;
+    }
+
+    profileDrawerClosing = true;
+    backdrop.classList.remove('is-open');
+    drawer.classList.remove('is-open');
+
+    let finished = false;
+    const onDone = () => {
+      if (finished) return;
+      finished = true;
+      finishClose();
+    };
+
+    drawer.addEventListener('transitionend', (event) => {
+      if (event.propertyName === 'transform') onDone();
+    }, { once: true });
+    window.setTimeout(onDone, PROFILE_DRAWER_MS + 40);
+  }
+
+  /**
+   * Open the profile stats drawer and load fresh stats.
+   *
+   * @returns {Promise<void>}
+   */
+  async function openProfileStatsDrawer() {
+    const fab = document.getElementById('profile-stats-fab');
+    const backdrop = document.getElementById('profile-stats-backdrop');
+    const drawer = document.getElementById('profile-stats-drawer');
+    if (!fab || !backdrop || !drawer || !profile.isSignedIn) return;
+
+    if (!drawer.hidden && drawer.classList.contains('is-open')) {
+      const stats = await fetchMatchStats();
+      applyMatchStatsToDrawer(stats);
+      return;
+    }
+
+    profileDrawerClosing = false;
+    backdrop.hidden = false;
+    drawer.hidden = false;
+    backdrop.classList.remove('is-open');
+    drawer.classList.remove('is-open');
+    backdrop.setAttribute('aria-hidden', 'false');
+    fab.setAttribute('aria-expanded', 'true');
+
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      backdrop.classList.add('is-open');
+      drawer.classList.add('is-open');
+    } else {
+      window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => {
+          backdrop.classList.add('is-open');
+          drawer.classList.add('is-open');
+        });
+      });
+    }
+
+    const stats = await fetchMatchStats();
+    applyMatchStatsToDrawer(stats);
+  }
+
+  /**
+   * Show or hide the profile avatar button on the home screen.
+   */
+  function updateProfileStatsFab() {
+    const fab = document.getElementById('profile-stats-fab');
+    const avatar = document.getElementById('profile-stats-avatar');
+    if (!fab || !avatar) return;
+
+    if (!configured || !profile.isSignedIn) {
+      fab.hidden = true;
+      return;
+    }
+
+    fab.hidden = false;
+    const avatarUrl = profile.avatarUrl || buildAvatarFallbackUrl(profile.displayName);
+    avatar.src = avatarUrl;
+    avatar.alt = profile.displayName ? `${profile.displayName} profile photo` : 'Your profile photo';
+  }
+
+  /**
+   * Bind profile stats drawer interactions once.
+   */
+  function bindProfileStatsSidebar() {
+    if (statsSidebarBound) return;
+
+    const fab = document.getElementById('profile-stats-fab');
+    const backdrop = document.getElementById('profile-stats-backdrop');
+    const drawer = document.getElementById('profile-stats-drawer');
+    const closeBtn = document.getElementById('profile-stats-close');
+    const accordionBtn = document.getElementById('profile-stats-accordion-btn');
+    const accordionBody = document.getElementById('profile-stats-accordion-body');
+
+    if (!fab || !backdrop || !drawer || !closeBtn || !accordionBtn || !accordionBody) return;
+
+    statsSidebarBound = true;
+
+    fab.addEventListener('click', () => {
+      openProfileStatsDrawer().catch((err) => console.error('[auth] open profile drawer failed:', err));
+    });
+
+    backdrop.addEventListener('click', closeProfileStatsDrawer);
+    closeBtn.addEventListener('click', closeProfileStatsDrawer);
+
+    accordionBtn.addEventListener('click', () => {
+      const open = !accordionBody.classList.contains('open');
+      setStatsAccordionOpen(open);
+    });
+
+    document.addEventListener('keydown', (event) => {
+      if (event.key !== 'Escape') return;
+      if (!isProfileStatsDrawerOpen()) return;
+      closeProfileStatsDrawer();
+    });
   }
 
   /**
@@ -256,6 +514,8 @@
    * @returns {Promise<void>}
    */
   async function init() {
+    bindProfileStatsSidebar();
+
     try {
       const res = await fetch('/api/public-config');
       const cfg = await res.json();
@@ -339,7 +599,7 @@
   /**
    * Return the current auth profile for UI and gameplay.
    *
-   * @returns {{isSignedIn: boolean, userId: string}}
+   * @returns {{isSignedIn: boolean, userId: string, avatarUrl: string|null, displayName: string}}
    */
   function getAuthProfile() {
     return { ...profile };

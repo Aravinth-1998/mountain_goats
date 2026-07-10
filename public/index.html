@@ -25,6 +25,42 @@
 
   <!-- HOME -->
   <section id="screen-home" class="screen active">
+    <button type="button" id="profile-stats-fab" class="stats-fab" hidden aria-label="Your profile" aria-expanded="false" aria-controls="profile-stats-drawer">
+      <img id="profile-stats-avatar" class="stats-fab-img" src="" alt="" />
+    </button>
+
+    <div id="profile-stats-backdrop" class="stats-backdrop" hidden aria-hidden="true"></div>
+
+    <aside id="profile-stats-drawer" class="stats-drawer" hidden aria-label="Profile stats">
+      <div class="stats-drawer-header">
+        <h3 class="stats-drawer-title">Your Profile</h3>
+        <button type="button" id="profile-stats-close" class="stats-drawer-close" aria-label="Close profile sidebar">&times;</button>
+      </div>
+
+      <div class="card stats-accordion">
+        <button type="button" id="profile-stats-accordion-btn" class="stats-accordion-btn open" aria-expanded="true" aria-controls="profile-stats-accordion-body">
+          <span>Stats</span>
+          <span class="toggle-arrow" aria-hidden="true">&#9662;</span>
+        </button>
+        <div id="profile-stats-accordion-body" class="stats-accordion-body open">
+          <div class="stats-rows">
+            <div class="stats-row">
+              <span class="stats-row-label">Matches played</span>
+              <span class="stats-row-value" id="profile-stat-played">0</span>
+            </div>
+            <div class="stats-row stats-row-win">
+              <span class="stats-row-label">Matches won</span>
+              <span class="stats-row-value" id="profile-stat-won">0</span>
+            </div>
+            <div class="stats-row stats-row-loss">
+              <span class="stats-row-label">Matches lost</span>
+              <span class="stats-row-value" id="profile-stat-lost">0</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
     <div class="brand">
       <div class="goat-emoji">🐐</div>
       <h1>Mountain Goats</h1>

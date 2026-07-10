@@ -879,6 +879,187 @@ input.input-error:focus { border-color: var(--danger); background: rgba(255,93,1
   display: flex; flex-direction: column; gap: 12px;
 }
 
+/* Profile stats sidebar (home screen, signed-in only) */
+#screen-home .stats-fab {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 40;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px;
+  border-radius: 50%;
+  border: 2px solid rgba(79, 124, 255, 0.45);
+  background: rgba(79, 124, 255, 0.12);
+  cursor: pointer;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  overflow: hidden;
+}
+#screen-home .stats-fab:hover {
+  border-color: rgba(79, 124, 255, 0.75);
+  background: rgba(79, 124, 255, 0.2);
+}
+#screen-home .stats-fab-img {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
+}
+#screen-home .stats-fab[hidden] {
+  display: none !important;
+}
+#screen-home .stats-backdrop[hidden],
+#screen-home .stats-drawer[hidden] {
+  display: none !important;
+}
+#screen-home .stats-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 45;
+  background: rgba(4, 8, 16, 0.55);
+  backdrop-filter: blur(2px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.28s ease;
+}
+#screen-home .stats-backdrop.is-open {
+  opacity: 1;
+  pointer-events: auto;
+}
+#screen-home .stats-drawer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 50;
+  width: min(300px, 88vw);
+  background: var(--card);
+  border-left: 1px solid var(--card-border);
+  box-shadow: -12px 0 40px rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+  padding: 18px 16px 24px;
+  transform: translateX(100%);
+  pointer-events: none;
+  transition: transform 0.28s ease;
+  will-change: transform;
+}
+#screen-home .stats-drawer.is-open {
+  transform: translateX(0);
+  pointer-events: auto;
+}
+@media (prefers-reduced-motion: reduce) {
+  #screen-home .stats-backdrop,
+  #screen-home .stats-drawer {
+    transition: none !important;
+  }
+}
+#screen-home .stats-drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+#screen-home .stats-drawer-title {
+  font-family: 'Fredoka', sans-serif;
+  font-size: 20px;
+  margin: 0;
+}
+#screen-home .stats-drawer-close {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--card-border);
+  color: var(--muted);
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  font-family: inherit;
+}
+#screen-home .stats-drawer-close:hover {
+  color: var(--text);
+}
+#screen-home .stats-accordion {
+  padding: 0;
+  overflow: hidden;
+}
+#screen-home .stats-accordion-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 14px 16px 12px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 700;
+  font-family: 'Fredoka', sans-serif;
+  letter-spacing: 0.3px;
+  transition: background 0.2s;
+}
+#screen-home .stats-accordion-btn.open {
+  padding-bottom: 8px;
+}
+#screen-home .stats-accordion-btn:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+#screen-home .stats-accordion-btn .toggle-arrow {
+  display: inline-block;
+  font-size: 14px;
+  color: var(--muted);
+  transition: transform 0.3s ease;
+}
+#screen-home .stats-accordion-btn.open .toggle-arrow {
+  transform: rotate(180deg);
+}
+#screen-home .stats-accordion-body {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease;
+}
+#screen-home .stats-accordion-body.open {
+  max-height: 240px;
+}
+#screen-home .stats-rows {
+  padding: 6px 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+#screen-home .stats-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--card-border);
+  font-size: 14px;
+  font-weight: 600;
+}
+#screen-home .stats-row-label {
+  color: var(--muted);
+}
+#screen-home .stats-row-value {
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  color: var(--text);
+}
+#screen-home .stats-row-win .stats-row-value {
+  color: var(--gold);
+}
+#screen-home .stats-row-loss .stats-row-value {
+  color: #ff8a96;
+}
+
 /* Auth (Google sign-in) - bottom strip */
 .auth-bottom {
   display: flex;

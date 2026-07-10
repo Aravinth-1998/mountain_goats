@@ -60,6 +60,31 @@ app.post('/api/me/sync', async (req, res) => {
   }
 });
 
+app.get('/api/me/stats', async (req, res) => {
+  if (!auth.isAuthConfigured()) {
+    return res.status(503).json({ error: 'Auth not configured' });
+  }
+  const authHeader = req.headers.authorization || '';
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+  if (!token) return res.status(401).json({ error: 'Missing token' });
+  try {
+    const payload = await auth.verifyAccessToken(token);
+    const userId = payload.sub;
+    if (!(await db.ensureConnected())) {
+      return res.status(503).json({ error: 'Database unavailable' });
+    }
+    const stats = await db.getMatchStats(userId);
+    res.json({
+      matchesPlayed: stats ? stats.played : 0,
+      matchesWon: stats ? stats.won : 0,
+      matchesLost: stats ? stats.lost : 0,
+    });
+  } catch (err) {
+    console.warn(`${auth.LOG_PREFIX} /api/me/stats failed:`, err.message);
+    res.status(401).json({ error: err.message || 'Invalid token' });
+  }
+});
+
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Admin secret key - set via environment variable or defaults to a random key
