@@ -3,6 +3,7 @@
   const NAME_MAX_LEN = 16;
   const GAMING_NAME_KEY = 'gaming_name';
   const GAMING_NAME_CACHE_KEY = 'mg_gaming_name';
+  const AVATAR_URL_CACHE_KEY = 'mg_avatar_url';
 
   let supabaseClient = null;
   let configured = false;
@@ -62,6 +63,77 @@
   function buildAvatarFallbackUrl(name) {
     const encoded = encodeURIComponent(name || 'Player');
     return `https://ui-avatars.com/api/?name=${encoded}&background=4f7cff&color=fff&size=72`;
+  }
+
+  /**
+   * Read cached avatar URL for faster reload display.
+   *
+   * @returns {string|null}
+   */
+  function readCachedAvatarUrl() {
+    const url = localStorage.getItem(AVATAR_URL_CACHE_KEY);
+    return url ? String(url) : null;
+  }
+
+  /**
+   * Persist a successfully loaded Google avatar URL.
+   *
+   * @param {string} url Avatar URL that loaded successfully.
+   */
+  function cacheAvatarUrl(url) {
+    if (!url) return;
+    localStorage.setItem(AVATAR_URL_CACHE_KEY, url);
+  }
+
+  /**
+   * Clear cached avatar URL on sign-out.
+   */
+  function clearCachedAvatarUrl() {
+    localStorage.removeItem(AVATAR_URL_CACHE_KEY);
+  }
+
+  /**
+   * Apply avatar src with Google-safe referrer policy and initials fallback on load failure.
+   *
+   * @param {HTMLImageElement} img Avatar image element.
+   * @param {string|null} primaryUrl Google/Supabase avatar URL.
+   * @param {string} displayName Display name for alt text and fallback initials.
+   */
+  function setAvatarImage(img, primaryUrl, displayName) {
+    if (!img) return;
+
+    const name = displayName || 'Player';
+    const fallbackUrl = buildAvatarFallbackUrl(name);
+    const resolvedPrimary = primaryUrl || readCachedAvatarUrl();
+    const usePrimary = resolvedPrimary && resolvedPrimary !== fallbackUrl;
+
+    img.referrerPolicy = 'no-referrer';
+    img.decoding = 'async';
+    img.alt = name ? `${name} profile photo` : 'Your profile photo';
+    img.removeAttribute('data-avatar-fallback');
+
+    img.onload = null;
+    img.onerror = null;
+
+    if (!usePrimary) {
+      img.src = fallbackUrl;
+      return;
+    }
+
+    img.onerror = () => {
+      img.onerror = null;
+      img.onload = null;
+      img.dataset.avatarFallback = '1';
+      img.src = fallbackUrl;
+    };
+
+    img.onload = () => {
+      if (img.dataset.avatarFallback === '1') return;
+      img.onerror = null;
+      cacheAvatarUrl(resolvedPrimary);
+    };
+
+    img.src = resolvedPrimary;
   }
 
   /**
@@ -321,9 +393,7 @@
     const goatNameEl = document.getElementById('profile-goat-name');
     if (!avatar || !displayNameEl || !goatNameEl) return;
 
-    const avatarUrl = profile.avatarUrl || buildAvatarFallbackUrl(profile.displayName);
-    avatar.src = avatarUrl;
-    avatar.alt = profile.displayName ? `${profile.displayName} profile photo` : 'Your profile photo';
+    setAvatarImage(avatar, profile.avatarUrl, profile.displayName);
     displayNameEl.textContent = profile.displayName || 'Player';
 
     const goatName = getGamingNameForPlay();
@@ -520,9 +590,7 @@
     }
 
     fab.hidden = false;
-    const avatarUrl = profile.avatarUrl || buildAvatarFallbackUrl(profile.displayName);
-    avatar.src = avatarUrl;
-    avatar.alt = profile.displayName ? `${profile.displayName} profile photo` : 'Your profile photo';
+    setAvatarImage(avatar, profile.avatarUrl, profile.displayName);
   }
 
   /**
@@ -587,6 +655,7 @@
 
     if (wasSignedIn) {
       clearCachedGamingName();
+      clearCachedAvatarUrl();
       applyGamingNameToInput(null);
       window.dispatchEvent(new CustomEvent('mg-auth-changed', {
         detail: { signedIn: false, event },
