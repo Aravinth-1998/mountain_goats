@@ -43,6 +43,23 @@ app.get('/api/public-config', (req, res) => {
   });
 });
 
+app.get('/api/me/gaming-name', async (req, res) => {
+  if (!auth.isAuthConfigured()) {
+    return res.status(503).json({ error: 'Auth not configured' });
+  }
+  const header = req.headers.authorization || '';
+  const token = header.startsWith('Bearer ') ? header.slice(7) : '';
+  if (!token) return res.status(401).json({ error: 'Unauthorized' });
+  try {
+    const payload = auth.verifySupabaseToken(token);
+    if (!db.isConnected()) return res.json({ gamingName: null });
+    const gamingName = await db.getGamingName(payload.sub);
+    res.json({ gamingName });
+  } catch (err) {
+    res.status(401).json({ error: 'Invalid token' });
+  }
+});
+
 // Admin secret key - set via environment variable or defaults to a random key
 const ADMIN_KEY = process.env.ADMIN_KEY || 'goat-admin-' + Math.random().toString(36).slice(2, 8);
 console.log(`Admin key: ${ADMIN_KEY}`);
@@ -1319,9 +1336,23 @@ function isPlayerIdentityTaken(room, socket, name) {
   return room.players.some((p) => !p.isBot && !p.authUserId && p.name === name);
 }
 
+/**
+ * Persist a signed-in user's chosen in-game name.
+ *
+ * @param {import('socket.io').Socket} socket Connected socket.
+ * @param {string} name Resolved gaming name.
+ * @returns {Promise<void>}
+ */
+async function persistGamingName(socket, name) {
+  if (!socket.authUserId || !name || !db.isConnected()) return;
+  await db.saveGamingName(socket.authUserId, name);
+  socket.authGamingName = name;
+}
+
 io.use(async (socket, next) => {
   socket.authUserId = null;
-  socket.authDisplayName = null;
+  socket.authGoogleName = null;
+  socket.authGamingName = null;
   socket.authAvatarUrl = null;
   const token = socket.handshake.auth && socket.handshake.auth.token;
   if (token && auth.isAuthConfigured()) {
@@ -1342,18 +1373,19 @@ io.on('connection', (socket) => {
     setTimeout(broadcastOnlineCount, 100);
   });
 
-  socket.on('createRoom', ({ name, isPublic, maxPlayers }, cb) => {
+  socket.on('createRoom', async ({ name, isPublic, maxPlayers }, cb) => {
     name = auth.resolvePlayerName(socket, name);
     if (!name) return cb && cb({ error: 'Please enter your name.' });
     const room = createRoom({ isPublic, maxPlayers });
     socket.join(room.code);
     const player = addPlayer(room, socket.id, name, false, socket.authUserId);
+    await persistGamingName(socket, name);
     pushLog(room, `${name} created the room.`);
     cb && cb({ ok: true, code: room.code, youId: player.id });
     broadcast(room);
   });
 
-  socket.on('joinRoom', ({ name, code }, cb) => {
+  socket.on('joinRoom', async ({ name, code }, cb) => {
     name = auth.resolvePlayerName(socket, name);
     code = String(code || '').trim().slice(0, 4);
     const room = rooms[code];
@@ -1398,6 +1430,7 @@ io.on('connection', (socket) => {
       if (wasDisconnected) {
         pushLog(room, `${name} reconnected. 👋`);
       }
+      await persistGamingName(socket, name);
       cb && cb({ ok: true, code: room.code, youId: socket.id });
       broadcast(room);
       // If it was their turn when they reconnected (and they're now live), let them play;
@@ -1420,6 +1453,7 @@ io.on('connection', (socket) => {
       assignPlayerTeamColor(room, player.id, false);
     }
     pushLog(room, `${name} joined.`);
+    await persistGamingName(socket, name);
     cb && cb({ ok: true, code: room.code, youId: player.id });
     broadcast(room);
   });

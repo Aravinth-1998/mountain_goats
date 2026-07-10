@@ -76,12 +76,10 @@
   function requirePlayName() {
     const name = getPlayName();
     if (!name) {
-      if (!isSignedIn()) {
-        $('home-name').classList.add('input-error');
-        $('home-name-error').textContent = 'Please enter your name.';
-      } else {
-        $('home-name-error').textContent = 'Could not resolve your display name.';
-      }
+      $('home-name').classList.add('input-error');
+      $('home-name-error').textContent = isSignedIn()
+        ? 'Please choose your GOAT name.'
+        : 'Please enter your name.';
       return null;
     }
     $('home-name').classList.remove('input-error');

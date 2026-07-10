@@ -32,19 +32,19 @@ function verifySupabaseToken(accessToken) {
 }
 
 /**
- * Resolve a display name from a verified Supabase JWT payload.
+ * Resolve the Google account name from a verified Supabase JWT payload.
  *
  * @param {object} payload Decoded JWT payload.
  * @returns {string}
  */
-function resolveDisplayName(payload) {
+function resolveGoogleName(payload) {
   const meta = payload.user_metadata || {};
   const raw =
     meta.full_name ||
     meta.name ||
     (payload.email ? String(payload.email).split('@')[0] : '') ||
     'Player';
-  const name = String(raw).trim().slice(0, NAME_MAX_LEN);
+  const name = String(raw).trim().slice(0, 64);
   return name || 'Player';
 }
 
@@ -70,27 +70,32 @@ function resolveAvatarUrl(payload) {
 async function attachAuthToSocket(socket, accessToken, db) {
   const payload = verifySupabaseToken(accessToken);
   socket.authUserId = payload.sub;
-  socket.authDisplayName = resolveDisplayName(payload);
+  socket.authGoogleName = resolveGoogleName(payload);
   socket.authAvatarUrl = resolveAvatarUrl(payload);
+  socket.authGamingName = null;
   if (db.isConnected()) {
-    await db.upsertUser({
+    await db.upsertAuthUser({
       id: socket.authUserId,
-      displayName: socket.authDisplayName,
+      googleName: socket.authGoogleName,
       avatarUrl: socket.authAvatarUrl,
     });
+    socket.authGamingName = await db.getGamingName(socket.authUserId);
   }
 }
 
 /**
- * Resolve the player name from verified auth or guest input.
+ * Resolve the in-game player name from client input or saved gaming name.
  *
  * @param {import('socket.io').Socket} socket Connected socket.
  * @param {string} clientName Name sent by the client.
  * @returns {string}
  */
 function resolvePlayerName(socket, clientName) {
-  if (socket.authUserId && socket.authDisplayName) {
-    return socket.authDisplayName;
+  if (socket.authUserId) {
+    const name = String(clientName || '').trim().slice(0, NAME_MAX_LEN);
+    if (name) return name;
+    if (socket.authGamingName) return socket.authGamingName;
+    return '';
   }
   return String(clientName || '').trim().slice(0, NAME_MAX_LEN);
 }
@@ -99,7 +104,7 @@ module.exports = {
   LOG_PREFIX,
   isAuthConfigured,
   verifySupabaseToken,
-  resolveDisplayName,
+  resolveGoogleName,
   resolveAvatarUrl,
   attachAuthToSocket,
   resolvePlayerName,

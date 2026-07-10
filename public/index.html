@@ -32,20 +32,6 @@
       <p id="online-count" class="online-count"></p>
     </div>
 
-    <div id="auth-section" class="card auth-section" style="display:none">
-      <div id="auth-signed-out">
-        <button type="button" id="btn-google-signin" class="btn btn-google btn-block">Sign in with Google</button>
-        <p class="muted center auth-divider">or play as guest</p>
-      </div>
-      <div id="auth-signed-in" style="display:none">
-        <div class="auth-profile">
-          <img id="auth-avatar" class="auth-avatar" alt="" width="36" height="36" />
-          <span id="auth-display-name" class="auth-display-name"></span>
-        </div>
-        <button type="button" id="btn-signout" class="btn btn-ghost btn-block btn-sm">Sign out</button>
-      </div>
-    </div>
-
     <input id="home-name" type="text" maxlength="16" placeholder="Enter your GOAT name" autocomplete="off" style="text-align:center" />
     <p id="home-name-error" class="error-msg" style="margin-top:4px"></p>
 
@@ -55,6 +41,20 @@
     </div>
 
     <p id="home-error" class="error-msg"></p>
+
+    <div id="auth-bottom" class="auth-bottom" style="display:none">
+      <div id="auth-bottom-signed-out">
+        <button type="button" id="btn-google-signin" class="btn btn-google">Sign in with Google</button>
+        <p class="muted center auth-divider">or play as guest</p>
+      </div>
+      <div id="auth-bottom-signed-in" style="display:none">
+        <div class="auth-bottom-signed-in">
+          <span class="auth-bottom-dot" aria-hidden="true"></span>
+          <span>Signed in with Google</span>
+          <button type="button" id="btn-signout" class="auth-link">Sign out</button>
+        </div>
+      </div>
+    </div>
 
     <div class="card rules-toggle">
       <button class="rules-toggle-btn" data-target="home-rules-content">📖 How to Play <span class="toggle-arrow">▾</span></button>

@@ -152,12 +152,20 @@ async function init() {
     await p.query(`
     CREATE TABLE IF NOT EXISTS users (
       id UUID PRIMARY KEY,
-      display_name VARCHAR(64) NOT NULL,
+      display_name VARCHAR(64) NOT NULL DEFAULT '',
+      gaming_name VARCHAR(16),
+      google_name VARCHAR(64),
       avatar_url TEXT,
       last_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
+    await p.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS gaming_name VARCHAR(16)');
+    await p.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS google_name VARCHAR(64)');
+    await p.query(`
+      UPDATE users SET gaming_name = LEFT(display_name, 16)
+      WHERE gaming_name IS NULL AND display_name IS NOT NULL AND display_name <> ''
+    `);
     connected = true;
     console.log(`${LOG_PREFIX} Schema ready`);
     return true;
@@ -237,27 +245,79 @@ async function saveGameHistory(entry) {
 }
 
 /**
- * Insert or update a signed-in user profile.
+ * Insert or update OAuth profile fields without overwriting the gaming name.
  *
  * @param {object} user User fields.
  * @param {string} user.id Supabase auth user id (JWT sub).
- * @param {string} user.displayName Display name.
+ * @param {string} user.googleName Google display name.
  * @param {string|null} [user.avatarUrl] Avatar URL.
  * @returns {Promise<void>}
  */
-async function upsertUser(user) {
+async function upsertAuthUser(user) {
   const p = getPool();
   if (!p || !connected) return;
 
   await p.query(
-    `INSERT INTO users (id, display_name, avatar_url, last_seen_at)
-     VALUES ($1, $2, $3, NOW())
+    `INSERT INTO users (id, google_name, avatar_url, display_name, last_seen_at)
+     VALUES ($1, $2, $3, '', NOW())
      ON CONFLICT (id) DO UPDATE SET
-       display_name = EXCLUDED.display_name,
+       google_name = EXCLUDED.google_name,
        avatar_url = EXCLUDED.avatar_url,
        last_seen_at = NOW()`,
-    [user.id, user.displayName, user.avatarUrl || null]
+    [user.id, user.googleName, user.avatarUrl || null]
   );
+}
+
+/**
+ * Load a user's saved in-game name.
+ *
+ * @param {string} userId Supabase auth user id.
+ * @returns {Promise<string|null>}
+ */
+async function getGamingName(userId) {
+  const p = getPool();
+  if (!p || !connected) return null;
+
+  const result = await p.query(
+    'SELECT gaming_name FROM users WHERE id = $1',
+    [userId]
+  );
+  if (!result.rows.length || !result.rows[0].gaming_name) return null;
+  return result.rows[0].gaming_name;
+}
+
+/**
+ * Save a user's chosen in-game name.
+ *
+ * @param {string} userId Supabase auth user id.
+ * @param {string} gamingName In-game display name.
+ * @returns {Promise<void>}
+ */
+async function saveGamingName(userId, gamingName) {
+  const p = getPool();
+  if (!p || !connected) return;
+
+  await p.query(
+    `INSERT INTO users (id, gaming_name, google_name, display_name, last_seen_at)
+     VALUES ($1, $2, '', '', NOW())
+     ON CONFLICT (id) DO UPDATE SET
+       gaming_name = EXCLUDED.gaming_name,
+       last_seen_at = NOW()`,
+    [userId, gamingName]
+  );
+}
+
+/**
+ * @deprecated Use upsertAuthUser instead.
+ * @param {object} user User fields.
+ * @returns {Promise<void>}
+ */
+async function upsertUser(user) {
+  await upsertAuthUser({
+    id: user.id,
+    googleName: user.displayName,
+    avatarUrl: user.avatarUrl,
+  });
 }
 
 /**
@@ -280,6 +340,9 @@ module.exports = {
   saveGameHistory,
   pruneGameHistory,
   upsertUser,
+  upsertAuthUser,
+  getGamingName,
+  saveGamingName,
   resetPool,
   close,
 };

@@ -868,19 +868,64 @@ input.input-error:focus { border-color: var(--danger); background: rgba(255,93,1
   display: flex; flex-direction: column; gap: 12px;
 }
 
-/* Auth (Google sign-in) */
-.auth-section { padding: 16px 20px; }
-.auth-divider { margin: 12px 0 0; font-size: 13px; }
-.auth-profile {
-  display: flex; align-items: center; gap: 12px;
-  margin-bottom: 12px; justify-content: center;
+/* Auth (Google sign-in) - bottom strip */
+.auth-bottom {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  padding: 4px 0 0;
 }
-.auth-avatar {
-  width: 36px; height: 36px; border-radius: 50%;
-  object-fit: cover; border: 2px solid var(--card-border);
+.auth-bottom-signed-out {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
+.auth-bottom .btn-google {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: auto;
+  margin: 0 auto;
+  padding: 12px 22px;
+  font-size: 15px;
+}
+.auth-bottom .auth-divider {
+  width: 100%;
+  text-align: center;
+  margin-top: 12px;
+}
+.auth-bottom-signed-in {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 13px;
+  color: var(--muted);
+}
+.auth-bottom-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--green);
   flex: 0 0 auto;
 }
-.auth-display-name { font-weight: 700; font-size: 15px; }
+.auth-link {
+  background: none;
+  border: none;
+  color: var(--primary);
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  padding: 4px 8px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.auth-link:active { opacity: 0.7; }
+.auth-divider { margin: 12px 0 0; font-size: 13px; }
 .btn-google {
   background: #fff;
   color: #1f1f1f;
@@ -889,14 +934,6 @@ input.input-error:focus { border-color: var(--danger); background: rgba(255,93,1
 }
 .btn-google:active { transform: scale(0.97); }
 .btn-sm { padding: 10px 14px; font-size: 14px; }
-input.input-readonly {
-  opacity: 0.85;
-  cursor: default;
-}
-input.input-readonly:focus {
-  border-color: var(--card-border);
-  background: rgba(255, 255, 255, 0.06);
-}
 
 /* ===== JOIN SCREEN ===== */
 #screen-join .topbar {
