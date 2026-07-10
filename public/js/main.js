@@ -69,6 +69,17 @@
   }
 
   /**
+   * Persist gaming name for signed-in users (DB + local cache).
+   *
+   * @param {string} name Resolved in-game name.
+   */
+  function persistSignedInGamingName(name) {
+    if (window.MGAuth && isSignedIn() && name) {
+      window.MGAuth.saveGamingName(name);
+    }
+  }
+
+  /**
    * Validate guest name or return signed-in display name.
    *
    * @returns {string|null}
@@ -300,6 +311,7 @@
       myId = res.youId;
       localStorage.setItem('mg_name', name);
       localStorage.setItem('mg_code', res.code);
+      persistSignedInGamingName(name);
     });
   });
 
@@ -336,6 +348,7 @@
       myId = res.youId;
       localStorage.setItem('mg_name', name);
       localStorage.setItem('mg_code', res.code);
+      persistSignedInGamingName(name);
       stopPublicRoomsRefresh();
     });
   });
@@ -388,6 +401,7 @@
               myId = res.youId;
               localStorage.setItem('mg_name', name);
               localStorage.setItem('mg_code', res.code);
+              persistSignedInGamingName(name);
               stopPublicRoomsRefresh();
             });
           });
@@ -626,6 +640,7 @@
         if (res && res.ok) {
           myId = res.youId;
           localStorage.setItem('mg_name', name);
+          persistSignedInGamingName(name);
         } else {
           localStorage.removeItem('mg_code');
           localStorage.removeItem('mg_name');

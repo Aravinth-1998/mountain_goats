@@ -279,11 +279,15 @@ async function getGamingName(userId) {
   if (!p || !connected) return null;
 
   const result = await p.query(
-    'SELECT gaming_name FROM users WHERE id = $1',
+    `SELECT gaming_name, display_name
+     FROM users WHERE id = $1`,
     [userId]
   );
-  if (!result.rows.length || !result.rows[0].gaming_name) return null;
-  return result.rows[0].gaming_name;
+  if (!result.rows.length) return null;
+  const row = result.rows[0];
+  if (row.gaming_name) return row.gaming_name;
+  if (row.display_name) return String(row.display_name).trim().slice(0, 16) || null;
+  return null;
 }
 
 /**
@@ -298,8 +302,8 @@ async function saveGamingName(userId, gamingName) {
   if (!p || !connected) return;
 
   await p.query(
-    `INSERT INTO users (id, gaming_name, google_name, display_name, last_seen_at)
-     VALUES ($1, $2, '', '', NOW())
+    `INSERT INTO users (id, gaming_name, last_seen_at)
+     VALUES ($1, $2, NOW())
      ON CONFLICT (id) DO UPDATE SET
        gaming_name = EXCLUDED.gaming_name,
        last_seen_at = NOW()`,

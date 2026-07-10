@@ -1,10 +1,11 @@
 /* Mountain Goats - Supabase Google auth (optional) */
 (function () {
   const NAME_MAX_LEN = 16;
+  const GAMING_NAME_PREFIX = 'mg_gn_';
 
   let supabaseClient = null;
   let configured = false;
-  let profile = { isSignedIn: false };
+  let profile = { isSignedIn: false, userId: '' };
 
   /**
    * Truncate a name to the game name limit.
@@ -17,33 +18,116 @@
   }
 
   /**
+   * Build localStorage key for a user's cached gaming name.
+   *
+   * @param {string} userId Supabase user id.
+   * @returns {string}
+   */
+  function gamingNameStorageKey(userId) {
+    return GAMING_NAME_PREFIX + userId;
+  }
+
+  /**
+   * Read a cached gaming name from localStorage.
+   *
+   * @param {string} userId Supabase user id.
+   * @returns {string|null}
+   */
+  function readCachedGamingName(userId) {
+    if (!userId) return null;
+    try {
+      const cached = localStorage.getItem(gamingNameStorageKey(userId));
+      return cached ? truncateName(cached) : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /**
+   * Cache a gaming name in localStorage for this user.
+   *
+   * @param {string} userId Supabase user id.
+   * @param {string} gamingName In-game name.
+   */
+  function writeCachedGamingName(userId, gamingName) {
+    if (!userId || !gamingName) return;
+    try {
+      localStorage.setItem(gamingNameStorageKey(userId), truncateName(gamingName));
+    } catch (_) { /* ignore quota errors */ }
+  }
+
+  /**
    * Build profile state from a Supabase session user.
    *
    * @param {object|null} user Supabase user or null when signed out.
-   * @returns {{isSignedIn: boolean}}
+   * @returns {{isSignedIn: boolean, userId: string}}
    */
   function profileFromUser(user) {
-    return { isSignedIn: !!user };
+    if (!user) {
+      return { isSignedIn: false, userId: '' };
+    }
+    return { isSignedIn: true, userId: user.id || '' };
   }
 
   /**
    * Fetch the saved gaming name for the current signed-in user.
    *
+   * @param {string} userId Supabase user id.
    * @returns {Promise<string|null>}
    */
-  async function fetchSavedGamingName() {
+  async function fetchSavedGamingName(userId) {
+    const cached = readCachedGamingName(userId);
     const token = await getAccessToken();
-    if (!token) return null;
+    if (!token) return cached;
+
     try {
       const res = await fetch('/api/me/gaming-name', {
         headers: { Authorization: 'Bearer ' + token },
       });
-      if (!res.ok) return null;
+      if (res.status === 401 || res.status === 503) {
+        console.warn('[auth] gaming name fetch failed:', res.status);
+        return cached;
+      }
+      if (!res.ok) return cached;
       const data = await res.json();
-      return data.gamingName ? truncateName(data.gamingName) : null;
+      const gamingName = data.gamingName ? truncateName(data.gamingName) : null;
+      if (gamingName) writeCachedGamingName(userId, gamingName);
+      return gamingName || cached;
     } catch (err) {
       console.error('[auth] fetch gaming name failed:', err);
-      return null;
+      return cached;
+    }
+  }
+
+  /**
+   * Persist gaming name via API and local cache.
+   *
+   * @param {string} gamingName In-game name.
+   * @returns {Promise<void>}
+   */
+  async function saveGamingName(gamingName) {
+    const name = truncateName(gamingName);
+    if (!profile.isSignedIn || !profile.userId || !name) return;
+
+    writeCachedGamingName(profile.userId, name);
+
+    const token = await getAccessToken();
+    if (!token) return;
+
+    try {
+      const res = await fetch('/api/me/gaming-name', {
+        method: 'POST',
+        headers: {
+          Authorization: 'Bearer ' + token,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ gamingName: name }),
+      });
+      if (!res.ok) {
+        console.warn('[auth] save gaming name failed:', res.status);
+      }
+    } catch (err) {
+      console.error('[auth] save gaming name failed:', err);
     }
   }
 
@@ -57,7 +141,11 @@
     if (!nameInput) return;
     nameInput.readOnly = false;
     nameInput.placeholder = profile.isSignedIn ? 'Choose your GOAT name' : 'Enter your GOAT name';
-    nameInput.value = gamingName || '';
+    if (gamingName) {
+      nameInput.value = gamingName;
+    } else if (!profile.isSignedIn) {
+      nameInput.value = '';
+    }
   }
 
   /**
@@ -108,13 +196,16 @@
    */
   async function applySession(session) {
     const wasSignedIn = profile.isSignedIn;
+    const previousUserId = profile.userId;
     profile = profileFromUser(session && session.user ? session.user : null);
     updateAuthUI();
 
     if (profile.isSignedIn) {
-      const savedName = await fetchSavedGamingName();
+      const savedName = await fetchSavedGamingName(profile.userId);
       applyGamingNameToInput(savedName);
     } else if (wasSignedIn) {
+      applyGamingNameToInput(null);
+    } else if (previousUserId !== profile.userId) {
       applyGamingNameToInput(null);
     }
 
@@ -146,12 +237,12 @@
         },
       });
 
-      const { data: { session } } = await supabaseClient.auth.getSession();
-      await applySession(session);
-
       supabaseClient.auth.onAuthStateChange((_event, session) => {
         applySession(session).catch((err) => console.error('[auth] session update failed:', err));
       });
+
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      await applySession(session);
 
       const btnGoogle = document.getElementById('btn-google-signin');
       if (btnGoogle) {
@@ -212,7 +303,7 @@
   /**
    * Return the current auth profile for UI and gameplay.
    *
-   * @returns {{isSignedIn: boolean}}
+   * @returns {{isSignedIn: boolean, userId: string}}
    */
   function getAuthProfile() {
     return { ...profile };
@@ -244,6 +335,7 @@
     getAccessToken,
     getAuthProfile,
     getDisplayNameForPlay,
+    saveGamingName,
     isConfigured,
     onProfileChange: null,
   };
