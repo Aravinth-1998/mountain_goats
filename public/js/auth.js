@@ -200,6 +200,31 @@
   }
 
   /**
+   * Persist the signed-in user to the server database.
+   *
+   * @returns {Promise<void>}
+   */
+  async function syncUserToServer() {
+    const token = await getAccessToken();
+    if (!token) return false;
+    try {
+      const res = await fetch('/api/me/sync', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        const detail = await res.text().catch(() => '');
+        console.warn('[auth] sync user failed:', res.status, detail);
+        return false;
+      }
+      return true;
+    } catch (err) {
+      console.warn('[auth] sync user failed:', err);
+      return false;
+    }
+  }
+
+  /**
    * Refresh profile from the current Supabase session.
    *
    * @param {object|null} session Supabase session.
@@ -213,9 +238,15 @@
     updateAuthUI();
 
     if (profile.isSignedIn) {
+      await syncUserToServer();
       await loadAndApplyGamingName(sessionUser, event);
+      const shouldReconnect = event === 'SIGNED_IN' || event === 'INITIAL_SESSION' || event === 'INIT';
+      window.dispatchEvent(new CustomEvent('mg-auth-changed', {
+        detail: { signedIn: true, event, shouldReconnect },
+      }));
     } else if (wasSignedIn) {
       applyGamingNameToInput(null);
+      window.dispatchEvent(new CustomEvent('mg-auth-changed', { detail: { signedIn: false, event } }));
     }
   }
 

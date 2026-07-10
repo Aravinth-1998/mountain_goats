@@ -165,6 +165,11 @@ async function init() {
     await p.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS matches_played INT NOT NULL DEFAULT 0');
     await p.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS matches_won INT NOT NULL DEFAULT 0');
     await p.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS matches_lost INT NOT NULL DEFAULT 0');
+    await p.query(`ALTER TABLE users ALTER COLUMN display_name SET DEFAULT ''`);
+    await p.query(`
+      UPDATE users SET display_name = COALESCE(NULLIF(display_name, ''), google_name, '')
+      WHERE display_name IS NULL OR display_name = ''
+    `);
     await p.query(`
       UPDATE users SET gaming_name = LEFT(display_name, 16)
       WHERE gaming_name IS NULL AND display_name IS NOT NULL AND display_name <> ''
@@ -276,14 +281,16 @@ async function upsertAuthUser(user) {
   const p = getPool();
   if (!p || !connected) return;
 
+  const googleName = String(user.googleName || '').trim().slice(0, 64) || 'Player';
+
   await p.query(
-    `INSERT INTO users (id, google_name, avatar_url, last_seen_at)
-     VALUES ($1, $2, $3, NOW())
+    `INSERT INTO users (id, display_name, google_name, avatar_url, last_seen_at)
+     VALUES ($1, $2, $2, $3, NOW())
      ON CONFLICT (id) DO UPDATE SET
        google_name = EXCLUDED.google_name,
        avatar_url = EXCLUDED.avatar_url,
        last_seen_at = NOW()`,
-    [user.id, user.googleName, user.avatarUrl || null]
+    [user.id, googleName, user.avatarUrl || null]
   );
 }
 
@@ -327,8 +334,8 @@ async function saveGamingName(userId, gamingName) {
   if (!name) return;
 
   await p.query(
-    `INSERT INTO users (id, gaming_name, last_seen_at)
-     VALUES ($1, $2, NOW())
+    `INSERT INTO users (id, display_name, gaming_name, last_seen_at)
+     VALUES ($1, $2, $2, NOW())
      ON CONFLICT (id) DO UPDATE SET
        gaming_name = EXCLUDED.gaming_name,
        last_seen_at = NOW()`,

@@ -128,6 +128,40 @@ function resolveAvatarUrl(payload) {
 }
 
 /**
+ * Persist verified auth profile fields to the database.
+ *
+ * @param {string} accessToken Supabase access token.
+ * @param {object} db Database module.
+ * @returns {Promise<{ userId: string, googleName: string, gamingName: string|null, avatarUrl: string|null }>}
+ */
+async function syncAuthUser(accessToken, db) {
+  const payload = await verifyAccessToken(accessToken);
+  const userId = payload.sub;
+  const googleName = resolveGoogleName(payload);
+  const avatarUrl = resolveAvatarUrl(payload);
+  let gamingName = resolveGamingNameFromPayload(payload);
+
+  if (!(await db.ensureConnected())) {
+    console.warn(`${LOG_PREFIX} syncAuthUser skipped: database not connected`);
+    return { userId, googleName, gamingName, avatarUrl };
+  }
+
+  await db.upsertAuthUser({
+    id: userId,
+    googleName,
+    avatarUrl,
+  });
+
+  if (!gamingName) {
+    gamingName = await db.getGamingName(userId);
+  } else {
+    await db.saveGamingName(userId, gamingName);
+  }
+
+  return { userId, googleName, gamingName, avatarUrl };
+}
+
+/**
  * Apply verified auth fields to a socket and persist the user when DB is ready.
  *
  * @param {import('socket.io').Socket} socket Connected socket.
@@ -136,23 +170,11 @@ function resolveAvatarUrl(payload) {
  * @returns {Promise<void>}
  */
 async function attachAuthToSocket(socket, accessToken, db) {
-  const payload = await verifyAccessToken(accessToken);
-  socket.authUserId = payload.sub;
-  socket.authGoogleName = resolveGoogleName(payload);
-  socket.authAvatarUrl = resolveAvatarUrl(payload);
-  socket.authGamingName = resolveGamingNameFromPayload(payload);
-  if (await db.ensureConnected()) {
-    await db.upsertAuthUser({
-      id: socket.authUserId,
-      googleName: socket.authGoogleName,
-      avatarUrl: socket.authAvatarUrl,
-    });
-    if (!socket.authGamingName) {
-      socket.authGamingName = await db.getGamingName(socket.authUserId);
-    } else {
-      await db.saveGamingName(socket.authUserId, socket.authGamingName);
-    }
-  }
+  const profile = await syncAuthUser(accessToken, db);
+  socket.authUserId = profile.userId;
+  socket.authGoogleName = profile.googleName;
+  socket.authGamingName = profile.gamingName;
+  socket.authAvatarUrl = profile.avatarUrl;
 }
 
 /**
@@ -180,5 +202,6 @@ module.exports = {
   resolveGamingNameFromPayload,
   resolveAvatarUrl,
   attachAuthToSocket,
+  syncAuthUser,
   resolvePlayerName,
 };

@@ -18,6 +18,14 @@
     }
   });
 
+  window.addEventListener('mg-auth-changed', async (event) => {
+    if (!window.MGAuth || !event.detail || !event.detail.shouldReconnect) return;
+    socket.auth.token = (await window.MGAuth.getAccessToken()) || '';
+    if (socket.connected) {
+      socket.disconnect().connect();
+    }
+  });
+
   let myId = null;
   let state = null;
   const selected = new Set(); // selected die indices for the current group

@@ -26,6 +26,7 @@ const fs = require('fs');
 const http = require('http');
 const express = require('express');
 const { Server } = require('socket.io');
+require('dotenv').config({ override: true });
 const db = require('./db');
 const auth = require('./auth');
 
@@ -33,7 +34,6 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-app.use(express.static(path.join(__dirname, 'public')));
 app.get('/healthz', (req, res) => res.send('ok'));
 
 app.get('/api/public-config', (req, res) => {
@@ -42,6 +42,25 @@ app.get('/api/public-config', (req, res) => {
     supabaseAnonKey: process.env.SUPABASE_ANON_KEY || '',
   });
 });
+
+app.post('/api/me/sync', async (req, res) => {
+  if (!auth.isAuthConfigured()) {
+    return res.status(503).json({ error: 'Auth not configured' });
+  }
+  const authHeader = req.headers.authorization || '';
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+  if (!token) return res.status(401).json({ error: 'Missing token' });
+  try {
+    const profile = await auth.syncAuthUser(token, db);
+    console.log(`${auth.LOG_PREFIX} synced user ${profile.userId}`);
+    res.json({ ok: true, userId: profile.userId });
+  } catch (err) {
+    console.warn(`${auth.LOG_PREFIX} /api/me/sync failed:`, err.message);
+    res.status(401).json({ error: err.message || 'Invalid token' });
+  }
+});
+
+app.use(express.static(path.join(__dirname, 'public')));
 
 // Admin secret key - set via environment variable or defaults to a random key
 const ADMIN_KEY = process.env.ADMIN_KEY || 'goat-admin-' + Math.random().toString(36).slice(2, 8);
