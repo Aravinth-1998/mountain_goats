@@ -26,6 +26,7 @@
   let colorPickerEl = null;
   let colorPickerOutsideHandler = null;
   let winCountUpFrames = [];
+  let pendingMatchStats = null;
 
   const PLAYER_COLORS = [
     '#e63946', // red
@@ -677,6 +678,14 @@
     if (el) el.textContent = `🟢 ${count} player${count !== 1 ? 's' : ''} online`;
   });
 
+  socket.on('match-stats', (stats) => {
+    if (!stats || typeof stats.matchesWon !== 'number') return;
+    pendingMatchStats = stats;
+    if (state && state.finished) {
+      updateWinStatsBanner(didCurrentPlayerWin());
+    }
+  });
+
   socket.on('state', (s) => {
     if (leftRoom) return; // ignore stale broadcasts after leaving
     const wasFinished = state && state.finished;
@@ -1306,7 +1315,46 @@
 
   function hideWinOverlay() {
     cancelWinCountUp();
+    pendingMatchStats = null;
+    const banner = $('win-stats-banner');
+    if (banner) {
+      banner.hidden = true;
+      banner.textContent = '';
+    }
     $('win-overlay').classList.remove('show');
+  }
+
+  /**
+   * Returns true when the local player won the finished game.
+   *
+   * @returns {boolean}
+   */
+  function didCurrentPlayerWin() {
+    if (!state || !state.finished) return false;
+    if (state.teamMode && state.teams && state.winnerTeamId != null) {
+      const winTeam = state.teams.find((team) => team.id === state.winnerTeamId);
+      const myTeam = state.teams.find((team) => team.members.includes(myId));
+      return !!(winTeam && myTeam && myTeam.id === winTeam.id);
+    }
+    return state.winnerId === myId;
+  }
+
+  /**
+   * Show or hide the signed-in win count banner on the end scorecard.
+   *
+   * @param {boolean} didWin Whether the local player won.
+   */
+  function updateWinStatsBanner(didWin) {
+    const banner = $('win-stats-banner');
+    if (!banner) return;
+    if (!isSignedIn() || !didWin || !pendingMatchStats || typeof pendingMatchStats.matchesWon !== 'number') {
+      banner.hidden = true;
+      banner.textContent = '';
+      return;
+    }
+    const winCount = pendingMatchStats.matchesWon;
+    banner.hidden = false;
+    banner.innerHTML = `You now have <strong>${winCount}</strong> ${winCount === 1 ? 'win' : 'wins'}!`;
   }
 
   function showWin() {
@@ -1390,6 +1438,7 @@
       document.querySelector('#win-overlay .win-actions').style.setProperty('--rows', String(sorted.length));
     }
     $('btn-playagain').style.display = state.hostId === myId ? 'block' : 'none';
+    updateWinStatsBanner(didCurrentPlayerWin());
     revealWinOverlay();
   }
 })();

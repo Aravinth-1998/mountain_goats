@@ -1065,7 +1065,87 @@ function recordGameHistory(room, options = {}) {
   persistGameHistory();
 }
 
-function endGame(room) {
+/**
+ * Signed-in human players in a room.
+ *
+ * @param {object} room Active room.
+ * @returns {object[]}
+ */
+function getSignedInParticipants(room) {
+  return room.players.filter((player) => !player.isBot && player.authUserId);
+}
+
+/**
+ * Auth user ids for signed-in humans on the winning side.
+ *
+ * @param {object} room Finished room with winner fields set.
+ * @returns {Set<string>}
+ */
+function getWinningAuthUserIds(room) {
+  const winnerIds = new Set();
+  if (room.teamMode && room.winnerTeamId != null && room.teams) {
+    const winTeam = room.teams.find((team) => team.id === room.winnerTeamId);
+    if (winTeam) {
+      winTeam.members.forEach((playerId) => {
+        const player = room.players.find((entry) => entry.id === playerId);
+        if (player && !player.isBot && player.authUserId) {
+          winnerIds.add(player.authUserId);
+        }
+      });
+    }
+  } else if (room.winnerId) {
+    const winner = room.players.find((player) => player.id === room.winnerId);
+    if (winner && !winner.isBot && winner.authUserId) {
+      winnerIds.add(winner.authUserId);
+    }
+  }
+  return winnerIds;
+}
+
+/**
+ * Build per-user win/loss updates for completed games.
+ *
+ * @param {object} room Finished room with winner fields set.
+ * @returns {{ userId: string, won: boolean }[]}
+ */
+function buildMatchStatUpdates(room) {
+  const winners = getWinningAuthUserIds(room);
+  const seenUserIds = new Set();
+  const updates = [];
+  getSignedInParticipants(room).forEach((player) => {
+    if (seenUserIds.has(player.authUserId)) return;
+    seenUserIds.add(player.authUserId);
+    updates.push({
+      userId: player.authUserId,
+      won: winners.has(player.authUserId),
+    });
+  });
+  return updates;
+}
+
+/**
+ * Persist match stats and notify signed-in participants.
+ *
+ * @param {object} room Finished room.
+ * @returns {Promise<void>}
+ */
+async function recordMatchStatsForRoom(room) {
+  const updates = buildMatchStatUpdates(room);
+  if (!updates.length || !db.isConnected()) return;
+
+  const statsByUserId = await db.recordMatchStats(updates);
+  for (const [, socket] of io.sockets.sockets) {
+    if (!socket.authUserId || !statsByUserId.has(socket.authUserId)) continue;
+    const stats = statsByUserId.get(socket.authUserId);
+    socket.emit('match-stats', {
+      matchesPlayed: stats.played,
+      matchesWon: stats.won,
+      matchesLost: stats.lost,
+    });
+  }
+}
+
+async function endGame(room) {
   room.finished = true;
   if (room.watchdog) { clearInterval(room.watchdog); room.watchdog = null; }
 
@@ -1090,6 +1170,13 @@ function endGame(room) {
     room.winnerId = winner ? winner.id : null;
     if (winner) pushLog(room, `Game over! ${winner.name} wins with ${ranked[0].score} points! 🏆`);
   }
+
+  try {
+    await recordMatchStatsForRoom(room);
+  } catch (err) {
+    console.error('[stats] recordMatchStats failed:', err.message);
+  }
+
   recordGameHistory(room);
 }
 

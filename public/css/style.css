@@ -646,6 +646,17 @@ input.input-error:focus { border-color: var(--danger); background: rgba(255,93,1
   animation: winHeadIn 0.4s ease-out 0.2s both, bob 2.4s ease-in-out 0.65s infinite;
 }
 .overlay-card h2 { font-family: 'Fredoka', sans-serif; font-size: 26px; margin: 6px 0 4px; }
+.win-stats-banner {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--gold);
+  line-height: 1.4;
+}
+.win-stats-banner strong {
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
 .scoreboard { display: flex; flex-direction: column; gap: 6px; margin: 12px 0 8px; text-align: left; }
 #win-overlay.show .score-row {
   animation: winRowIn 0.42s ease-out both;

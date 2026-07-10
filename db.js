@@ -162,6 +162,9 @@ async function init() {
   `);
     await p.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS gaming_name VARCHAR(16)');
     await p.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS google_name VARCHAR(64)');
+    await p.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS matches_played INT NOT NULL DEFAULT 0');
+    await p.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS matches_won INT NOT NULL DEFAULT 0');
+    await p.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS matches_lost INT NOT NULL DEFAULT 0');
     await p.query(`
       UPDATE users SET gaming_name = LEFT(display_name, 16)
       WHERE gaming_name IS NULL AND display_name IS NOT NULL AND display_name <> ''
@@ -334,6 +337,45 @@ async function saveGamingName(userId, gamingName) {
 }
 
 /**
+ * Increment match stats for signed-in users who finished a game.
+ *
+ * @param {{ userId: string, won: boolean }[]} updates One entry per user.
+ * @returns {Promise<Map<string, { played: number, won: number, lost: number }>>}
+ */
+async function recordMatchStats(updates) {
+  const p = getPool();
+  const resultMap = new Map();
+  if (!p || !connected || !updates.length) return resultMap;
+
+  const params = [];
+  const valueRows = updates.map((entry, index) => {
+    const paramIndex = index * 2;
+    params.push(entry.userId, entry.won);
+    return `($${paramIndex + 1}::uuid, $${paramIndex + 2}::boolean)`;
+  });
+
+  const result = await p.query(
+    `UPDATE users AS u SET
+       matches_played = u.matches_played + 1,
+       matches_won = u.matches_won + CASE WHEN v.won THEN 1 ELSE 0 END,
+       matches_lost = u.matches_lost + CASE WHEN v.won THEN 0 ELSE 1 END
+     FROM (VALUES ${valueRows.join(', ')}) AS v(id, won)
+     WHERE u.id = v.id
+     RETURNING u.id, u.matches_played, u.matches_won, u.matches_lost`,
+    params
+  );
+
+  result.rows.forEach((row) => {
+    resultMap.set(row.id, {
+      played: Number(row.matches_played),
+      won: Number(row.matches_won),
+      lost: Number(row.matches_lost),
+    });
+  });
+  return resultMap;
+}
+
+/**
  * Close the pool (for graceful shutdown).
  *
  * @returns {Promise<void>}
@@ -355,6 +397,7 @@ module.exports = {
   upsertAuthUser,
   getGamingName,
   saveGamingName,
+  recordMatchStats,
   ensureConnected,
   resetPool,
   close,
