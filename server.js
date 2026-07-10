@@ -52,7 +52,7 @@ app.get('/api/me/gaming-name', async (req, res) => {
   const token = header.startsWith('Bearer ') ? header.slice(7) : '';
   if (!token) return res.status(401).json({ error: 'Unauthorized' });
   try {
-    const payload = auth.verifySupabaseToken(token);
+    const payload = await auth.verifyAccessToken(token);
     if (!db.isConnected()) {
       console.warn(`${auth.LOG_PREFIX} gaming-name GET: database not connected`);
       return res.json({ gamingName: null });
@@ -75,7 +75,7 @@ app.post('/api/me/gaming-name', async (req, res) => {
   const gamingName = String(req.body && req.body.gamingName || '').trim().slice(0, 16);
   if (!gamingName) return res.status(400).json({ error: 'gamingName required' });
   try {
-    const payload = auth.verifySupabaseToken(token);
+    const payload = await auth.verifyAccessToken(token);
     if (!db.isConnected()) {
       console.warn(`${auth.LOG_PREFIX} gaming-name POST: database not connected`);
       return res.status(503).json({ error: 'Database unavailable' });
@@ -1372,9 +1372,17 @@ function isPlayerIdentityTaken(room, socket, name) {
  * @returns {Promise<void>}
  */
 async function persistGamingName(socket, name) {
-  if (!socket.authUserId || !name || !db.isConnected()) return;
-  await db.saveGamingName(socket.authUserId, name);
-  socket.authGamingName = name;
+  if (!socket.authUserId || !name) return;
+  if (!db.isConnected()) {
+    console.warn(`${auth.LOG_PREFIX} persistGamingName skipped: database not connected`);
+    return;
+  }
+  try {
+    await db.saveGamingName(socket.authUserId, name);
+    socket.authGamingName = name;
+  } catch (err) {
+    console.error(`${auth.LOG_PREFIX} persistGamingName failed:`, err.message);
+  }
 }
 
 io.use(async (socket, next) => {

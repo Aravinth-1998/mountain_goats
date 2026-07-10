@@ -299,7 +299,10 @@ async function getGamingName(userId) {
  */
 async function saveGamingName(userId, gamingName) {
   const p = getPool();
-  if (!p || !connected) return;
+  if (!p || !connected) {
+    console.warn(`${LOG_PREFIX} saveGamingName skipped: database not connected`);
+    return;
+  }
 
   await p.query(
     `INSERT INTO users (id, gaming_name, last_seen_at)

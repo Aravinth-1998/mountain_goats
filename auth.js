@@ -8,16 +8,19 @@ const LOG_PREFIX = '[auth]';
 const NAME_MAX_LEN = 16;
 
 /**
- * Returns true when Supabase JWT verification is configured.
+ * Returns true when server-side auth verification is configured.
  *
  * @returns {boolean}
  */
 function isAuthConfigured() {
-  return !!process.env.SUPABASE_JWT_SECRET;
+  return !!(
+    (process.env.SUPABASE_URL && process.env.SUPABASE_ANON_KEY) ||
+    process.env.SUPABASE_JWT_SECRET
+  );
 }
 
 /**
- * Verify a Supabase access token and return the decoded payload.
+ * Verify a Supabase access token locally with the legacy JWT secret (HS256).
  *
  * @param {string} accessToken Supabase session access token.
  * @returns {object} Decoded JWT payload.
@@ -29,6 +32,59 @@ function verifySupabaseToken(accessToken) {
   return jwt.verify(accessToken, process.env.SUPABASE_JWT_SECRET, {
     algorithms: ['HS256'],
   });
+}
+
+/**
+ * Verify a Supabase access token via the Auth server.
+ * Works with both legacy HS256 and newer asymmetric signing keys.
+ *
+ * @param {string} accessToken Supabase session access token.
+ * @returns {Promise<object>} Normalized JWT-like payload.
+ */
+async function verifyAccessTokenViaAuthServer(accessToken) {
+  const supabaseUrl = String(process.env.SUPABASE_URL || '').replace(/\/$/, '');
+  const anonKey = process.env.SUPABASE_ANON_KEY;
+  if (!supabaseUrl || !anonKey) {
+    throw new Error('SUPABASE_URL and SUPABASE_ANON_KEY are required');
+  }
+
+  const res = await fetch(`${supabaseUrl}/auth/v1/user`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      apikey: anonKey,
+    },
+  });
+
+  if (!res.ok) {
+    const detail = await res.text().catch(() => '');
+    throw new Error(`Auth server rejected token (${res.status})${detail ? `: ${detail}` : ''}`);
+  }
+
+  const user = await res.json();
+  return {
+    sub: user.id,
+    email: user.email,
+    user_metadata: user.user_metadata || {},
+  };
+}
+
+/**
+ * Verify a Supabase access token and return a normalized payload.
+ *
+ * @param {string} accessToken Supabase session access token.
+ * @returns {Promise<object>} Normalized JWT-like payload.
+ */
+async function verifyAccessToken(accessToken) {
+  if (process.env.SUPABASE_URL && process.env.SUPABASE_ANON_KEY) {
+    try {
+      return await verifyAccessTokenViaAuthServer(accessToken);
+    } catch (err) {
+      if (!process.env.SUPABASE_JWT_SECRET) throw err;
+      console.warn(`${LOG_PREFIX} Auth server verify failed, trying local JWT secret:`, err.message);
+    }
+  }
+
+  return verifySupabaseToken(accessToken);
 }
 
 /**
@@ -68,7 +124,7 @@ function resolveAvatarUrl(payload) {
  * @returns {Promise<void>}
  */
 async function attachAuthToSocket(socket, accessToken, db) {
-  const payload = verifySupabaseToken(accessToken);
+  const payload = await verifyAccessToken(accessToken);
   socket.authUserId = payload.sub;
   socket.authGoogleName = resolveGoogleName(payload);
   socket.authAvatarUrl = resolveAvatarUrl(payload);
@@ -104,6 +160,7 @@ module.exports = {
   LOG_PREFIX,
   isAuthConfigured,
   verifySupabaseToken,
+  verifyAccessToken,
   resolveGoogleName,
   resolveAvatarUrl,
   attachAuthToSocket,

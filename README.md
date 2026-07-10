@@ -118,9 +118,9 @@ verified display name stored in the `users` table. Guests can still type a name.
 
 | Key | Purpose |
 |-----|---------|
-| `SUPABASE_URL` | Project URL |
-| `SUPABASE_ANON_KEY` | Public anon key (safe for browser) |
-| `SUPABASE_JWT_SECRET` | Server-only JWT verification |
+| `SUPABASE_URL` | Project URL (required on server for token verification and cross-device name sync) |
+| `SUPABASE_ANON_KEY` | Public anon key (required on server for token verification) |
+| `SUPABASE_JWT_SECRET` | Optional legacy fallback for local JWT verification |
 | `DATABASE_URL` | Session pooler URL (creates `users` + `game_history` tables) |
 
 Redeploy after adding env vars. The Google button appears on the home screen when

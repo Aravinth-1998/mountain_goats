@@ -91,8 +91,15 @@
       if (!res.ok) return cached;
       const data = await res.json();
       const gamingName = data.gamingName ? truncateName(data.gamingName) : null;
-      if (gamingName) writeCachedGamingName(userId, gamingName);
-      return gamingName || cached;
+      if (gamingName) {
+        writeCachedGamingName(userId, gamingName);
+        return gamingName;
+      }
+      if (cached) {
+        await saveGamingName(cached);
+        return cached;
+      }
+      return null;
     } catch (err) {
       console.error('[auth] fetch gaming name failed:', err);
       return cached;
