@@ -170,6 +170,12 @@
   function show(name) {
     Object.values(screens).forEach((s) => s.classList.remove('active'));
     screens[name].classList.add('active');
+    if (name === 'home') {
+      const lb = document.getElementById('home-leaderboard-content');
+      if (lb && lb.classList.contains('open')) {
+        fetchLeaderboardIfNeeded();
+      }
+    }
   }
 
   // If there's a saved session, show the loading screen immediately
@@ -345,8 +351,10 @@
 
   // Public rooms refresh timer
   let publicRoomsTimer = null;
+  let leaderboardFetchedAt = 0;
+  const LEADERBOARD_REFRESH_MS = 60000;
 
-  // ===================== HOW TO PLAY TOGGLES =====================
+  // ===================== HOW TO PLAY / LEADERBOARD TOGGLES =====================
   document.querySelectorAll('.rules-toggle-btn').forEach((btn) => {
     btn.addEventListener('click', () => {
       const targetId = btn.getAttribute('data-target');
@@ -354,8 +362,128 @@
       if (!content) return;
       const isOpen = content.classList.toggle('open');
       btn.classList.toggle('open', isOpen);
+      btn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+      if (targetId === 'home-leaderboard-content' && isOpen) {
+        fetchLeaderboardIfNeeded();
+      }
     });
   });
+
+  /**
+   * Build a fallback avatar URL for leaderboard rows.
+   *
+   * @param {string} name Display name.
+   * @returns {string}
+   */
+  function leaderboardAvatarFallback(name) {
+    const encoded = encodeURIComponent(name || 'Player');
+    return `https://ui-avatars.com/api/?name=${encoded}&background=4f7cff&color=fff&size=56`;
+  }
+
+  /**
+   * Render leaderboard entries in the home panel.
+   *
+   * @param {Array<object>} entries Leaderboard rows from the API.
+   */
+  function renderLeaderboard(entries) {
+    const list = $('leaderboard-list');
+    const emptyEl = $('leaderboard-empty');
+    const errorEl = $('leaderboard-error');
+    if (!list || !emptyEl || !errorEl) return;
+
+    list.innerHTML = '';
+    errorEl.hidden = true;
+    errorEl.textContent = '';
+
+    if (!entries || entries.length === 0) {
+      emptyEl.hidden = false;
+      return;
+    }
+
+    emptyEl.hidden = true;
+    entries.forEach((entry) => {
+      const row = document.createElement('div');
+      row.className = 'leaderboard-row' + (entry.isMe ? ' is-me' : '') + (entry.rank === 1 ? ' rank-1' : '');
+      row.setAttribute('role', 'listitem');
+
+      const rank = document.createElement('span');
+      rank.className = 'leaderboard-rank';
+      rank.textContent = String(entry.rank);
+
+      const img = document.createElement('img');
+      img.className = 'leaderboard-avatar';
+      img.alt = '';
+      img.referrerPolicy = 'no-referrer';
+      img.loading = 'lazy';
+      const fallback = leaderboardAvatarFallback(entry.name);
+      img.onerror = () => {
+        img.onerror = null;
+        img.src = fallback;
+      };
+      img.src = entry.avatarUrl || fallback;
+
+      const name = document.createElement('span');
+      name.className = 'leaderboard-name';
+      name.textContent = entry.name || 'Player';
+
+      const wins = document.createElement('span');
+      wins.className = 'leaderboard-wins';
+      wins.textContent = String(entry.wins);
+
+      row.appendChild(rank);
+      row.appendChild(img);
+      row.appendChild(name);
+      row.appendChild(wins);
+      list.appendChild(row);
+    });
+  }
+
+  /**
+   * Fetch leaderboard data when the panel is opened or stale.
+   *
+   * @returns {Promise<void>}
+   */
+  async function fetchLeaderboardIfNeeded() {
+    const list = $('leaderboard-list');
+    const emptyEl = $('leaderboard-empty');
+    const errorEl = $('leaderboard-error');
+    if (!list || !emptyEl || !errorEl) return;
+
+    const now = Date.now();
+    if (leaderboardFetchedAt && now - leaderboardFetchedAt < LEADERBOARD_REFRESH_MS && list.children.length) {
+      return;
+    }
+
+    emptyEl.hidden = true;
+    errorEl.hidden = true;
+    errorEl.textContent = '';
+    list.innerHTML = '<p class="leaderboard-loading">Loading leaderboard...</p>';
+
+    let url = '/api/leaderboard';
+    if (window.MGAuth) {
+      const profile = window.MGAuth.getAuthProfile();
+      if (profile && profile.isSignedIn && profile.userId) {
+        url += `?viewerId=${encodeURIComponent(profile.userId)}`;
+      }
+    }
+
+    try {
+      const res = await fetch(url);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        list.innerHTML = '';
+        errorEl.textContent = data.error || 'Leaderboard unavailable right now.';
+        errorEl.hidden = false;
+        return;
+      }
+      leaderboardFetchedAt = Date.now();
+      renderLeaderboard(data.entries || []);
+    } catch (err) {
+      list.innerHTML = '';
+      errorEl.textContent = 'Leaderboard unavailable right now.';
+      errorEl.hidden = false;
+    }
+  }
 
   // Clear error styling when user clicks or types in the name field
   $('home-name').addEventListener('focus', () => {

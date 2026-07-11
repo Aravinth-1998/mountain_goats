@@ -127,6 +127,24 @@
 
     <p id="home-error" class="error-msg"></p>
 
+    <div class="card rules-toggle home-leaderboard">
+      <button type="button" class="rules-toggle-btn" data-target="home-leaderboard-content" aria-expanded="false" aria-controls="home-leaderboard-content">
+        🏆 Leaderboard <span class="toggle-arrow" aria-hidden="true">&#9662;</span>
+      </button>
+      <div id="home-leaderboard-content" class="rules-content leaderboard-content">
+        <p class="leaderboard-note muted">Signed-in players only</p>
+        <div class="leaderboard-header" aria-hidden="true">
+          <span class="leaderboard-rank">#</span>
+          <span class="leaderboard-avatar-spacer"></span>
+          <span class="leaderboard-name">Player</span>
+          <span class="leaderboard-wins">Wins</span>
+        </div>
+        <div id="leaderboard-list" class="leaderboard-list" role="list"></div>
+        <p id="leaderboard-empty" class="muted center leaderboard-empty" hidden>No ranked players yet.</p>
+        <p id="leaderboard-error" class="error-msg leaderboard-error" hidden></p>
+      </div>
+    </div>
+
     <div class="card rules-toggle">
       <button class="rules-toggle-btn" data-target="home-rules-content">📖 How to Play <span class="toggle-arrow">▾</span></button>
       <div id="home-rules-content" class="rules-content">

@@ -466,6 +466,44 @@ async function getMatchStats(userId) {
 }
 
 /**
+ * Load top players by overall match wins for the public leaderboard.
+ *
+ * @param {number} [limit=10] Max rows to return.
+ * @returns {Promise<Array<{ userId: string, name: string, wins: number, played: number, avatarUrl: string|null }>|null>}
+ */
+async function getLeaderboard(limit = 10) {
+  const p = getPool();
+  if (!p || !connected) return null;
+
+  const safeLimit = Math.max(1, Math.min(50, Number(limit) || 10));
+  const result = await p.query(
+    `SELECT id, gaming_name, display_name, google_name, avatar_url,
+            matches_won, matches_played
+     FROM users
+     WHERE matches_played > 0
+     ORDER BY matches_won DESC, matches_played ASC,
+              COALESCE(NULLIF(gaming_name, ''), NULLIF(display_name, ''), NULLIF(google_name, ''), 'Player') ASC
+     LIMIT $1`,
+    [safeLimit]
+  );
+
+  return result.rows.map((row) => {
+    const name =
+      (row.gaming_name && String(row.gaming_name).trim()) ||
+      (row.display_name && String(row.display_name).trim()) ||
+      (row.google_name && String(row.google_name).trim()) ||
+      'Player';
+    return {
+      userId: row.id,
+      name: name.slice(0, 16),
+      wins: Number(row.matches_won),
+      played: Number(row.matches_played),
+      avatarUrl: row.avatar_url || null,
+    };
+  });
+}
+
+/**
  * Close the pool (for graceful shutdown).
  *
  * @returns {Promise<void>}
@@ -489,6 +527,7 @@ module.exports = {
   saveGamingName,
   recordMatchStats,
   getMatchStats,
+  getLeaderboard,
   ensureConnected,
   resetPool,
   close,

@@ -94,6 +94,37 @@ app.get('/api/me/stats', async (req, res) => {
   }
 });
 
+app.get('/api/leaderboard', async (req, res) => {
+  if (!(await db.ensureConnected())) {
+    return res.status(503).json({ error: 'Leaderboard unavailable' });
+  }
+  try {
+    const viewerId = String(req.query.viewerId || '').trim();
+    const rows = await db.getLeaderboard(10);
+    if (!rows) {
+      return res.status(503).json({ error: 'Leaderboard unavailable' });
+    }
+    const entries = rows.map((row, index) => {
+      const entry = {
+        rank: index + 1,
+        userId: row.userId,
+        name: row.name,
+        wins: row.wins,
+        played: row.played,
+        avatarUrl: row.avatarUrl,
+      };
+      if (viewerId && row.userId === viewerId) {
+        entry.isMe = true;
+      }
+      return entry;
+    });
+    res.json({ entries });
+  } catch (err) {
+    console.warn('[leaderboard] GET /api/leaderboard failed:', err.message);
+    res.status(503).json({ error: 'Leaderboard unavailable' });
+  }
+});
+
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Admin secret key - set via environment variable or defaults to a random key
