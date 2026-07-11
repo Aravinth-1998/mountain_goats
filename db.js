@@ -378,6 +378,27 @@ function rowToMatchStats(row) {
 }
 
 /**
+ * Ensure signed-in auth users exist before incrementing match stats.
+ *
+ * @param {string[]} userIds Supabase auth user ids.
+ * @returns {Promise<void>}
+ */
+async function ensureAuthUserRows(userIds) {
+  const p = getPool();
+  if (!p || !connected || !userIds.length) return;
+
+  const uniqueIds = [...new Set(userIds.filter(Boolean))];
+  for (const userId of uniqueIds) {
+    await p.query(
+      `INSERT INTO users (id, display_name, last_seen_at)
+       VALUES ($1, '', NOW())
+       ON CONFLICT (id) DO NOTHING`,
+      [userId]
+    );
+  }
+}
+
+/**
  * Increment match stats for signed-in users who finished a game.
  *
  * @param {{ userId: string, won: boolean, teamMode: boolean }[]} updates One entry per user.
@@ -387,6 +408,8 @@ async function recordMatchStats(updates) {
   const p = getPool();
   const resultMap = new Map();
   if (!p || !connected || !updates.length) return resultMap;
+
+  await ensureAuthUserRows(updates.map((entry) => entry.userId));
 
   const params = [];
   const valueRows = updates.map((entry, index) => {
@@ -525,6 +548,7 @@ module.exports = {
   upsertAuthUser,
   getGamingName,
   saveGamingName,
+  ensureAuthUserRows,
   recordMatchStats,
   getMatchStats,
   getLeaderboard,

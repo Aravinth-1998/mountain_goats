@@ -826,6 +826,27 @@ async function syncSocketAuth(socket) {
 }
 
 /**
+ * Ensure socket auth is attached and the user row exists in Postgres.
+ *
+ * @param {import('socket.io').Socket} socket Connected socket.
+ * @returns {Promise<void>}
+ */
+async function ensureSocketAuthUserSynced(socket) {
+  await syncSocketAuth(socket);
+  const token = socket.handshake.auth && socket.handshake.auth.token;
+  if (!token || !socket.authUserId) return;
+  if (!(await db.ensureConnected())) return;
+  try {
+    const profile = await auth.syncAuthUser(token, db);
+    socket.authGamingName = profile.gamingName || socket.authGamingName;
+    socket.authGoogleName = profile.googleName || socket.authGoogleName;
+    socket.authAvatarUrl = profile.avatarUrl || socket.authAvatarUrl;
+  } catch (err) {
+    console.warn(`${auth.LOG_PREFIX} ensureSocketAuthUserSynced failed:`, err.message);
+  }
+}
+
+/**
  * Load overall match wins for a signed-in lobby player.
  *
  * @param {object} player Room player object.
@@ -1267,7 +1288,7 @@ function buildMatchStatUpdates(room) {
  */
 async function recordMatchStatsForRoom(room) {
   const updates = buildMatchStatUpdates(room);
-  if (!updates.length || !db.isConnected()) return;
+  if (!updates.length || !(await db.ensureConnected())) return;
 
   const statsByUserId = await db.recordMatchStats(updates);
   for (const player of room.players) {
@@ -1698,7 +1719,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('createRoom', async ({ name, isPublic, maxPlayers }, cb) => {
-    await syncSocketAuth(socket);
+    await ensureSocketAuthUserSynced(socket);
     name = auth.resolvePlayerName(socket, name);
     if (!name) return cb && cb({ error: 'Please enter your name.' });
     const room = createRoom({ isPublic, maxPlayers });
@@ -1712,7 +1733,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('joinRoom', async ({ name, code }, cb) => {
-    await syncSocketAuth(socket);
+    await ensureSocketAuthUserSynced(socket);
     name = auth.resolvePlayerName(socket, name);
     code = String(code || '').trim().slice(0, 4);
     const room = rooms[code];
