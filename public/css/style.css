@@ -1002,6 +1002,16 @@ input.input-error:focus { border-color: var(--danger); background: rgba(255,93,1
 .home-actions {
   display: flex; flex-direction: column; gap: 12px;
 }
+.home-actions.is-loading {
+  pointer-events: none;
+  opacity: 0.75;
+}
+.home-actions.is-loading .btn:disabled {
+  opacity: 1;
+}
+.home-actions.is-loading .btn-primary {
+  box-shadow: none;
+}
 
 /* Profile stats sidebar (home screen) */
 #screen-home .stats-fab {
@@ -1282,7 +1292,7 @@ input.input-error:focus { border-color: var(--danger); background: rgba(255,93,1
 }
 #screen-home .stats-panel-viewport {
   position: relative;
-  height: 325px;
+  height: 330px;
   flex: 0 0 auto;
   overflow: hidden;
 }

@@ -561,12 +561,16 @@
   });
 
   function setHomeLoading(which) {
+    const actions = document.querySelector('.home-actions');
+    if (actions) actions.classList.add('is-loading');
     $('btn-create').disabled = true;
     $('btn-goto-join').disabled = true;
     $('home-error').textContent = '';
     if (which === 'create') $('btn-create').innerHTML = '<span class="spin">⏳</span> Creating…';
   }
   function clearHomeLoading() {
+    const actions = document.querySelector('.home-actions');
+    if (actions) actions.classList.remove('is-loading');
     $('btn-create').disabled = false;
     $('btn-goto-join').disabled = false;
     $('btn-create').textContent = 'Create Room';
