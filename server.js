@@ -766,6 +766,7 @@ function createRoom(options = {}) {
     started: false,
     finished: false,
     winnerId: null,
+    winnerPlayerIds: [],
     currentIndex: 0,
     dice: null, // [d1..d4]
     diceUsed: [], // booleans per die
@@ -905,6 +906,7 @@ function resetForNewGame(room) {
   room.startedAt = null;
   room.finished = false;
   room.winnerId = null;
+  room.winnerPlayerIds = [];
   room.winnerTeamId = null;
   room.currentIndex = 0;
   room.dice = null;
@@ -929,6 +931,7 @@ function publicState(room) {
     started: room.started,
     finished: room.finished,
     winnerId: room.winnerId,
+    winnerPlayerIds: room.winnerPlayerIds || (room.winnerId ? [room.winnerId] : []),
     emptyMountains: emptyMountainCount(room),
     lastRound: room.lastRound,
     endReason: room.endReason || null,
@@ -1154,6 +1157,17 @@ function rankedTeams(room) {
 }
 
 /**
+ * Number of individual winners in standard mode (1 for 2-4 players, 2 for 5-6).
+ *
+ * @param {object} room Active or finished room.
+ * @returns {number}
+ */
+function winnerSlotCount(room) {
+  const playerCount = room.players.filter((p) => p.connected).length || room.players.length;
+  return playerCount >= 5 ? 2 : 1;
+}
+
+/**
  * Record a completed or abandoned game into the in-memory history buffer.
  *
  * @param {object} room The room whose game just ended.
@@ -1248,11 +1262,16 @@ function getWinningAuthUserIds(room) {
         }
       });
     }
-  } else if (room.winnerId) {
-    const winner = room.players.find((player) => player.id === room.winnerId);
-    if (winner && !winner.isBot && winner.authUserId) {
-      winnerIds.add(winner.authUserId);
-    }
+  } else {
+    const winnerPlayerIds = room.winnerPlayerIds && room.winnerPlayerIds.length
+      ? room.winnerPlayerIds
+      : (room.winnerId ? [room.winnerId] : []);
+    winnerPlayerIds.forEach((playerId) => {
+      const player = room.players.find((entry) => entry.id === playerId);
+      if (player && !player.isBot && player.authUserId) {
+        winnerIds.add(player.authUserId);
+      }
+    });
   }
   return winnerIds;
 }
@@ -1320,6 +1339,7 @@ async function endGame(room) {
 
   if (room.teamMode && room.teams) {
     // Team mode: rank teams, then pick the individual winner from winning team
+    room.winnerPlayerIds = [];
     const ranked = rankedTeams(room);
     const winTeam = ranked[0] ? ranked[0].team : null;
     room.winnerTeamId = winTeam ? winTeam.id : null;
@@ -1335,9 +1355,17 @@ async function endGame(room) {
   } else {
     // Standard mode
     const ranked = rankedPlayers(room);
+    const slots = winnerSlotCount(room);
+    room.winnerPlayerIds = ranked.slice(0, slots).map((entry) => entry.p.id);
     const winner = ranked[0] ? ranked[0].p : null;
     room.winnerId = winner ? winner.id : null;
-    if (winner) pushLog(room, `Game over! ${winner.name} wins with ${ranked[0].score} points! 🏆`);
+    if (winner) {
+      if (slots === 2 && ranked[1]) {
+        pushLog(room, `Game over! ${winner.name} and ${ranked[1].p.name} win! 🏆`);
+      } else {
+        pushLog(room, `Game over! ${winner.name} wins with ${ranked[0].score} points! 🏆`);
+      }
+    }
   }
 
   try {

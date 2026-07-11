@@ -850,6 +850,14 @@ input.input-error:focus { border-color: var(--danger); background: rgba(255,93,1
   }
 }
 .sb-left { display: flex; align-items: center; gap: 6px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sb-rank-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.25em;
+  font-weight: 700;
+  color: var(--muted);
+}
 .sb-right { flex: 0 0 auto; white-space: nowrap; color: var(--muted); font-size: 13px; }
 .score-row.win .sb-right { color: inherit; }
 .sb-bonus { font-size: 12px; font-weight: 700; color: var(--gold); background: rgba(255,209,102,0.15); border-radius: 6px; padding: 1px 5px; white-space: nowrap; }

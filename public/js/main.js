@@ -706,23 +706,44 @@
 
   function shareWinResult() {
     if (!state) return;
-    // Build share text with top 3 players
     const sorted = [...state.players].sort((a, b) => b.score - a.score || b.tops - a.tops);
-    const top3 = sorted.slice(0, 3).map((p, i) => {
-      const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : '🥉';
-      return `${medal} ${p.name}: ${p.score}pts`;
-    }).join('\n');
+    const winnerSlots = winnerSlotCount(state.players.length);
+
+    let standings = '';
+    if (state.teamMode && state.teams) {
+      const sortedTeams = [...state.teams].sort((a, b) => (b.score || 0) - (a.score || 0) || (b.tops || 0) - (a.tops || 0));
+      standings = sortedTeams.map((t, i) => {
+        const prefix = teamRankPrefix(i);
+        return `${prefix} Team ${t.name}: ${t.score || 0}pts`;
+      }).join('\n');
+    } else {
+      standings = sorted.map((p, i) => {
+        const prefix = scoreRankPrefix(i, winnerSlots);
+        return `${prefix} ${p.name}: ${p.score}pts`;
+      }).join('\n');
+    }
 
     let winnerLine = '';
     if (state.teamMode && state.teams && state.winnerTeamId != null) {
       const winTeam = state.teams.find((t) => t.id === state.winnerTeamId);
       winnerLine = winTeam ? `Team ${winTeam.name} wins!` : 'Game over!';
     } else {
-      const winner = state.players.find((p) => p.id === state.winnerId);
-      winnerLine = winner ? `${winner.name} wins!` : 'Game over!';
+      const winnerIds = state.winnerPlayerIds && state.winnerPlayerIds.length
+        ? state.winnerPlayerIds
+        : (state.winnerId ? [state.winnerId] : []);
+      const winners = winnerIds
+        .map((id) => state.players.find((p) => p.id === id))
+        .filter(Boolean);
+      if (winners.length === 2) {
+        winnerLine = `${winners[0].name} and ${winners[1].name} win!`;
+      } else if (winners.length === 1) {
+        winnerLine = `${winners[0].name} wins!`;
+      } else {
+        winnerLine = 'Game over!';
+      }
     }
 
-    const text = `🐐 Mountain Goats — ${winnerLine}\n\n${top3}\n\nPlay at: ${location.origin}`;
+    const text = `🐐 Mountain Goats — ${winnerLine}\n\n${standings}\n\nPlay at: ${location.origin}`;
 
     // Try to capture the overlay card as an image
     const overlayCard = document.querySelector('#win-overlay .overlay-card');
@@ -1588,6 +1609,94 @@
     startWinScoreCountUp();
   }
 
+  /**
+   * Winner slots in standard mode: 1 for 2-4 players, 2 for 5-6.
+   *
+   * @param {number} playerCount Number of players in the game.
+   * @returns {number}
+   */
+  function winnerSlotCount(playerCount) {
+    return playerCount >= 5 ? 2 : 1;
+  }
+
+  /**
+   * Rank prefix for a standard-mode scorecard row.
+   *
+   * @param {number} rankIndex Zero-based rank in sorted standings.
+   * @param {number} winnerSlots Number of winner slots for this game.
+   * @returns {string}
+   */
+  function scoreRankPrefix(rankIndex, winnerSlots) {
+    if (rankIndex === 0) return '🥇';
+    if (rankIndex === 1 && winnerSlots >= 2) return '🥈';
+    return String(rankIndex + 1);
+  }
+
+  /**
+   * Rank prefix HTML for a standard-mode scorecard row.
+   *
+   * @param {number} rankIndex Zero-based rank in sorted standings.
+   * @param {number} winnerSlots Number of winner slots for this game.
+   * @returns {string}
+   */
+  function scoreRankPrefixHtml(rankIndex, winnerSlots) {
+    const prefix = scoreRankPrefix(rankIndex, winnerSlots);
+    if (prefix === '🥇' || prefix === '🥈') return prefix;
+    return `<span class="sb-rank-num">${prefix}</span>`;
+  }
+
+  /**
+   * Rank prefix for a team-mode scorecard row (gold for 1st only).
+   *
+   * @param {number} rankIndex Zero-based rank in sorted team standings.
+   * @returns {string}
+   */
+  function teamRankPrefix(rankIndex) {
+    return rankIndex === 0 ? '🥇' : String(rankIndex + 1);
+  }
+
+  /**
+   * Rank prefix HTML for a team-mode scorecard row.
+   *
+   * @param {number} rankIndex Zero-based rank in sorted team standings.
+   * @returns {string}
+   */
+  function teamRankPrefixHtml(rankIndex) {
+    const prefix = teamRankPrefix(rankIndex);
+    if (prefix === '🥇') return prefix;
+    return `<span class="sb-rank-num">${prefix}</span>`;
+  }
+
+  /**
+   * Returns true when a player id is among the standard-mode winners.
+   *
+   * @param {string} playerId Player socket id.
+   * @returns {boolean}
+   */
+  function isStandardWinner(playerId) {
+    if (!state) return false;
+    const winnerIds = state.winnerPlayerIds && state.winnerPlayerIds.length
+      ? state.winnerPlayerIds
+      : (state.winnerId ? [state.winnerId] : []);
+    return winnerIds.includes(playerId);
+  }
+
+  /**
+   * Build the standard-mode win overlay title.
+   *
+   * @returns {string}
+   */
+  function standardWinTitle() {
+    if (didCurrentPlayerWin()) return 'You Win! 🎉';
+    const slots = winnerSlotCount(state.players.length);
+    const sorted = [...state.players].sort((a, b) => b.score - a.score || b.tops - a.tops);
+    if (slots === 2 && sorted[1]) {
+      return `${sorted[0].name} and ${sorted[1].name} Win!`;
+    }
+    const winner = state.players.find((p) => p.id === state.winnerId);
+    return winner ? `${winner.name} Wins!` : 'Game Over!';
+  }
+
   function hideWinOverlay() {
     cancelWinCountUp();
     pendingMatchStats = null;
@@ -1611,7 +1720,7 @@
       const myTeam = state.teams.find((team) => team.members.includes(myId));
       return !!(winTeam && myTeam && myTeam.id === winTeam.id);
     }
-    return state.winnerId === myId;
+    return isStandardWinner(myId);
   }
 
   /**
@@ -1648,14 +1757,14 @@
       // Team scoreboard
       const sortedTeams = [...state.teams].sort((a, b) => (b.score || 0) - (a.score || 0) || (b.tops || 0) - (a.tops || 0));
       const teamRows = sortedTeams.map((t, i) => {
-        const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : '🥉';
+        const prefix = teamRankPrefixHtml(i);
         const isWin = t.id === winTeam.id;
         const members = t.members.map((pid) => {
           const pl = state.players.find((p) => p.id === pid);
           return pl ? escapeHtml(pl.name) : '?';
         }).join(', ');
         return `<div class="score-row${isWin ? ' win' : ''}" style="--i:${i};border-left:3px solid ${t.color}">
-          <span class="sb-left">${medal} <b style="color:${t.color}">Team ${escapeHtml(t.name)}</b> <span class="sb-members">(${members})</span></span>
+          <span class="sb-left">${prefix} <b style="color:${t.color}">Team ${escapeHtml(t.name)}</b> <span class="sb-members">(${members})</span></span>
           ${winScoreRightHtml(t.score, t.tops)}
         </div>`;
       }).join('');
@@ -1681,13 +1790,15 @@
       document.querySelector('#win-overlay .win-actions').style.setProperty('--rows', String(rowIdx));
     } else {
       // Standard mode win screen
-      $('win-title').textContent = winner.id === myId ? 'You Win! 🎉' : `${winner.name} Wins!`;
+      $('win-title').textContent = standardWinTitle();
       const sorted = [...state.players].sort((a, b) => b.score - a.score || b.tops - a.tops);
+      const winnerSlots = winnerSlotCount(state.players.length);
       const rows = sorted.map((p, i) => {
-        const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '•';
+        const prefix = scoreRankPrefixHtml(i, winnerSlots);
+        const isWinner = i < winnerSlots;
         const bonusTag = p.bonus && p.bonus.length ? ` <span class="sb-bonus">✨+${p.bonusPoints}</span>` : '';
-        return `<div class="score-row${p.id === winner.id ? ' win' : ''}" style="--i:${i}">
-          <span class="sb-left">${medal} ${escapeHtml(p.name)}${p.isBot ? ' 🤖' : ''}${bonusTag}</span>
+        return `<div class="score-row${isWinner ? ' win' : ''}" style="--i:${i}">
+          <span class="sb-left">${prefix} ${escapeHtml(p.name)}${p.isBot ? ' 🤖' : ''}${bonusTag}</span>
           ${winScoreRightHtml(p.score, p.tops)}
         </div>`;
       }).join('');
