@@ -14,6 +14,7 @@
   let statsLoadedOnce = false;
   const PROFILE_DRAWER_MS = 280;
   const STATS_REFRESH_MS = 60000;
+  const STATS_UNAVAILABLE_MSG = 'Data is not currently available.';
   let resolveAuthBootstrapped = null;
   let resolveAuthReady = null;
 
@@ -65,7 +66,26 @@
     if (!container) return;
     container.innerHTML = '';
     container.hidden = true;
-    setProfileStatsContentVisible(true);
+  }
+
+  /**
+   * Show the stats unavailable message in the profile drawer viewport.
+   */
+  function showProfileStatsUnavailable() {
+    const unavailable = document.getElementById('profile-stats-unavailable');
+    if (unavailable) {
+      unavailable.textContent = STATS_UNAVAILABLE_MSG;
+      unavailable.hidden = false;
+    }
+    setProfileStatsContentVisible(false);
+  }
+
+  /**
+   * Hide the stats unavailable message in the profile drawer viewport.
+   */
+  function hideProfileStatsUnavailable() {
+    const unavailable = document.getElementById('profile-stats-unavailable');
+    if (unavailable) unavailable.hidden = true;
   }
 
   /**
@@ -79,16 +99,27 @@
 
     const now = Date.now();
     if (statsLoadedOnce && statsFetchedAt && now - statsFetchedAt < STATS_REFRESH_MS) {
+      hideProfileStatsUnavailable();
       setProfileStatsContentVisible(true);
       return;
     }
 
+    hideProfileStatsUnavailable();
     showProfileStatsLoading('Loading stats...');
     try {
-      const stats = await fetchMatchStats();
-      applyMatchStatsToDrawer(stats);
-      statsFetchedAt = Date.now();
-      statsLoadedOnce = true;
+      const result = await fetchMatchStats();
+      if (result.ok) {
+        applyMatchStatsToDrawer(result.stats);
+        statsFetchedAt = Date.now();
+        statsLoadedOnce = true;
+        setProfileStatsContentVisible(true);
+        return;
+      }
+      if (result.unavailable) {
+        showProfileStatsUnavailable();
+        return;
+      }
+      setProfileStatsContentVisible(false);
     } finally {
       hideProfileStatsLoading();
     }
@@ -508,23 +539,27 @@
   /**
    * Fetch match stats for the signed-in user.
    *
-   * @returns {Promise<object|null>}
+   * @returns {Promise<{ ok: true, stats: object }|{ ok: false, unavailable: true }|{ ok: false, unauthorized: true }>}
    */
   async function fetchMatchStats() {
     const token = await getAccessToken();
-    if (!token) return null;
+    if (!token) return { ok: false, unauthorized: true };
     try {
       const res = await fetch('/api/me/stats', {
         headers: { Authorization: `Bearer ${token}` },
       });
+      if (res.status === 503) {
+        return { ok: false, unavailable: true };
+      }
       if (!res.ok) {
         console.warn('[auth] fetch match stats failed:', res.status);
-        return null;
+        return { ok: false, unauthorized: true };
       }
-      return await res.json();
+      const stats = await res.json();
+      return { ok: true, stats };
     } catch (err) {
       console.warn('[auth] fetch match stats failed:', err);
-      return null;
+      return { ok: false, unavailable: true };
     }
   }
 
@@ -981,6 +1016,7 @@
     statsFetchedAt = 0;
     statsLoadedOnce = false;
     setProfileStatsContentVisible(false);
+    hideProfileStatsUnavailable();
     const { error } = await supabaseClient.auth.signOut();
     if (error) throw error;
     await applySession(null, 'SIGNED_OUT');

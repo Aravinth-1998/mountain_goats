@@ -23,6 +23,7 @@
 
 const path = require('path');
 const fs = require('fs');
+const STATS_UNAVAILABLE_MSG = 'Data is not currently available.';
 const http = require('http');
 const express = require('express');
 const { Server } = require('socket.io');
@@ -75,7 +76,7 @@ app.get('/api/me/stats', async (req, res) => {
     const payload = await auth.verifyAccessToken(token);
     const userId = payload.sub;
     if (!(await db.ensureConnected())) {
-      return res.status(503).json({ error: 'Database unavailable' });
+      return res.status(503).json({ error: STATS_UNAVAILABLE_MSG });
     }
     const stats = await db.getMatchStats(userId);
     const emptyMode = { played: 0, won: 0, lost: 0 };
@@ -96,13 +97,13 @@ app.get('/api/me/stats', async (req, res) => {
 
 app.get('/api/leaderboard', async (req, res) => {
   if (!(await db.ensureConnected())) {
-    return res.status(503).json({ error: 'Leaderboard unavailable' });
+    return res.status(503).json({ error: STATS_UNAVAILABLE_MSG });
   }
   try {
     const viewerId = String(req.query.viewerId || '').trim();
     const rows = await db.getLeaderboard(10);
     if (!rows) {
-      return res.status(503).json({ error: 'Leaderboard unavailable' });
+      return res.status(503).json({ error: STATS_UNAVAILABLE_MSG });
     }
     const entries = rows.map((row, index) => {
       const entry = {
@@ -121,7 +122,7 @@ app.get('/api/leaderboard', async (req, res) => {
     res.json({ entries });
   } catch (err) {
     console.warn('[leaderboard] GET /api/leaderboard failed:', err.message);
-    res.status(503).json({ error: 'Leaderboard unavailable' });
+    res.status(503).json({ error: STATS_UNAVAILABLE_MSG });
   }
 });
 
@@ -806,6 +807,54 @@ function addPlayer(room, socketId, name, isBot = false, authUserId = null) {
   return player;
 }
 
+/**
+ * Re-attach auth from the socket handshake token when middleware missed it.
+ *
+ * @param {import('socket.io').Socket} socket Connected socket.
+ * @returns {Promise<void>}
+ */
+async function syncSocketAuth(socket) {
+  if (!auth.isAuthConfigured()) return;
+  const token = socket.handshake.auth && socket.handshake.auth.token;
+  if (!token) return;
+  if (socket.authUserId) return;
+  try {
+    await auth.attachAuthToSocketLight(socket, token);
+  } catch (err) {
+    console.warn(`${auth.LOG_PREFIX} syncSocketAuth failed:`, err.message);
+  }
+}
+
+/**
+ * Load overall match wins for a signed-in lobby player.
+ *
+ * @param {object} player Room player object.
+ * @returns {Promise<void>}
+ */
+async function attachPlayerTotalWins(player) {
+  if (!player || player.isBot || !player.authUserId) {
+    player.totalWins = null;
+    return;
+  }
+  if (!(await db.ensureConnected())) {
+    player.totalWins = null;
+    return;
+  }
+  const stats = await db.getMatchStats(player.authUserId);
+  player.totalWins = stats ? stats.won : 0;
+}
+
+/**
+ * Refresh overall win counts for all signed-in players in the lobby.
+ *
+ * @param {object} room Active room.
+ * @returns {Promise<void>}
+ */
+async function refreshRoomPlayerWins(room) {
+  if (!room || room.started) return;
+  await Promise.all(room.players.map((player) => attachPlayerTotalWins(player)));
+}
+
 function pickBotName(room) {
   const botIndex = room.players.filter((p) => p.isBot).length;
   if (botIndex >= BOT_NAME_POOLS.length) return null;
@@ -890,6 +939,7 @@ function publicState(room) {
         sets: Math.max(0, setsOf(p)),
         connected: p.connected,
         teamId: pTeam ? pTeam.id : null,
+        totalWins: !p.isBot && p.authUserId != null ? (p.totalWins ?? null) : null,
       };
     }),
     log: room.log.slice(-14),
@@ -1220,6 +1270,14 @@ async function recordMatchStatsForRoom(room) {
   if (!updates.length || !db.isConnected()) return;
 
   const statsByUserId = await db.recordMatchStats(updates);
+  for (const player of room.players) {
+    if (player.isBot || !player.authUserId) continue;
+    const stats = statsByUserId.get(player.authUserId);
+    if (stats) player.totalWins = stats.won;
+  }
+  if (rooms[room.code]) {
+    broadcast(room);
+  }
   for (const [, socket] of io.sockets.sockets) {
     if (!socket.authUserId || !statsByUserId.has(socket.authUserId)) continue;
     const stats = statsByUserId.get(socket.authUserId);
@@ -1569,6 +1627,9 @@ function findExistingPlayer(room, socket, name) {
     if (socket.authUserId && p.authUserId) {
       return p.authUserId === socket.authUserId;
     }
+    if (socket.authUserId && !p.authUserId && name && p.name === name) {
+      return true;
+    }
     if (!socket.authUserId && !p.authUserId) {
       return p.name === name;
     }
@@ -1637,11 +1698,13 @@ io.on('connection', (socket) => {
   });
 
   socket.on('createRoom', async ({ name, isPublic, maxPlayers }, cb) => {
+    await syncSocketAuth(socket);
     name = auth.resolvePlayerName(socket, name);
     if (!name) return cb && cb({ error: 'Please enter your name.' });
     const room = createRoom({ isPublic, maxPlayers });
     socket.join(room.code);
     const player = addPlayer(room, socket.id, name, false, socket.authUserId);
+    await refreshRoomPlayerWins(room);
     await persistGamingName(socket, name);
     pushLog(room, `${name} created the room.`);
     cb && cb({ ok: true, code: room.code, youId: player.id });
@@ -1649,6 +1712,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('joinRoom', async ({ name, code }, cb) => {
+    await syncSocketAuth(socket);
     name = auth.resolvePlayerName(socket, name);
     code = String(code || '').trim().slice(0, 4);
     const room = rooms[code];
@@ -1667,6 +1731,9 @@ io.on('connection', (socket) => {
       existing.id = socket.id;
       existing.connected = true;
       if (name) existing.name = name;
+      if (socket.authUserId && !existing.authUserId) {
+        existing.authUserId = socket.authUserId;
+      }
       // Update team member references when player ID changes on reconnect
       if (room.teams && oldId !== socket.id) {
         room.teams.forEach((t) => {
@@ -1694,6 +1761,7 @@ io.on('connection', (socket) => {
         pushLog(room, `${name} reconnected. 👋`);
       }
       await persistGamingName(socket, name);
+      await refreshRoomPlayerWins(room);
       cb && cb({ ok: true, code: room.code, youId: socket.id });
       broadcast(room);
       // If it was their turn when they reconnected (and they're now live), let them play;
@@ -1709,6 +1777,7 @@ io.on('connection', (socket) => {
     }
     socket.join(room.code);
     const player = addPlayer(room, socket.id, name, false, socket.authUserId);
+    await refreshRoomPlayerWins(room);
     // Auto-assign to smallest team if team mode is active
     if (room.teamMode && room.teams) {
       const smallest = room.teams.reduce((a, b) => a.members.length <= b.members.length ? a : b);

@@ -69,11 +69,14 @@
     if (event.detail.shouldReconnect) {
       await ensureSocketAuth();
     }
+    await refreshLobbyPresence();
     tryRejoin();
   });
 
   let myId = null;
   let state = null;
+  let lobbyWinsRefreshInFlight = false;
+  const lobbyWinsRefreshAttempts = new Map();
   const selected = new Set(); // selected die indices for the current group
   let selSig = '';
   let autoEndTimer = null; // timer for auto-ending turn when no groups possible
@@ -212,6 +215,15 @@
       ? (p.id === myId ? 'Change colour' : `Change ${p.name}'s colour`)
       : '';
     return `<span class="swatch${p.id === myId ? ' me' : ''}${clickable}" style="background:${p.color}"${clickable ? ` role="button" tabindex="0" title="${escapeHtml(title)}"` : ''}>${escapeHtml(p.name.charAt(0).toUpperCase())}</span>`;
+  }
+  function lobbyWinsBadgeHtml(p) {
+    if (typeof p.totalWins === 'number' && p.totalWins > 0) {
+      return `<span class="badge wins" title="${p.totalWins} overall win${p.totalWins === 1 ? '' : 's'}">&#127942; ${p.totalWins}</span>`;
+    }
+    return '';
+  }
+  function lobbyPlayerBadgesHtml(p, extraBadge) {
+    return lobbyWinsBadgeHtml(p) + (extraBadge || '');
   }
   function lobbyPlayerRowHtml(p, badgeHtml) {
     const badge = badgeHtml || '';
@@ -483,7 +495,7 @@
       if (!res.ok) {
         list.innerHTML = '';
         if (headerEl) headerEl.hidden = false;
-        errorEl.textContent = data.error || 'Leaderboard unavailable right now.';
+        errorEl.textContent = data.error || 'Data is not currently available.';
         errorEl.hidden = false;
         return;
       }
@@ -492,7 +504,7 @@
     } catch (err) {
       list.innerHTML = '';
       if (headerEl) headerEl.hidden = false;
-      errorEl.textContent = 'Leaderboard unavailable right now.';
+      errorEl.textContent = 'Data is not currently available.';
       errorEl.hidden = false;
     }
   }
@@ -789,6 +801,40 @@
   let rejoinInFlight = false;
 
   /**
+   * Re-sync lobby presence so signed-in wins load after auth connects.
+   *
+   * @returns {Promise<void>}
+   */
+  async function refreshLobbyPresence() {
+    if (!socket.connected || leftRoom || lobbyWinsRefreshInFlight) return;
+    if (!state || state.started) return;
+    if (!isSignedIn()) return;
+
+    const name = getPlayName();
+    if (!name) return;
+
+    const mePlayer = state.players.find((p) => p.id === myId);
+    if (mePlayer && typeof mePlayer.totalWins === 'number') return;
+
+    const attempts = lobbyWinsRefreshAttempts.get(state.code) || 0;
+    if (attempts >= 3) return;
+
+    lobbyWinsRefreshInFlight = true;
+    lobbyWinsRefreshAttempts.set(state.code, attempts + 1);
+    try {
+      await ensureSocketAuth();
+      await new Promise((resolve) => {
+        socket.emit('joinRoom', { name, code: state.code }, (res) => {
+          if (res && res.ok) myId = res.youId;
+          resolve();
+        });
+      });
+    } finally {
+      lobbyWinsRefreshInFlight = false;
+    }
+  }
+
+  /**
    * Rejoin a saved room when socket is ready and a play name is available.
    */
   async function tryRejoin() {
@@ -827,6 +873,7 @@
     leftRoom = true;
     socket.emit('leaveRoom');
     state = null;
+    lobbyWinsRefreshAttempts.clear();
     localStorage.removeItem('mg_code');
     localStorage.removeItem('mg_name');
     hideWinOverlay();
@@ -918,6 +965,9 @@
     if (s && !s.finished) hideWinOverlay();
     render();
     if (s.finished && !wasFinished) showWin();
+    if (s && !s.started && isSignedIn()) {
+      refreshLobbyPresence();
+    }
   });
 
   // ===================== HELPERS =====================
@@ -1004,7 +1054,7 @@
           if (!p) return;
           const li = document.createElement('li');
           li.className = 'team-member';
-          li.innerHTML = lobbyPlayerRowHtml(p, p.id === myId ? '<span class="badge you">YOU</span>' : '');
+          li.innerHTML = lobbyPlayerRowHtml(p, lobbyPlayerBadgesHtml(p, p.id === myId ? '<span class="badge you">YOU</span>' : ''));
           // Team swap buttons:
           // - Host can swap ANY player (including themselves)
           // - Non-host can only swap THEMSELVES
@@ -1051,7 +1101,7 @@
       unassigned.forEach((p) => {
         const li = document.createElement('li');
         li.className = 'team-member';
-        li.innerHTML = `<div class="player-main">${lobbySwatchHtml(p)}<span class="player-name">${escapeHtml(p.name)}</span></div><div class="player-end"><span class="badge">UNASSIGNED</span></div>`;
+        li.innerHTML = lobbyPlayerRowHtml(p, lobbyPlayerBadgesHtml(p, p.id === myId ? '<span class="badge you">YOU</span>' : '<span class="badge">UNASSIGNED</span>'));
         // Swap buttons: host can assign anyone, non-host only self
         const canSwap = amHost || p.id === myId;
         if (canSwap && state.teams.length > 0) {
@@ -1082,7 +1132,7 @@
       // Standard mode: render flat player list
       state.players.forEach((p) => {
         const li = document.createElement('li');
-        li.innerHTML = lobbyPlayerRowHtml(p, p.id === myId ? '<span class="badge you">YOU</span>' : '');
+        li.innerHTML = lobbyPlayerRowHtml(p, lobbyPlayerBadgesHtml(p, p.id === myId ? '<span class="badge you">YOU</span>' : ''));
         appendKickBtn(li, p, amHost);
         attachLobbySwatch(li, p);
         ul.appendChild(li);

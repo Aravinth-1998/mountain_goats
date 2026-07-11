@@ -461,6 +461,7 @@ input.input-error:focus { border-color: var(--danger); background: rgba(255,93,1
 .badge.you { background: rgba(6,214,160,0.15); color: var(--green); }
 .badge.off { background: rgba(255,93,108,0.15); color: var(--danger); }
 .badge.bot { background: rgba(143,125,255,0.18); color: #b9aaff; }
+.badge.wins { background: rgba(255,209,102,0.2); color: var(--gold); font-size: 12px; }
 .host-icon {
   flex: 0 0 auto;
   width: 26px; height: 26px; border-radius: 8px;
@@ -1305,6 +1306,21 @@ input.input-error:focus { border-color: var(--danger); background: rgba(255,93,1
   justify-content: center;
 }
 #screen-home .stats-panel-loader[hidden] {
+  display: none !important;
+}
+#screen-home .stats-unavailable {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 16px 12px;
+  font-size: 13px;
+  text-align: center;
+}
+#screen-home .stats-unavailable[hidden] {
   display: none !important;
 }
 #screen-home .stats-panel-content {
