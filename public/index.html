@@ -59,7 +59,10 @@
           <span class="toggle-arrow" aria-hidden="true">&#9662;</span>
         </button>
         <div id="profile-stats-body" class="stats-panel-body" hidden>
-          <div class="stats-bars">
+          <div id="profile-stats-viewport" class="stats-panel-viewport">
+            <div id="profile-stats-loading" class="stats-panel-loader" hidden></div>
+            <div id="profile-stats-content" class="stats-panel-content" hidden>
+              <div class="stats-bars">
           <div class="stats-mode-block">
             <p class="stats-mode-title">Overall</p>
             <div class="stats-mode-nums">
@@ -102,6 +105,8 @@
           <span class="stats-streaks-sep" aria-hidden="true">&middot;</span>
           Best <span id="profile-stat-best-streak">0</span>
         </p>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -133,7 +138,7 @@
       </button>
       <div id="home-leaderboard-content" class="rules-content leaderboard-content">
         <p class="leaderboard-note muted">Signed-in players only</p>
-        <div class="leaderboard-header" aria-hidden="true">
+        <div id="leaderboard-header" class="leaderboard-header" aria-hidden="true">
           <span class="leaderboard-rank">#</span>
           <span class="leaderboard-avatar-spacer"></span>
           <span class="leaderboard-name">Player</span>
@@ -339,6 +344,14 @@
       <button id="btn-leave-cancel" class="btn btn-ghost btn-block">Stay</button>
     </div>
   </div>
+
+  <template id="inline-loader-template">
+    <div class="inline-loader" role="status" aria-live="polite">
+      <div class="loading-goat" aria-hidden="true">🐐</div>
+      <div class="loading-dots" aria-hidden="true"><span></span><span></span><span></span></div>
+      <p class="loading-msg"></p>
+    </div>
+  </template>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="/socket.io/socket.io.js"></script>

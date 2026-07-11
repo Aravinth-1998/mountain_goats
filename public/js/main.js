@@ -389,11 +389,13 @@
     const list = $('leaderboard-list');
     const emptyEl = $('leaderboard-empty');
     const errorEl = $('leaderboard-error');
+    const headerEl = $('leaderboard-header');
     if (!list || !emptyEl || !errorEl) return;
 
     list.innerHTML = '';
     errorEl.hidden = true;
     errorEl.textContent = '';
+    if (headerEl) headerEl.hidden = false;
 
     if (!entries || entries.length === 0) {
       emptyEl.hidden = false;
@@ -447,6 +449,7 @@
     const list = $('leaderboard-list');
     const emptyEl = $('leaderboard-empty');
     const errorEl = $('leaderboard-error');
+    const headerEl = $('leaderboard-header');
     if (!list || !emptyEl || !errorEl) return;
 
     const now = Date.now();
@@ -457,7 +460,14 @@
     emptyEl.hidden = true;
     errorEl.hidden = true;
     errorEl.textContent = '';
-    list.innerHTML = '<p class="leaderboard-loading">Loading leaderboard...</p>';
+    if (headerEl) headerEl.hidden = true;
+    list.innerHTML = '';
+    const loader = window.MGUi && window.MGUi.createInlineLoader('Loading leaderboard...');
+    if (loader) {
+      list.appendChild(loader);
+    } else {
+      list.innerHTML = '<p class="leaderboard-loading">Loading leaderboard...</p>';
+    }
 
     let url = '/api/leaderboard';
     if (window.MGAuth) {
@@ -472,6 +482,7 @@
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         list.innerHTML = '';
+        if (headerEl) headerEl.hidden = false;
         errorEl.textContent = data.error || 'Leaderboard unavailable right now.';
         errorEl.hidden = false;
         return;
@@ -480,6 +491,7 @@
       renderLeaderboard(data.entries || []);
     } catch (err) {
       list.innerHTML = '';
+      if (headerEl) headerEl.hidden = false;
       errorEl.textContent = 'Leaderboard unavailable right now.';
       errorEl.hidden = false;
     }

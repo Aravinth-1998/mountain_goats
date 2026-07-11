@@ -10,9 +10,89 @@
   let profile = { isSignedIn: false, userId: '', avatarUrl: null, displayName: '' };
   let statsSidebarBound = false;
   let profileDrawerClosing = false;
+  let statsFetchedAt = 0;
+  let statsLoadedOnce = false;
   const PROFILE_DRAWER_MS = 280;
+  const STATS_REFRESH_MS = 60000;
   let resolveAuthBootstrapped = null;
   let resolveAuthReady = null;
+
+  /**
+   * Clone the shared inline loader markup with an optional message.
+   *
+   * @param {string} [message] Loading text shown below the animation.
+   * @returns {HTMLElement|null}
+   */
+  function createInlineLoader(message) {
+    const tpl = document.getElementById('inline-loader-template');
+    if (!tpl) return null;
+    const node = tpl.content.firstElementChild.cloneNode(true);
+    const msg = node.querySelector('.loading-msg');
+    if (msg) msg.textContent = message || 'Loading...';
+    return node;
+  }
+
+  /**
+   * Show or hide the stats bars and streak line while loading.
+   *
+   * @param {boolean} visible Whether stats content should be visible.
+   */
+  function setProfileStatsContentVisible(visible) {
+    const content = document.getElementById('profile-stats-content');
+    if (content) content.hidden = !visible;
+  }
+
+  /**
+   * Show the inline loader in the profile stats drawer.
+   *
+   * @param {string} [message] Loading text.
+   */
+  function showProfileStatsLoading(message) {
+    const container = document.getElementById('profile-stats-loading');
+    if (!container) return;
+    container.innerHTML = '';
+    const loader = createInlineLoader(message || 'Loading stats...');
+    if (loader) container.appendChild(loader);
+    container.hidden = false;
+    setProfileStatsContentVisible(false);
+  }
+
+  /**
+   * Hide the inline loader in the profile stats drawer.
+   */
+  function hideProfileStatsLoading() {
+    const container = document.getElementById('profile-stats-loading');
+    if (!container) return;
+    container.innerHTML = '';
+    container.hidden = true;
+    setProfileStatsContentVisible(true);
+  }
+
+  /**
+   * Fetch profile stats when the stats panel is expanded or stale.
+   *
+   * @returns {Promise<void>}
+   */
+  async function fetchStatsIfNeeded() {
+    const body = document.getElementById('profile-stats-body');
+    if (!body || body.hidden) return;
+
+    const now = Date.now();
+    if (statsLoadedOnce && statsFetchedAt && now - statsFetchedAt < STATS_REFRESH_MS) {
+      setProfileStatsContentVisible(true);
+      return;
+    }
+
+    showProfileStatsLoading('Loading stats...');
+    try {
+      const stats = await fetchMatchStats();
+      applyMatchStatsToDrawer(stats);
+      statsFetchedAt = Date.now();
+      statsLoadedOnce = true;
+    } finally {
+      hideProfileStatsLoading();
+    }
+  }
 
   /**
    * Truncate a name to the game name limit.
@@ -526,7 +606,7 @@
   }
 
   /**
-   * Open the profile stats drawer and load fresh stats.
+   * Open the profile stats drawer.
    *
    * @returns {Promise<void>}
    */
@@ -536,10 +616,10 @@
     const drawer = document.getElementById('profile-stats-drawer');
     if (!fab || !backdrop || !drawer || !profile.isSignedIn) return;
 
-    if (!drawer.hidden && drawer.classList.contains('is-open')) {
+    const alreadyOpen = !drawer.hidden && drawer.classList.contains('is-open');
+
+    if (alreadyOpen) {
       applyProfileHeaderToDrawer();
-      const stats = await fetchMatchStats();
-      applyMatchStatsToDrawer(stats);
       return;
     }
 
@@ -564,8 +644,10 @@
       });
     }
 
-    const stats = await fetchMatchStats();
-    applyMatchStatsToDrawer(stats);
+    const body = document.getElementById('profile-stats-body');
+    if (body && !body.hidden) {
+      await fetchStatsIfNeeded();
+    }
   }
 
   /**
@@ -634,6 +716,14 @@
     statsToggle.addEventListener('click', () => {
       const open = statsBody.hidden;
       setStatsPanelOpen(open);
+      if (open) {
+        const now = Date.now();
+        const isFresh = statsLoadedOnce && statsFetchedAt && now - statsFetchedAt < STATS_REFRESH_MS;
+        if (!isFresh) {
+          setProfileStatsContentVisible(false);
+        }
+        fetchStatsIfNeeded().catch((err) => console.error('[auth] fetch stats failed:', err));
+      }
     });
 
     document.addEventListener('keydown', (event) => {
@@ -888,6 +978,9 @@
   async function signOut() {
     if (!supabaseClient) return;
     closeProfileStatsDrawer({ immediate: true });
+    statsFetchedAt = 0;
+    statsLoadedOnce = false;
+    setProfileStatsContentVisible(false);
     const { error } = await supabaseClient.auth.signOut();
     if (error) throw error;
     await applySession(null, 'SIGNED_OUT');
@@ -941,6 +1034,10 @@
     getGamingNameForPlay,
     saveGamingName,
     isConfigured,
+  };
+
+  window.MGUi = {
+    createInlineLoader,
   };
 
   window.MGAuthBootstrapped = new Promise((resolve) => {
