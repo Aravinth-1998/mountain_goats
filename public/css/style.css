@@ -269,10 +269,6 @@ body { background-color: var(--bg-0); }
   min-height: 18px;
   padding-bottom: 10px;
 }
-.online-count.is-loading {
-  color: var(--muted);
-  font-weight: 500;
-}
 
 /* Card */
 .card {

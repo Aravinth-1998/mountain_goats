@@ -33,7 +33,13 @@ const auth = require('./auth');
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server);
+const io = new Server(server, {
+  pingInterval: 5000,
+  pingTimeout: 10000,
+});
+
+/** @type {Map<string, string>} presenceId -> socketId */
+const presenceSockets = new Map();
 
 app.get('/healthz', (req, res) => res.send('ok'));
 
@@ -156,7 +162,7 @@ app.get('/api/admin/rooms', (req, res) => {
       })),
     });
   }
-  res.json({ rooms: data, totalConnections: io.engine.clientsCount });
+  res.json({ rooms: data, totalConnections: io.sockets.sockets.size });
 });
 
 // Admin API - completed games from the last 2 days
@@ -1657,9 +1663,57 @@ function botAct(room) {
 // Socket handlers
 // ----------------------------------------------------------------------------
 // Broadcast online player count to all connected clients
+let onlineCountBroadcastTimer = null;
+
 function broadcastOnlineCount() {
-  const count = io.engine.clientsCount;
+  const count = io.sockets.sockets.size;
   io.emit('onlineCount', count);
+}
+
+/**
+ * Debounce online count broadcasts so connect/disconnect races settle first.
+ */
+function scheduleBroadcastOnlineCount() {
+  if (onlineCountBroadcastTimer) clearTimeout(onlineCountBroadcastTimer);
+  onlineCountBroadcastTimer = setTimeout(() => {
+    onlineCountBroadcastTimer = null;
+    broadcastOnlineCount();
+  }, 200);
+}
+
+/**
+ * Evict a stale socket when the same browser tab reconnects after refresh.
+ *
+ * @param {import('socket.io').Socket} socket Connected socket.
+ */
+function takeOverPresenceSocket(socket) {
+  const raw = socket.handshake.auth && socket.handshake.auth.presenceId;
+  if (!raw || typeof raw !== 'string') return;
+  const presenceId = raw.trim().slice(0, 64);
+  if (!presenceId) return;
+
+  socket.presenceId = presenceId;
+  const previousSocketId = presenceSockets.get(presenceId);
+  if (previousSocketId && previousSocketId !== socket.id) {
+    const previousSocket = io.sockets.sockets.get(previousSocketId);
+    if (previousSocket) {
+      previousSocket.disconnect(true);
+    }
+  }
+  presenceSockets.set(presenceId, socket.id);
+}
+
+/**
+ * Remove a tab presence entry when its socket disconnects.
+ *
+ * @param {import('socket.io').Socket} socket Disconnected socket.
+ */
+function releasePresenceSocket(socket) {
+  const presenceId = socket.presenceId;
+  if (!presenceId) return;
+  if (presenceSockets.get(presenceId) === socket.id) {
+    presenceSockets.delete(presenceId);
+  }
 }
 
 /**
@@ -1739,11 +1793,11 @@ io.use(async (socket, next) => {
 });
 
 io.on('connection', (socket) => {
-  // Send current online count to new client and broadcast to all
-  broadcastOnlineCount();
+  takeOverPresenceSocket(socket);
+  scheduleBroadcastOnlineCount();
   socket.on('disconnect', () => {
-    // Delay slightly so the count reflects the disconnection
-    setTimeout(broadcastOnlineCount, 100);
+    releasePresenceSocket(socket);
+    scheduleBroadcastOnlineCount();
   });
 
   socket.on('createRoom', async ({ name, isPublic, maxPlayers }, cb) => {

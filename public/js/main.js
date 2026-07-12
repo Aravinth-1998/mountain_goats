@@ -1,16 +1,38 @@
 /* Mountain Goats - client */
 (async function () {
+  /**
+   * Stable per-tab id so the server can replace stale sockets on refresh.
+   *
+   * @returns {string}
+   */
+  function getPresenceId() {
+    const storageKey = 'mg_presence_id';
+    let presenceId = sessionStorage.getItem(storageKey);
+    if (!presenceId) {
+      presenceId = (typeof crypto !== 'undefined' && crypto.randomUUID)
+        ? crypto.randomUUID()
+        : `p_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+      sessionStorage.setItem(storageKey, presenceId);
+    }
+    return presenceId;
+  }
+
+  const presenceId = getPresenceId();
   const socket = io({
-    auth: { token: '' },
+    closeOnBeforeunload: true,
+    auth: { token: '', presenceId },
     reconnectionDelay: 500,
     reconnectionDelayMax: 5000,
     reconnectionAttempts: Infinity,
   });
 
-  window.addEventListener('pagehide', () => {
+  function disconnectSocketOnUnload() {
     socket.io.reconnection(false);
     socket.disconnect();
-  });
+  }
+
+  window.addEventListener('pagehide', disconnectSocketOnUnload);
+  window.addEventListener('beforeunload', disconnectSocketOnUnload);
 
   let socketAuthInFlight = null;
   let socketConnectionHasAuth = false;
@@ -46,7 +68,10 @@
       if (!socketConnectionHasAuth || hadToken !== token) {
         await new Promise((resolve) => {
           socket.once('connect', resolve);
-          socket.disconnect().connect();
+          socket.once('disconnect', () => {
+            socket.connect();
+          });
+          socket.disconnect();
         });
       }
     })().finally(() => {
@@ -966,9 +991,7 @@
   // Online player count
   socket.on('onlineCount', (count) => {
     const el = $('online-count');
-    if (!el) return;
-    el.classList.remove('is-loading');
-    el.textContent = `\u{1F7E2} ${count} player${count !== 1 ? 's' : ''} online`;
+    if (el) el.textContent = `\u{1F7E2} ${count} player${count !== 1 ? 's' : ''} online`;
   });
 
   socket.on('match-stats', (stats) => {
