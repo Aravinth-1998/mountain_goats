@@ -283,23 +283,26 @@ async function saveGameHistory(entry) {
  * @param {string} user.id Supabase auth user id (JWT sub).
  * @param {string} user.googleName Google display name.
  * @param {string|null} [user.avatarUrl] Avatar URL.
- * @returns {Promise<void>}
+ * @returns {Promise<boolean>} True when a new users row was inserted.
  */
 async function upsertAuthUser(user) {
   const p = getPool();
-  if (!p || !connected) return;
+  if (!p || !connected) return false;
 
   const googleName = String(user.googleName || '').trim().slice(0, 64) || 'Player';
 
-  await p.query(
+  const result = await p.query(
     `INSERT INTO users (id, display_name, google_name, avatar_url, last_seen_at)
      VALUES ($1, $2, $2, $3, NOW())
      ON CONFLICT (id) DO UPDATE SET
        google_name = EXCLUDED.google_name,
        avatar_url = EXCLUDED.avatar_url,
-       last_seen_at = NOW()`,
+       last_seen_at = NOW()
+     RETURNING (xmax = 0) AS is_new`,
     [user.id, googleName, user.avatarUrl || null]
   );
+
+  return Boolean(result.rows[0] && result.rows[0].is_new);
 }
 
 /**

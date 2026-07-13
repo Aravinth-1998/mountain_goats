@@ -3,6 +3,8 @@
  */
 
 const jwt = require('jsonwebtoken');
+const notifications = require('./notifications');
+const { NEW_USER } = require('./notifications/events');
 
 const LOG_PREFIX = '[auth]';
 const NAME_MAX_LEN = 16;
@@ -146,7 +148,7 @@ async function syncAuthUser(accessToken, db) {
     return { userId, googleName, gamingName, avatarUrl };
   }
 
-  await db.upsertAuthUser({
+  const isNewUser = await db.upsertAuthUser({
     id: userId,
     googleName,
     avatarUrl,
@@ -156,6 +158,15 @@ async function syncAuthUser(accessToken, db) {
     gamingName = await db.getGamingName(userId);
   } else {
     await db.saveGamingName(userId, gamingName);
+  }
+
+  if (isNewUser) {
+    notifications.sendAlert(NEW_USER, {
+      userId,
+      googleName,
+      email: payload.email || null,
+      gamingName: gamingName || null,
+    });
   }
 
   return { userId, googleName, gamingName, avatarUrl };
