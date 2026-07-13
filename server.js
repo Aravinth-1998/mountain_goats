@@ -75,8 +75,12 @@ const {
 } = teamsPkg.lobby;
 const { applyOnesRule } = actions.dice;
 const { applyClimb } = actions.climb;
-const { buildMatchStatUpdates } = matchPkg.winners;
-const { scoreGroup } = aiPkg.botHeuristics;
+const { buildMatchStatUpdates, resolveWinners } = matchPkg.winners;
+const {
+  botChooseGroup,
+  botOptimizeAdjustableDice,
+} = aiPkg.botChoose;
+const { shouldBotPlay } = aiPkg.botPolicy;
 
 const app = express();
 const server = http.createServer(app);
@@ -965,31 +969,20 @@ async function recordMatchStatsForRoom(room) {
 }
 
 async function endGame(room) {
-  room.finished = true;
   if (room.watchdog) { clearInterval(room.watchdog); room.watchdog = null; }
 
+  resolveWinners(room);
+
   if (room.teamMode && room.teams) {
-    // Team mode: rank teams, then pick the individual winner from winning team
-    room.winnerPlayerIds = [];
     const ranked = rankedTeams(room);
-    const winTeam = ranked[0] ? ranked[0].team : null;
-    room.winnerTeamId = winTeam ? winTeam.id : null;
-    // Pick the highest-scoring member of the winning team as the "player winner"
-    if (winTeam) {
-      const members = winTeam.members
-        .map((pid) => room.players.find((p) => p.id === pid))
-        .filter(Boolean)
-        .sort((a, b) => scoreOf(room, b) - scoreOf(room, a));
-      room.winnerId = members[0] ? members[0].id : null;
+    const winTeam = room.teams.find((t) => t.id === room.winnerTeamId);
+    if (winTeam && ranked[0]) {
       pushLog(room, `Game over! Team ${winTeam.name} wins with ${ranked[0].score} points! 🏆`);
     }
   } else {
-    // Standard mode
     const ranked = rankedPlayers(room);
     const slots = winnerSlotCount(room);
-    room.winnerPlayerIds = ranked.slice(0, slots).map((entry) => entry.p.id);
     const winner = ranked[0] ? ranked[0].p : null;
-    room.winnerId = winner ? winner.id : null;
     if (winner) {
       if (slots === 2 && ranked[1]) {
         pushLog(room, `Game over! ${winner.name} and ${ranked[1].p.name} win! 🏆`);
@@ -1039,112 +1032,6 @@ function rollDiceForTurn(room) {
   applyOnesRule(room);
 }
 
-// Enumerate all subsets of unused dice, evaluate each valid group, pick the best.
-function botChooseGroup(room, bot, diceOverride, diceUsedOverride) {
-  const dice = diceOverride || room.dice;
-  const diceUsed = diceUsedOverride || room.diceUsed;
-  const unused = dice.map((_, i) => i).filter((i) => !diceUsed[i]);
-  const n = unused.length;
-  let best = null;
-
-  for (let mask = 1; mask < (1 << n); mask++) {
-    let sum = 0;
-    const indices = [];
-    for (let b = 0; b < n; b++) {
-      if (mask & (1 << b)) {
-        sum += dice[unused[b]];
-        indices.push(unused[b]);
-      }
-    }
-    if (sum < 5 || sum > 10) continue;
-    const mi = room.mountains.findIndex((m) => m.value === sum);
-    if (mi < 0) continue;
-
-    const score = scoreGroup(room, bot, indices, mi);
-    if (!best || score > best.score) {
-      best = { indices, mountainIndex: mi, score };
-    }
-  }
-
-  return best && best.score > -Infinity ? best : null;
-}
-
-/**
- * Score a full greedy bot turn using the given dice faces (simulation only).
- *
- * @param {object} room Active room.
- * @param {object} bot Current bot player.
- * @param {number[]} dice Dice faces to simulate.
- * @returns {number} Sum of chosen group scores for the turn.
- */
-function simulateGreedyBotTurn(room, bot, dice) {
-  const simUsed = dice.map(() => false);
-  let totalScore = 0;
-
-  while (true) {
-    const group = botChooseGroup(room, bot, dice, simUsed);
-    if (!group) break;
-    totalScore += group.score;
-    group.indices.forEach((idx) => {
-      simUsed[idx] = true;
-    });
-  }
-
-  return totalScore;
-}
-
-/**
- * Re-face all extra 1s before the bot plays any dice groups.
- *
- * @param {object} room Active room.
- * @param {object} bot Current bot player.
- * @param {string} label Log label for the acting player.
- */
-function botOptimizeAdjustableDice(room, bot, label) {
-  if (!room.adjustable.length) return;
-
-  const adjustable = room.adjustable.slice();
-  const originalFaces = adjustable.map((index) => room.dice[index]);
-  const comboCount = Math.pow(6, adjustable.length);
-  const simDice = room.dice.slice();
-  let bestScore = -Infinity;
-  let bestFaces = originalFaces.slice();
-
-  for (let combo = 0; combo < comboCount; combo++) {
-    let remainder = combo;
-    for (let j = 0; j < adjustable.length; j++) {
-      simDice[adjustable[j]] = (remainder % 6) + 1;
-      remainder = Math.floor(remainder / 6);
-    }
-    const score = simulateGreedyBotTurn(room, bot, simDice);
-    if (score > bestScore) {
-      bestScore = score;
-      bestFaces = adjustable.map((index) => simDice[index]);
-    }
-  }
-
-  let changed = false;
-  adjustable.forEach((index, j) => {
-    if (room.dice[index] !== bestFaces[j]) changed = true;
-    room.dice[index] = bestFaces[j];
-  });
-  room.adjustable = [];
-
-  if (changed) {
-    pushLog(room, `${label} re-faced dice to ${bestFaces.join(', ')}.`);
-  }
-}
-
-// Returns true if the current player should be auto-played (bot or disconnected human).
-function shouldBotPlay(room) {
-  if (!room || !room.started || room.finished) return false;
-  const cur = room.players[room.currentIndex];
-  if (!cur) return false;
-  if (cur.isBot) return true;
-  if (!cur.connected) return true; // disconnected human → substitute
-  return false;
-}
-
 function scheduleBot(room, delay = 850) {
   if (!shouldBotPlay(room)) return;
   if (!hasHuman(room)) return; // pause if no humans are watching
@@ -1163,13 +1050,14 @@ function botAct(room) {
     if (cur.connected && !cur.isBot) return;
 
     const label = cur.isBot ? cur.name : `Bot (for ${cur.name})`;
+    const log = (msg) => pushLog(room, msg);
 
     if (!room.rolled) {
       rollDiceForTurn(room);
       room.rolled = true;
       pushLog(room, `${label} rolled ${room.dice.join(', ')}.`);
       if (room.adjustable.length) {
-        botOptimizeAdjustableDice(room, cur, label);
+        botOptimizeAdjustableDice(room, cur, label, log);
       }
       broadcast(room);
       scheduleBot(room, 850);
@@ -1177,12 +1065,11 @@ function botAct(room) {
     }
 
     if (room.adjustable.length) {
-      botOptimizeAdjustableDice(room, cur, label);
+      botOptimizeAdjustableDice(room, cur, label, log);
     }
 
     const group = botChooseGroup(room, cur);
     if (group) {
-      const log = (msg) => pushLog(room, msg);
       applyClimb(room, cur, group.mountainIndex, log);
       group.indices.forEach((idx) => (room.diceUsed[idx] = true));
       room.adjustable = [];

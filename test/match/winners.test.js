@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const {
   getWinningAuthUserIds,
   buildMatchStatUpdates,
+  resolveWinners,
 } = require('../../game/match/winners');
 const { makeRoom, makePlayer } = require('../helpers/fixtures');
 
@@ -54,4 +55,42 @@ test('buildMatchStatUpdates marks winners and losers', () => {
   const loserUpdate = updates.find((u) => u.userId === 'loser');
   assert.equal(winnerUpdate.won, true);
   assert.equal(loserUpdate.won, false);
+});
+
+test('resolveWinners picks single winner in 2p standard mode', () => {
+  const room = makeRoom({ playerCount: 2 });
+  room.players[0].collected = [2, 0, 0, 0, 0, 0];
+  room.players[1].collected = [0, 1, 0, 0, 0, 0];
+
+  resolveWinners(room);
+
+  assert.equal(room.finished, true);
+  assert.equal(room.winnerId, 'p0');
+  assert.deepEqual(room.winnerPlayerIds, ['p0']);
+});
+
+test('resolveWinners picks two winners in 5p standard mode', () => {
+  const room = makeRoom({ playerCount: 5 });
+  room.players[0].collected = [3, 0, 0, 0, 0, 0];
+  room.players[1].collected = [2, 0, 0, 0, 0, 0];
+  room.players[2].collected = [1, 0, 0, 0, 0, 0];
+
+  resolveWinners(room);
+
+  assert.equal(room.winnerPlayerIds.length, 2);
+  assert.equal(room.winnerId, 'p0');
+  assert.ok(room.winnerPlayerIds.includes('p1'));
+});
+
+test('resolveWinners picks winning team in team mode', () => {
+  const room = makeRoom({ playerCount: 4, teamMode: true });
+  room.players[0].collected = [2, 0, 0, 0, 0, 0];
+  room.players[2].collected = [1, 0, 0, 0, 0, 0];
+  room.players[1].collected = [0, 1, 0, 0, 0, 0];
+
+  resolveWinners(room);
+
+  assert.equal(room.winnerTeamId, 0);
+  assert.equal(room.winnerId, 'p0');
+  assert.deepEqual(room.winnerPlayerIds, []);
 });

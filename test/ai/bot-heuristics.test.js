@@ -30,3 +30,17 @@ test('scoreGroup rewards harvesting on summit', () => {
   const score = scoreGroup(room, bot, [0], 0);
   assert.ok(score >= room.mountains[0].value);
 });
+
+test('scoreGroup values reaching summit higher when opponent is on top', () => {
+  const room = makeRoom({ playerCount: 2 });
+  const bot = makePlayer({ id: 'bot', isBot: true });
+  const opponent = makePlayer({ id: 'opp', isBot: false });
+  room.players[1] = opponent;
+  bot.pos[0] = 3;
+  opponent.pos[0] = 4;
+
+  const withOpponent = scoreGroup(room, bot, [0], 0);
+  opponent.pos[0] = 0;
+  const withoutOpponent = scoreGroup(room, bot, [0], 0);
+  assert.ok(withOpponent > withoutOpponent);
+});
