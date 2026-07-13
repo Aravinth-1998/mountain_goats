@@ -31,6 +31,53 @@ require('dotenv').config({ override: true });
 const db = require('./db');
 const auth = require('./auth');
 
+const core = require('./game/core');
+const scoringPkg = require('./game/scoring');
+const teamsPkg = require('./game/teams');
+const actions = require('./game/actions');
+const matchPkg = require('./game/match');
+const aiPkg = require('./game/ai');
+
+const {
+  MOUNTAIN_DEFS,
+  NUM_DICE,
+  MAX_PLAYERS,
+  PLAYER_COLORS,
+  BOT_NAME_POOLS,
+  TEAM_PALETTES,
+} = core.constants;
+const { emptyMountainCount } = core.mountains;
+const { createPlaceholderMountains, createBonusTokens, resetForNewGame } = core.state;
+const {
+  pointsOf,
+  bonusOf,
+  scoreOf,
+  topsOf,
+  setsOf,
+} = scoringPkg.scoring;
+const { rankedPlayers, rankedTeams, winnerSlotCount } = scoringPkg.ranking;
+const {
+  getTeamOfPlayer,
+  getTeamById,
+  areTeammates,
+  teamScoreOf,
+  teamTopsOf,
+  teamHighestTopValue,
+} = teamsPkg.scoring;
+const {
+  getTeamPalette,
+  pickTeamColor,
+  assignPlayerTeamColor,
+  assignAllTeamColors,
+  getAllowedColorsForPlayer,
+  getValidTeamConfigs,
+  buildTeams,
+} = teamsPkg.lobby;
+const { applyOnesRule } = actions.dice;
+const { applyClimb } = actions.climb;
+const { buildMatchStatUpdates } = matchPkg.winners;
+const { scoreGroup } = aiPkg.botHeuristics;
+
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
@@ -380,113 +427,8 @@ app.get('/admin', (req, res) => {
 const PORT = process.env.PORT || 3000;
 
 // ----------------------------------------------------------------------------
-// Game configuration
+// Room state
 // ----------------------------------------------------------------------------
-const MOUNTAIN_DEFS = [
-  { value: 5, height: 4, fullStack: 12, color: '#4a8f3c' },
-  { value: 6, height: 4, fullStack: 11, color: '#c9772f' },
-  { value: 7, height: 3, fullStack: 10, color: '#9c4f3a' },
-  { value: 8, height: 3, fullStack: 9, color: '#6b7280' },
-  { value: 9, height: 2, fullStack: 8, color: '#3f7fa6' },
-  { value: 10, height: 2, fullStack: 7, color: '#aab8c9' },
-];
-const BONUS_DEFS = [15, 12, 9, 6];
-const NUM_DICE = 4;
-const MAX_PLAYERS = 6;
-const PLAYER_COLORS = [
-  '#e63946', // red
-  '#4f7cff', // blue
-  '#06d6a0', // mint green
-  '#ff6b9d', // pink
-  '#118ab2', // sky blue
-  '#40916c', // forest green
-  '#c1121f', // dark red
-  '#1e40af', // navy blue
-  '#22c55e', // grass green
-  '#e67e22', // orange
-];
-// Bot names by creation order: 1st Z, 2nd Y, 3rd X, 4th W, 5th V (random pick from each pair)
-const BOT_NAME_POOLS = [
-  ['Zorro', 'Zenith'],
-  ['Ymir', 'Yeti'],
-  ['Xenon', 'Xander'],
-  ['Wolf', 'Wraith'],
-  ['Vector', 'Viper'],
-];
-
-// Team definitions
-const TEAM_COLORS = ['#e63946', '#4f7cff', '#06d6a0'];
-const TEAM_NAMES = ['Red', 'Blue', 'Green'];
-// Three player shades per team (indices into PLAYER_COLORS)
-const TEAM_PALETTE_INDICES = [
-  [0, 3, 6], // Red
-  [1, 4, 7], // Blue
-  [2, 5, 8], // Green
-];
-const TEAM_PALETTES = TEAM_PALETTE_INDICES.map((indices) => indices.map((i) => PLAYER_COLORS[i]));
-// Valid team configurations: [totalPlayers, numTeams, playersPerTeam]
-const TEAM_CONFIGS = [
-  { total: 4, teams: 2, perTeam: 2 },
-  { total: 6, teams: 2, perTeam: 3 },
-  { total: 6, teams: 3, perTeam: 2 },
-];
-
-// ----------------------------------------------------------------------------
-// Helpers
-// ----------------------------------------------------------------------------
-function buildMountains(numPlayers) {
-  const removal = Math.max(0, 4 - numPlayers); // 2p:-2, 3p:-1, 4p+:0
-  return MOUNTAIN_DEFS.map((m) => ({
-    value: m.value,
-    height: m.height,
-    color: m.color,
-    fullStack: m.fullStack,
-    chips: Math.max(0, m.fullStack - removal),
-  }));
-}
-
-function pointsOf(room, player) {
-  let s = 0;
-  room.mountains.forEach((m, i) => {
-    s += m.value * (player.collected[i] || 0);
-  });
-  return s;
-}
-
-function bonusOf(player) {
-  return player.bonus.reduce((a, v) => a + v, 0);
-}
-
-function scoreOf(room, player) {
-  return pointsOf(room, player) + bonusOf(player);
-}
-
-// Goats currently standing on a mountain TOP (pos === height).
-function topsOf(room, player) {
-  let n = 0;
-  room.mountains.forEach((m, i) => {
-    if (player.pos[i] >= m.height) n++;
-  });
-  return n;
-}
-
-function highestTopValue(room, player) {
-  let v = 0;
-  room.mountains.forEach((m, i) => {
-    if (player.pos[i] >= m.height && m.value > v) v = m.value;
-  });
-  return v;
-}
-
-// Number of complete sets collected = the smallest per-mountain token count.
-function setsOf(player) {
-  return player.collected.reduce((min, c) => Math.min(min, c), Infinity);
-}
-
-function emptyMountainCount(room) {
-  return room.mountains.reduce((a, m) => a + (m.chips <= 0 ? 1 : 0), 0);
-}
-
 function genRoomCode() {
   let code = '';
   do {
@@ -495,164 +437,6 @@ function genRoomCode() {
   return code;
 }
 
-// ----------------------------------------------------------------------------
-// Team helpers
-// ----------------------------------------------------------------------------
-function getTeamOfPlayer(room, playerId) {
-  if (!room.teamMode) return null;
-  return room.teams ? room.teams.find((t) => t.members.includes(playerId)) : null;
-}
-
-function getTeamById(room, teamId) {
-  if (!room.teams) return null;
-  return room.teams.find((t) => t.id === teamId);
-}
-
-function getTeamPalette(teamId) {
-  if (teamId == null || teamId < 0 || teamId >= TEAM_PALETTES.length) return null;
-  return TEAM_PALETTES[teamId];
-}
-
-function getUsedColors(room, excludePlayerId) {
-  return new Set(
-    room.players
-      .filter((p) => p.id !== excludePlayerId)
-      .map((p) => p.color)
-  );
-}
-
-function pickTeamColor(room, teamId, excludePlayerId, avoidColor) {
-  const palette = getTeamPalette(teamId);
-  if (!palette) return PLAYER_COLORS[0];
-  const used = getUsedColors(room, excludePlayerId);
-  let candidates = palette.filter((c) => !used.has(c));
-  if (avoidColor) {
-    const preferred = candidates.filter((c) => c !== avoidColor);
-    if (preferred.length) candidates = preferred;
-  }
-  if (candidates.length) return candidates[0];
-  return palette.find((c) => c !== avoidColor) || palette[0];
-}
-
-function assignPlayerTeamColor(room, playerId, forceNew) {
-  const team = getTeamOfPlayer(room, playerId);
-  if (!team) return;
-  const player = room.players.find((p) => p.id === playerId);
-  if (!player) return;
-  const palette = getTeamPalette(team.id);
-  if (!palette) return;
-  if (!forceNew && palette.includes(player.color) && !getUsedColors(room, playerId).has(player.color)) {
-    return;
-  }
-  player.color = pickTeamColor(room, team.id, playerId, forceNew ? player.color : null);
-}
-
-function assignAllTeamColors(room) {
-  if (!room.teamMode || !room.teams) return;
-  room.teams.forEach((team) => {
-    team.members.forEach((pid) => assignPlayerTeamColor(room, pid, false));
-  });
-}
-
-function getAllowedColorsForPlayer(room, playerId) {
-  if (!room.teamMode || !room.teams) return PLAYER_COLORS;
-  const team = getTeamOfPlayer(room, playerId);
-  if (team) return getTeamPalette(team.id) || PLAYER_COLORS;
-  const colors = [];
-  const seen = new Set();
-  room.teams.forEach((t) => {
-    getTeamPalette(t.id).forEach((c) => {
-      if (!seen.has(c)) {
-        seen.add(c);
-        colors.push(c);
-      }
-    });
-  });
-  return colors.length ? colors : PLAYER_COLORS;
-}
-
-function areTeammates(room, p1Id, p2Id) {
-  if (!room.teamMode) return false;
-  const t1 = getTeamOfPlayer(room, p1Id);
-  const t2 = getTeamOfPlayer(room, p2Id);
-  return t1 && t2 && t1.id === t2.id;
-}
-
-// Team score = sum of all members' individual scores
-function teamScoreOf(room, team) {
-  let total = 0;
-  team.members.forEach((pid) => {
-    const p = room.players.find((pl) => pl.id === pid);
-    if (p) total += scoreOf(room, p);
-  });
-  return total;
-}
-
-// Team tops: count summits where at least one team member is on top
-function teamTopsOf(room, team) {
-  let n = 0;
-  room.mountains.forEach((m, i) => {
-    const hasTop = team.members.some((pid) => {
-      const p = room.players.find((pl) => pl.id === pid);
-      return p && p.pos[i] >= m.height;
-    });
-    if (hasTop) n++;
-  });
-  return n;
-}
-
-// Highest mountain value where team has a goat on top
-function teamHighestTopValue(room, team) {
-  let v = 0;
-  room.mountains.forEach((m, i) => {
-    const hasTop = team.members.some((pid) => {
-      const p = room.players.find((pl) => pl.id === pid);
-      return p && p.pos[i] >= m.height;
-    });
-    if (hasTop && m.value > v) v = m.value;
-  });
-  return v;
-}
-
-// Check if a summit already has a teammate on it (for team summit scoring rule)
-function teamHasSummit(room, player, mountainIndex) {
-  if (!room.teamMode) return false;
-  const team = getTeamOfPlayer(room, player.id);
-  if (!team) return false;
-  const m = room.mountains[mountainIndex];
-  return team.members.some((pid) => {
-    if (pid === player.id) return false;
-    const p = room.players.find((pl) => pl.id === pid);
-    return p && p.pos[mountainIndex] >= m.height;
-  });
-}
-
-// Get valid team configurations for the current player count
-function getValidTeamConfigs(playerCount) {
-  return TEAM_CONFIGS.filter((c) => c.total === playerCount);
-}
-
-// Build default team assignments for a configuration
-function buildTeams(room, numTeams) {
-  const teams = [];
-  for (let t = 0; t < numTeams; t++) {
-    teams.push({
-      id: t,
-      name: TEAM_NAMES[t],
-      color: TEAM_COLORS[t],
-      members: [],
-    });
-  }
-  // Round-robin assign players
-  room.players.forEach((p, idx) => {
-    teams[idx % numTeams].members.push(p.id);
-  });
-  return teams;
-}
-
-// ----------------------------------------------------------------------------
-// Room state
-// ----------------------------------------------------------------------------
 const rooms = {}; // code -> room
 const gameHistory = []; // completed games from the last 2 days
 let historyStorage = 'file'; // 'postgresql' | 'file'
@@ -766,8 +550,8 @@ function createRoom(options = {}) {
     code,
     hostId: null,
     players: [],
-    mountains: buildMountains(4), // placeholder until the game starts
-    bonusTokens: [...BONUS_DEFS], // remaining bonus tokens (highest first)
+    mountains: createPlaceholderMountains(),
+    bonusTokens: createBonusTokens(),
     lastRound: false,
     started: false,
     finished: false,
@@ -965,31 +749,6 @@ function hasHuman(room) {
   return room.players.some((p) => !p.isBot && p.connected);
 }
 
-function resetForNewGame(room) {
-  const count = room.players.filter((p) => p.connected).length || room.players.length;
-  room.mountains = buildMountains(count);
-  room.bonusTokens = [...BONUS_DEFS];
-  room.lastRound = false;
-  room.endReason = null;
-  room.startedAt = null;
-  room.finished = false;
-  room.winnerId = null;
-  room.winnerPlayerIds = [];
-  room.winnerTeamId = null;
-  room.currentIndex = 0;
-  room.dice = null;
-  room.diceUsed = [];
-  room.adjustable = [];
-  room.rolled = false;
-  room.players.forEach((p) => {
-    p.pos = room.mountains.map(() => 0);
-    p.collected = room.mountains.map(() => 0);
-    p.bonus = [];
-    p.turns = 0;
-  });
-  // Team assignments persist across games (they're set in lobby)
-}
-
 function publicState(room) {
   const st = {
     code: room.code,
@@ -1104,137 +863,6 @@ function findRoomBySocket(socketId) {
   return null;
 }
 
-function checkEndgameTrigger(room) {
-  if (room.lastRound) return;
-  const allBonus = room.bonusTokens.length === 0;
-  if (allBonus || emptyMountainCount(room) >= 3) {
-    room.lastRound = true;
-    room.endReason = allBonus ? 'bonus' : 'empty';
-    const reason = allBonus ? 'all Bonus Tokens claimed' : '3 mountains emptied';
-    pushLog(room, `Final round! (${reason}) - everyone gets equal turns. 🔔`);
-  }
-}
-
-// Award Bonus Tokens for any newly completed full sets.
-function awardBonus(room, player) {
-  const sets = Math.max(0, setsOf(player));
-  while (player.bonus.length < sets && room.bonusTokens.length > 0) {
-    const v = room.bonusTokens.shift();
-    player.bonus.push(v);
-    pushLog(room, `${player.name} completed a full set and claimed the ${v}p Bonus Token! ✨`);
-  }
-}
-
-// Take a Point Token from a mountain for the player (and check sets / endgame).
-function takeToken(room, player, i) {
-  const m = room.mountains[i];
-  if (m.chips <= 0) return;
-  m.chips -= 1;
-  player.collected[i] += 1;
-  awardBonus(room, player);
-  checkEndgameTrigger(room);
-}
-
-// Apply one upward step (a dice group) on mountain i for the player.
-function applyClimb(room, player, i) {
-  const m = room.mountains[i];
-  if (player.pos[i] >= m.height) {
-    // Already on top: harvest another token instead of moving.
-    // In team mode, players can still harvest even if a teammate is also on the summit.
-    if (m.chips > 0) {
-      takeToken(room, player, i);
-      pushLog(room, `${player.name} harvested a ${m.value}p token from Mountain ${m.value}.`);
-    }
-    return;
-  }
-  player.pos[i] += 1;
-  if (player.pos[i] >= m.height) {
-    if (room.teamMode) {
-      // TEAM MODE: teammates can co-occupy summit. Only bump opposing team goats.
-      const playerTeam = getTeamOfPlayer(room, player.id);
-      let bumped = false;
-      let bumpedTeamName = '';
-      room.players.forEach((o) => {
-        if (o.id !== player.id && o.pos[i] >= m.height) {
-          if (areTeammates(room, player.id, o.id)) {
-            // Teammate on summit — they stay (co-occupy).
-          } else {
-            // Opposing team: Team Wipeout — all opposing goats removed.
-            o.pos[i] = 0;
-            const oTeam = getTeamOfPlayer(room, o.id);
-            bumpedTeamName = oTeam ? oTeam.name : '';
-            bumped = true;
-            pushLog(room, `${o.name}'s goat was wiped off the top of Mountain ${m.value}! (Team Wipeout)`);
-          }
-        }
-      });
-      if (bumped && bumpedTeamName) {
-        pushLog(room, `Team ${bumpedTeamName} lost all goats on Mountain ${m.value} summit!`);
-      }
-      // Team summit scoring: teammate reaching the summit also scores
-      if (m.chips > 0) {
-        takeToken(room, player, i);
-        const teammateAlreadyOnTop = teamHasSummit(room, player, i);
-        if (teammateAlreadyOnTop) {
-          pushLog(room, `${player.name} joined teammate on Mountain ${m.value} summit (+${m.value}).`);
-        } else {
-          pushLog(room, `${player.name} reached the top of Mountain ${m.value} (+${m.value}).`);
-        }
-      } else {
-        pushLog(room, `${player.name} reached the top of Mountain ${m.value} (no tokens left).`);
-      }
-    } else {
-      // STANDARD MODE: bump any other goat already there to the foot.
-      room.players.forEach((o) => {
-        if (o.id !== player.id && o.pos[i] >= m.height) {
-          o.pos[i] = 0;
-          pushLog(room, `${o.name}'s goat was bumped off the top of Mountain ${m.value}!`);
-        }
-      });
-      if (m.chips > 0) {
-        takeToken(room, player, i);
-        pushLog(room, `${player.name} reached the top of Mountain ${m.value} (+${m.value}).`);
-      } else {
-        pushLog(room, `${player.name} reached the top of Mountain ${m.value} (no tokens left).`);
-      }
-    }
-  }
-}
-
-function rankedPlayers(room) {
-  return room.players
-    .map((p) => ({
-      p,
-      score: scoreOf(room, p),
-      tops: topsOf(room, p),
-      highTop: highestTopValue(room, p),
-    }))
-    .sort((a, b) => b.score - a.score || b.tops - a.tops || b.highTop - a.highTop);
-}
-
-function rankedTeams(room) {
-  if (!room.teamMode || !room.teams) return [];
-  return room.teams
-    .map((t) => ({
-      team: t,
-      score: teamScoreOf(room, t),
-      tops: teamTopsOf(room, t),
-      highTop: teamHighestTopValue(room, t),
-    }))
-    .sort((a, b) => b.score - a.score || b.tops - a.tops || b.highTop - a.highTop);
-}
-
-/**
- * Number of individual winners in standard mode (1 for 2-4 players, 2 for 5-6).
- *
- * @param {object} room Active or finished room.
- * @returns {number}
- */
-function winnerSlotCount(room) {
-  const playerCount = room.players.filter((p) => p.connected).length || room.players.length;
-  return playerCount >= 5 ? 2 : 1;
-}
-
 /**
  * Record a completed or abandoned game into the in-memory history buffer.
  *
@@ -1300,71 +928,6 @@ function recordGameHistory(room, options = {}) {
   gameHistory.unshift(entry);
   pruneGameHistory();
   persistGameHistory();
-}
-
-/**
- * Signed-in human players in a room.
- *
- * @param {object} room Active room.
- * @returns {object[]}
- */
-function getSignedInParticipants(room) {
-  return room.players.filter((player) => !player.isBot && player.authUserId);
-}
-
-/**
- * Auth user ids for signed-in humans on the winning side.
- *
- * @param {object} room Finished room with winner fields set.
- * @returns {Set<string>}
- */
-function getWinningAuthUserIds(room) {
-  const winnerIds = new Set();
-  if (room.teamMode && room.winnerTeamId != null && room.teams) {
-    const winTeam = room.teams.find((team) => team.id === room.winnerTeamId);
-    if (winTeam) {
-      winTeam.members.forEach((playerId) => {
-        const player = room.players.find((entry) => entry.id === playerId);
-        if (player && !player.isBot && player.authUserId) {
-          winnerIds.add(player.authUserId);
-        }
-      });
-    }
-  } else {
-    const winnerPlayerIds = room.winnerPlayerIds && room.winnerPlayerIds.length
-      ? room.winnerPlayerIds
-      : (room.winnerId ? [room.winnerId] : []);
-    winnerPlayerIds.forEach((playerId) => {
-      const player = room.players.find((entry) => entry.id === playerId);
-      if (player && !player.isBot && player.authUserId) {
-        winnerIds.add(player.authUserId);
-      }
-    });
-  }
-  return winnerIds;
-}
-
-/**
- * Build per-user win/loss updates for completed games.
- *
- * @param {object} room Finished room with winner fields set.
- * @returns {{ userId: string, won: boolean, teamMode: boolean }[]}
- */
-function buildMatchStatUpdates(room) {
-  const winners = getWinningAuthUserIds(room);
-  const seenUserIds = new Set();
-  const teamMode = !!room.teamMode;
-  const updates = [];
-  getSignedInParticipants(room).forEach((player) => {
-    if (seenUserIds.has(player.authUserId)) return;
-    seenUserIds.add(player.authUserId);
-    updates.push({
-      userId: player.authUserId,
-      won: winners.has(player.authUserId),
-      teamMode,
-    });
-  });
-  return updates;
 }
 
 /**
@@ -1466,16 +1029,6 @@ function startWatchdog(room) {
 // ----------------------------------------------------------------------------
 
 /**
- * Mark extra 1s as re-faceable when more than one 1 is rolled.
- *
- * @param {object} room Active room with dice set.
- */
-function applyOnesRule(room) {
-  const ones = room.dice.map((d, i) => (d === 1 ? i : -1)).filter((i) => i >= 0);
-  room.adjustable = ones.length >= 2 ? ones.slice(0, ones.length - 1) : [];
-}
-
-/**
  * Roll four dice for the current turn and apply the multiple-1s rule.
  *
  * @param {object} room Active room.
@@ -1484,66 +1037,6 @@ function rollDiceForTurn(room) {
   room.dice = Array.from({ length: NUM_DICE }, () => 1 + Math.floor(Math.random() * 6));
   room.diceUsed = room.dice.map(() => false);
   applyOnesRule(room);
-}
-
-// Score a single possible group (indices + target mountain) for the bot.
-function scoreGroup(room, bot, indices, mi) {
-  const m = room.mountains[mi];
-  const pos = bot.pos[mi];
-  const atTop = pos >= m.height;
-  const stepsLeft = m.height - pos;
-
-  // Simulate collecting a token and check if that yields a new set.
-  const currentSets = bot.collected.reduce((mn, c) => Math.min(mn, c), Infinity);
-  const newCollected = bot.collected.map((c, i) => (i === mi ? c + 1 : c));
-  const newSets = newCollected.reduce((mn, c) => Math.min(mn, c), Infinity);
-  const bonusValue = newSets > currentSets && room.bonusTokens.length > 0
-    ? room.bonusTokens[0]  // the highest remaining bonus token
-    : 0;
-
-  // Count opponents on this top (bumping them is valuable).
-  // In team mode, only count non-teammates.
-  const oppsOnTop = room.players.filter(
-    (o) => o.id !== bot.id && o.pos[mi] >= m.height && !areTeammates(room, bot.id, o.id)
-  ).length;
-
-  // In team mode: if a teammate is already on this summit, harvesting gives nothing.
-  const teammateOnTop = room.teamMode && room.teams
-    ? room.players.some((o) => o.id !== bot.id && o.pos[mi] >= m.height && areTeammates(room, bot.id, o.id))
-    : false;
-
-  let value;
-
-  if (m.chips <= 0) {
-    // Empty mountain: only useful if we can bump someone off the top.
-    if (!atTop && stepsLeft === 1 && oppsOnTop > 0) {
-      value = 2 * oppsOnTop; // mild reward
-    } else {
-      return -Infinity; // waste of dice
-    }
-  } else if (atTop) {
-    // Already on top: harvest another token (even if teammate is also on summit).
-    value = m.value + bonusValue;
-    // Slightly prefer mountains where chips are scarce (closing soon).
-    value += Math.max(0, 3 - m.chips);
-  } else if (stepsLeft === 1) {
-    // This move reaches the top → collect a token + optional bump + optional set.
-    // In team mode, reaching summit where teammate is already there still scores.
-    value = m.value + 4 + bonusValue + oppsOnTop * 3;
-    // Urgency: fewer chips left = close it before someone else does.
-    value += Math.max(0, 4 - m.chips) * 1.5;
-  } else {
-    // Intermediate step — progress value, weighted by mountain value and urgency.
-    const progressFactor = 1 / stepsLeft; // closer to top = more valuable
-    value = m.value * 0.4 * progressFactor;
-    // Chips running low means competition is heating up for this mountain.
-    if (m.chips <= 3) value += 1.5;
-  }
-
-  // Penalty for using more dice in one group — leaves fewer dice for other moves.
-  value -= (indices.length - 1) * 0.8;
-
-  return value;
 }
 
 // Enumerate all subsets of unused dice, evaluate each valid group, pick the best.
@@ -1689,7 +1182,8 @@ function botAct(room) {
 
     const group = botChooseGroup(room, cur);
     if (group) {
-      applyClimb(room, cur, group.mountainIndex);
+      const log = (msg) => pushLog(room, msg);
+      applyClimb(room, cur, group.mountainIndex, log);
       group.indices.forEach((idx) => (room.diceUsed[idx] = true));
       room.adjustable = [];
       if (!room.finished && room.diceUsed.every((u) => u)) {
@@ -2317,7 +1811,8 @@ io.on('connection', (socket) => {
     const sum = indices.reduce((a, idx) => a + room.dice[idx], 0);
     if (sum !== m.value) return;
 
-    applyClimb(room, current, mountainIndex);
+    const log = (msg) => pushLog(room, msg);
+    applyClimb(room, current, mountainIndex, log);
     indices.forEach((idx) => (room.diceUsed[idx] = true));
     room.adjustable = []; // lock re-facing once a move is made
 
