@@ -38,6 +38,43 @@
   let socketConnectionHasAuth = false;
 
   /**
+   * Reconnect the socket with a JWT in the background after sign-in.
+   *
+   * @returns {void}
+   */
+  function scheduleSocketAuthReconnect() {
+    if (!window.MGAuth || !isSignedIn()) return;
+    ensureSocketAuth().catch((err) => {
+      console.warn('[main] socket auth reconnect failed:', err);
+    });
+  }
+
+  /**
+   * Build a create/join payload with optional signed-in access token.
+   *
+   * @param {object} base Base event payload.
+   * @returns {Promise<object>}
+   */
+  async function buildRoomPayload(base) {
+    const payload = { ...base };
+    if (window.MGAuth && isSignedIn()) {
+      const token = await window.MGAuth.getAccessToken();
+      if (token) payload.accessToken = token;
+    }
+    if (!socket.connected) {
+      await new Promise((resolve) => {
+        if (socket.connected) {
+          resolve();
+          return;
+        }
+        socket.once('connect', resolve);
+        socket.connect();
+      });
+    }
+    return payload;
+  }
+
+  /**
    * Ensure the socket handshake includes a signed-in JWT before gameplay emits.
    *
    * @returns {Promise<void>}
@@ -92,7 +129,7 @@
   window.addEventListener('mg-auth-changed', async (event) => {
     if (!window.MGAuth || !event.detail) return;
     if (event.detail.shouldReconnect) {
-      await ensureSocketAuth();
+      scheduleSocketAuthReconnect();
     }
     await refreshLobbyPresence();
     tryRejoin();
@@ -550,14 +587,20 @@
     if (!name) return;
     $('home-error').textContent = '';
     setHomeLoading('create');
-    await ensureSocketAuth();
-    socket.emit('createRoom', { name }, (res) => {
+    try {
+      const payload = await buildRoomPayload({ name });
+      socket.emit('createRoom', payload, (res) => {
+        clearHomeLoading();
+        if (res.error) return ($('home-error').textContent = res.error);
+        leftRoom = false;
+        myId = res.youId;
+        storeRejoinKeys(name, res.code);
+      });
+    } catch (err) {
       clearHomeLoading();
-      if (res.error) return ($('home-error').textContent = res.error);
-      leftRoom = false;
-      myId = res.youId;
-      storeRejoinKeys(name, res.code);
-    });
+      $('home-error').textContent = 'Could not create room. Please try again.';
+      console.error('[main] createRoom failed:', err);
+    }
   });
 
   // Navigate to Join screen
@@ -585,16 +628,23 @@
     $('join-error').textContent = '';
     $('btn-join').disabled = true;
     $('btn-join').innerHTML = '<span class="spin">⏳</span> Joining…';
-    await ensureSocketAuth();
-    socket.emit('joinRoom', { name, code }, (res) => {
+    try {
+      const payload = await buildRoomPayload({ name, code });
+      socket.emit('joinRoom', payload, (res) => {
+        $('btn-join').disabled = false;
+        $('btn-join').textContent = 'Join Room';
+        if (res.error) return ($('join-error').textContent = res.error);
+        leftRoom = false;
+        myId = res.youId;
+        storeRejoinKeys(name, res.code);
+        stopPublicRoomsRefresh();
+      });
+    } catch (err) {
       $('btn-join').disabled = false;
       $('btn-join').textContent = 'Join Room';
-      if (res.error) return ($('join-error').textContent = res.error);
-      leftRoom = false;
-      myId = res.youId;
-      storeRejoinKeys(name, res.code);
-      stopPublicRoomsRefresh();
-    });
+      $('join-error').textContent = 'Could not join room. Please try again.';
+      console.error('[main] joinRoom failed:', err);
+    }
   });
 
   function setHomeLoading(which) {
@@ -641,16 +691,23 @@
             $('join-error').textContent = '';
             joinBtn.disabled = true;
             joinBtn.innerHTML = '<span class="spin">⏳</span>';
-            await ensureSocketAuth();
-            socket.emit('joinRoom', { name, code: r.code }, (res) => {
+            try {
+              const payload = await buildRoomPayload({ name, code: r.code });
+              socket.emit('joinRoom', payload, (res) => {
+                joinBtn.disabled = false;
+                joinBtn.textContent = 'Join';
+                if (res.error) return ($('join-error').textContent = res.error);
+                leftRoom = false;
+                myId = res.youId;
+                storeRejoinKeys(name, res.code);
+                stopPublicRoomsRefresh();
+              });
+            } catch (err) {
               joinBtn.disabled = false;
               joinBtn.textContent = 'Join';
-              if (res.error) return ($('join-error').textContent = res.error);
-              leftRoom = false;
-              myId = res.youId;
-              storeRejoinKeys(name, res.code);
-              stopPublicRoomsRefresh();
-            });
+              $('join-error').textContent = 'Could not join room. Please try again.';
+              console.error('[main] public joinRoom failed:', err);
+            }
           });
         }
         list.appendChild(card);
@@ -868,9 +925,9 @@
     lobbyWinsRefreshInFlight = true;
     lobbyWinsRefreshAttempts.set(state.code, attempts + 1);
     try {
-      await ensureSocketAuth();
+      const payload = await buildRoomPayload({ name, code: state.code });
       await new Promise((resolve) => {
-        socket.emit('joinRoom', { name, code: state.code }, (res) => {
+        socket.emit('joinRoom', payload, (res) => {
           if (res && res.ok) myId = res.youId;
           resolve();
         });
@@ -896,23 +953,25 @@
     const name = getPlayName() || storedName;
     if (!name) return;
 
-    if (isSignedIn()) {
-      await ensureSocketAuth();
-    }
-
     rejoinInFlight = true;
     leftRoom = false;
-    socket.emit('joinRoom', { name, code }, (res) => {
+    try {
+      const payload = await buildRoomPayload({ name, code });
+      socket.emit('joinRoom', payload, (res) => {
+        rejoinInFlight = false;
+        if (res && res.ok) {
+          myId = res.youId;
+          storeRejoinKeys(name, code);
+        } else {
+          localStorage.removeItem('mg_code');
+          localStorage.removeItem('mg_name');
+          show('home');
+        }
+      });
+    } catch (err) {
       rejoinInFlight = false;
-      if (res && res.ok) {
-        myId = res.youId;
-        storeRejoinKeys(name, code);
-      } else {
-        localStorage.removeItem('mg_code');
-        localStorage.removeItem('mg_name');
-        show('home');
-      }
-    });
+      console.error('[main] tryRejoin failed:', err);
+    }
   }
 
   function leaveToHome() {
@@ -975,6 +1034,7 @@
   socket.on('connect', () => {
     connectErrors = 0;
     socketConnectionHasAuth = Boolean(socket.auth.token);
+    if (isSignedIn()) scheduleSocketAuthReconnect();
     tryRejoin();
   });
 

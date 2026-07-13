@@ -130,21 +130,26 @@ function resolveAvatarUrl(payload) {
 }
 
 /**
- * Persist verified auth profile fields to the database.
+ * Persist verified profile fields to the database.
  *
- * @param {string} accessToken Supabase access token.
  * @param {object} db Database module.
+ * @param {object} profile Profile fields.
+ * @param {string} profile.userId Supabase auth user id.
+ * @param {string} profile.googleName Google display name.
+ * @param {string|null} profile.avatarUrl Avatar URL.
+ * @param {string|null} profile.gamingName Gaming name from metadata.
+ * @param {string|null} [profile.email] Google account email.
  * @returns {Promise<{ userId: string, googleName: string, gamingName: string|null, avatarUrl: string|null }>}
  */
-async function syncAuthUser(accessToken, db) {
-  const payload = await verifyAccessToken(accessToken);
-  const userId = payload.sub;
-  const googleName = resolveGoogleName(payload);
-  const avatarUrl = resolveAvatarUrl(payload);
-  let gamingName = resolveGamingNameFromPayload(payload);
+async function persistAuthUserProfile(db, profile) {
+  const userId = profile.userId;
+  let googleName = profile.googleName;
+  const avatarUrl = profile.avatarUrl;
+  let gamingName = profile.gamingName;
+  const email = profile.email || null;
 
   if (!(await db.ensureConnected())) {
-    console.warn(`${LOG_PREFIX} syncAuthUser skipped: database not connected`);
+    console.warn(`${LOG_PREFIX} persistAuthUserProfile skipped: database not connected`);
     return { userId, googleName, gamingName, avatarUrl };
   }
 
@@ -164,12 +169,74 @@ async function syncAuthUser(accessToken, db) {
     notifications.sendAlert(NEW_USER, {
       userId,
       googleName,
-      email: payload.email || null,
+      email,
       gamingName: gamingName || null,
     });
   }
 
   return { userId, googleName, gamingName, avatarUrl };
+}
+
+/**
+ * Persist verified auth profile fields to the database.
+ *
+ * @param {string} accessToken Supabase access token.
+ * @param {object} db Database module.
+ * @returns {Promise<{ userId: string, googleName: string, gamingName: string|null, avatarUrl: string|null }>}
+ */
+async function syncAuthUser(accessToken, db) {
+  const payload = await verifyAccessToken(accessToken);
+  const userId = payload.sub;
+  const googleName = resolveGoogleName(payload);
+  const avatarUrl = resolveAvatarUrl(payload);
+  const gamingName = resolveGamingNameFromPayload(payload);
+
+  return persistAuthUserProfile(db, {
+    userId,
+    googleName,
+    avatarUrl,
+    gamingName,
+    email: payload.email || null,
+  });
+}
+
+/**
+ * Persist auth profile using socket fields when JWT was already verified.
+ *
+ * @param {import('socket.io').Socket} socket Connected socket.
+ * @param {string} accessToken Supabase access token fallback.
+ * @param {object} db Database module.
+ * @returns {Promise<{ userId: string, googleName: string, gamingName: string|null, avatarUrl: string|null }>}
+ */
+async function syncAuthUserFromSocket(socket, accessToken, db) {
+  if (socket.authUserId) {
+    return persistAuthUserProfile(db, {
+      userId: socket.authUserId,
+      googleName: socket.authGoogleName || 'Player',
+      avatarUrl: socket.authAvatarUrl || null,
+      gamingName: socket.authGamingName || null,
+      email: socket.authEmail || null,
+    });
+  }
+
+  if (!accessToken) {
+    throw new Error('Missing access token');
+  }
+
+  const payload = await verifyAccessToken(accessToken);
+  socket.authUserId = payload.sub;
+  socket.authGoogleName = resolveGoogleName(payload);
+  socket.authGamingName = resolveGamingNameFromPayload(payload);
+  socket.authAvatarUrl = resolveAvatarUrl(payload);
+  socket.authEmail = payload.email || null;
+
+  return persistAuthUserProfile(db, {
+    userId: socket.authUserId,
+    googleName: socket.authGoogleName,
+    avatarUrl: socket.authAvatarUrl,
+    gamingName: socket.authGamingName,
+    email: socket.authEmail,
+  });
 }
 
 /**
@@ -201,6 +268,7 @@ async function attachAuthToSocketLight(socket, accessToken) {
   socket.authGoogleName = resolveGoogleName(payload);
   socket.authGamingName = resolveGamingNameFromPayload(payload);
   socket.authAvatarUrl = resolveAvatarUrl(payload);
+  socket.authEmail = payload.email || null;
 }
 
 /**
@@ -230,5 +298,6 @@ module.exports = {
   attachAuthToSocket,
   attachAuthToSocketLight,
   syncAuthUser,
+  syncAuthUserFromSocket,
   resolvePlayerName,
 };

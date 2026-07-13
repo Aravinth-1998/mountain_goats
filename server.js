@@ -815,6 +815,68 @@ function addPlayer(room, socketId, name, isBot = false, authUserId = null) {
 }
 
 /**
+ * Resolve an access token from a socket event or handshake.
+ *
+ * @param {import('socket.io').Socket} socket Connected socket.
+ * @param {string} [eventToken] Token sent with the socket event.
+ * @returns {string}
+ */
+function resolveSocketAccessToken(socket, eventToken) {
+  const token = eventToken || (socket.handshake.auth && socket.handshake.auth.token) || '';
+  return String(token).trim();
+}
+
+/**
+ * Attach JWT auth to a socket without database sync.
+ *
+ * @param {import('socket.io').Socket} socket Connected socket.
+ * @param {string} accessToken Supabase access token.
+ * @returns {Promise<void>}
+ */
+async function ensureSocketAuthLight(socket, accessToken) {
+  if (!auth.isAuthConfigured()) return;
+  const token = resolveSocketAccessToken(socket, accessToken);
+  if (!token) return;
+  if (socket.authUserId) return;
+  try {
+    await auth.attachAuthToSocketLight(socket, token);
+  } catch (err) {
+    console.warn(`${auth.LOG_PREFIX} ensureSocketAuthLight failed:`, err.message);
+  }
+}
+
+/**
+ * Background DB sync, gaming name persistence, and lobby win counts.
+ *
+ * @param {import('socket.io').Socket} socket Connected socket.
+ * @param {object} room Active room.
+ * @param {string} name Resolved player name.
+ * @param {string} accessToken Supabase access token.
+ * @returns {Promise<void>}
+ */
+async function enrichSignedInPlayerContext(socket, room, name, accessToken) {
+  if (!socket.authUserId) return;
+  const token = resolveSocketAccessToken(socket, accessToken);
+  if (!token) return;
+  if (!(await db.ensureConnected())) return;
+
+  try {
+    if (!socket.authDbSynced) {
+      const profile = await auth.syncAuthUserFromSocket(socket, token, db);
+      socket.authGamingName = profile.gamingName || socket.authGamingName;
+      socket.authGoogleName = profile.googleName || socket.authGoogleName;
+      socket.authAvatarUrl = profile.avatarUrl || socket.authAvatarUrl;
+      socket.authDbSynced = true;
+    }
+    await persistGamingName(socket, name);
+    await refreshRoomPlayerWins(room);
+    if (rooms[room.code]) broadcast(room);
+  } catch (err) {
+    console.warn(`${auth.LOG_PREFIX} enrichSignedInPlayerContext failed:`, err.message);
+  }
+}
+
+/**
  * Re-attach auth from the socket handshake token when middleware missed it.
  *
  * @param {import('socket.io').Socket} socket Connected socket.
@@ -1781,6 +1843,8 @@ io.use(async (socket, next) => {
   socket.authGoogleName = null;
   socket.authGamingName = null;
   socket.authAvatarUrl = null;
+  socket.authEmail = null;
+  socket.authDbSynced = false;
   const token = socket.handshake.auth && socket.handshake.auth.token;
   if (token && auth.isAuthConfigured()) {
     try {
@@ -1800,22 +1864,27 @@ io.on('connection', (socket) => {
     scheduleBroadcastOnlineCount();
   });
 
-  socket.on('createRoom', async ({ name, isPublic, maxPlayers }, cb) => {
-    await ensureSocketAuthUserSynced(socket);
+  socket.on('createRoom', async ({ name, isPublic, maxPlayers, accessToken }, cb) => {
+    const token = resolveSocketAccessToken(socket, accessToken);
+    await ensureSocketAuthLight(socket, token);
     name = auth.resolvePlayerName(socket, name);
     if (!name) return cb && cb({ error: 'Please enter your name.' });
     const room = createRoom({ isPublic, maxPlayers });
     socket.join(room.code);
     const player = addPlayer(room, socket.id, name, false, socket.authUserId);
-    await refreshRoomPlayerWins(room);
-    await persistGamingName(socket, name);
     pushLog(room, `${name} created the room.`);
     cb && cb({ ok: true, code: room.code, youId: player.id });
     broadcast(room);
+    if (socket.authUserId) {
+      enrichSignedInPlayerContext(socket, room, name, token).catch((err) => {
+        console.warn(`${auth.LOG_PREFIX} createRoom enrichment failed:`, err.message);
+      });
+    }
   });
 
-  socket.on('joinRoom', async ({ name, code }, cb) => {
-    await ensureSocketAuthUserSynced(socket);
+  socket.on('joinRoom', async ({ name, code, accessToken }, cb) => {
+    const token = resolveSocketAccessToken(socket, accessToken);
+    await ensureSocketAuthLight(socket, token);
     name = auth.resolvePlayerName(socket, name);
     code = String(code || '').trim().slice(0, 4);
     const room = rooms[code];
@@ -1863,10 +1932,13 @@ io.on('connection', (socket) => {
       if (wasDisconnected) {
         pushLog(room, `${name} reconnected. 👋`);
       }
-      await persistGamingName(socket, name);
-      await refreshRoomPlayerWins(room);
       cb && cb({ ok: true, code: room.code, youId: socket.id });
       broadcast(room);
+      if (socket.authUserId) {
+        enrichSignedInPlayerContext(socket, room, name, token).catch((err) => {
+          console.warn(`${auth.LOG_PREFIX} joinRoom enrichment failed:`, err.message);
+        });
+      }
       // If it was their turn when they reconnected (and they're now live), let them play;
       // otherwise schedule the next bot turn normally.
       if (!wasMyTurn || wasDisconnected) scheduleBot(room, 100);
@@ -1880,7 +1952,6 @@ io.on('connection', (socket) => {
     }
     socket.join(room.code);
     const player = addPlayer(room, socket.id, name, false, socket.authUserId);
-    await refreshRoomPlayerWins(room);
     // Auto-assign to smallest team if team mode is active
     if (room.teamMode && room.teams) {
       const smallest = room.teams.reduce((a, b) => a.members.length <= b.members.length ? a : b);
@@ -1888,9 +1959,13 @@ io.on('connection', (socket) => {
       assignPlayerTeamColor(room, player.id, false);
     }
     pushLog(room, `${name} joined.`);
-    await persistGamingName(socket, name);
     cb && cb({ ok: true, code: room.code, youId: player.id });
     broadcast(room);
+    if (socket.authUserId) {
+      enrichSignedInPlayerContext(socket, room, name, token).catch((err) => {
+        console.warn(`${auth.LOG_PREFIX} joinRoom enrichment failed:`, err.message);
+      });
+    }
   });
 
   socket.on('addBot', () => {
