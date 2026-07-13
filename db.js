@@ -283,11 +283,11 @@ async function saveGameHistory(entry) {
  * @param {string} user.id Supabase auth user id (JWT sub).
  * @param {string} user.googleName Google display name.
  * @param {string|null} [user.avatarUrl] Avatar URL.
- * @returns {Promise<boolean>} True when a new users row was inserted.
+ * @returns {Promise<{ isNew: boolean, memberNumber: number|null }>} Insert result and community size when new.
  */
 async function upsertAuthUser(user) {
   const p = getPool();
-  if (!p || !connected) return false;
+  if (!p || !connected) return { isNew: false, memberNumber: null };
 
   const googleName = String(user.googleName || '').trim().slice(0, 64) || 'Player';
 
@@ -302,7 +302,13 @@ async function upsertAuthUser(user) {
     [user.id, googleName, user.avatarUrl || null]
   );
 
-  return Boolean(result.rows[0] && result.rows[0].is_new);
+  const isNew = Boolean(result.rows[0] && result.rows[0].is_new);
+  if (!isNew) return { isNew: false, memberNumber: null };
+
+  const countResult = await p.query('SELECT COUNT(*)::int AS total FROM users');
+  const memberNumber = countResult.rows[0] ? Number(countResult.rows[0].total) : null;
+
+  return { isNew: true, memberNumber };
 }
 
 /**

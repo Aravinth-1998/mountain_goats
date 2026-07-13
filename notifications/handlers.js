@@ -2,7 +2,7 @@
  * Build email content for admin alert events.
  */
 
-const { NEW_USER, NEW_USER_FROM_EMAIL } = require('./events');
+const { NEW_USER, getAlertGameName, getNewUserFromEmail } = require('./events');
 
 /**
  * Escape HTML special characters for email bodies.
@@ -30,6 +30,20 @@ function displayValue(value) {
 }
 
 /**
+ * Format a community member line for new-user alerts.
+ *
+ * @param {number|null|undefined} memberNumber Community member number.
+ * @returns {string|null}
+ */
+function formatCommunityMemberLine(memberNumber) {
+  const count = Number(memberNumber);
+  if (!Number.isFinite(count) || count < 1) return null;
+  const gameName = getAlertGameName();
+  const suffix = count === 1 ? 'st' : count === 2 ? 'nd' : count === 3 ? 'rd' : 'th';
+  return `They are the ${count}${suffix} person to join the ${gameName} community.`;
+}
+
+/**
  * Build a NEW_USER alert email.
  *
  * @param {object} payload Alert payload.
@@ -37,27 +51,40 @@ function displayValue(value) {
  * @param {string} payload.googleName Google display name.
  * @param {string|null} [payload.email] Google account email.
  * @param {string|null} [payload.gamingName] Saved gaming name, if any.
+ * @param {number|null} [payload.memberNumber] Community member number.
  * @returns {{ subject: string, html: string, text: string }}
  */
 function buildNewUserAlert(payload) {
+  const gameName = getAlertGameName();
   const userId = displayValue(payload.userId);
   const googleName = displayValue(payload.googleName);
   const email = displayValue(payload.email);
   const gamingName = displayValue(payload.gamingName);
   const signedUpAt = new Date().toISOString();
+  const communityLine = formatCommunityMemberLine(payload.memberNumber);
 
-  const text = [
-    'A new user signed up for Mountain Goats.',
+  const textLines = [
+    `A new user signed up for ${gameName}.`,
     '',
+  ];
+  if (communityLine) {
+    textLines.push(communityLine, '');
+  }
+  textLines.push(
     `User ID: ${userId}`,
     `Google name: ${googleName}`,
     `Email: ${email}`,
     `Gaming name: ${gamingName}`,
     `Signed up at: ${signedUpAt}`,
-  ].join('\n');
+  );
 
-  const html = [
-    '<p>A new user signed up for Mountain Goats.</p>',
+  const htmlParts = [
+    `<p>A new user signed up for ${escapeHtml(gameName)}.</p>`,
+  ];
+  if (communityLine) {
+    htmlParts.push(`<p><strong>${escapeHtml(communityLine)}</strong></p>`);
+  }
+  htmlParts.push(
     '<ul>',
     `<li><strong>User ID:</strong> ${escapeHtml(userId)}</li>`,
     `<li><strong>Google name:</strong> ${escapeHtml(googleName)}</li>`,
@@ -65,13 +92,13 @@ function buildNewUserAlert(payload) {
     `<li><strong>Gaming name:</strong> ${escapeHtml(gamingName)}</li>`,
     `<li><strong>Signed up at:</strong> ${escapeHtml(signedUpAt)}</li>`,
     '</ul>',
-  ].join('');
+  );
 
   return {
-    from: NEW_USER_FROM_EMAIL,
-    subject: 'Mountain Goats: new user signed up',
-    html,
-    text,
+    from: getNewUserFromEmail(),
+    subject: `${gameName}: new user signed up`,
+    html: htmlParts.join(''),
+    text: textLines.join('\n'),
   };
 }
 

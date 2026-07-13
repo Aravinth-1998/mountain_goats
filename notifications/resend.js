@@ -33,7 +33,7 @@ function getDefaultFromEmail() {
  * @returns {string}
  */
 function getToEmail() {
-  return process.env.ALERT_TO_EMAIL || 'aravinthsankar12@gmail.com';
+  return process.env.ALERT_TO_EMAIL || 'venomongames@gmail.com';
 }
 
 /**

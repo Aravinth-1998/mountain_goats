@@ -153,7 +153,7 @@ async function persistAuthUserProfile(db, profile) {
     return { userId, googleName, gamingName, avatarUrl };
   }
 
-  const isNewUser = await db.upsertAuthUser({
+  const { isNew, memberNumber } = await db.upsertAuthUser({
     id: userId,
     googleName,
     avatarUrl,
@@ -165,12 +165,13 @@ async function persistAuthUserProfile(db, profile) {
     await db.saveGamingName(userId, gamingName);
   }
 
-  if (isNewUser) {
+  if (isNew) {
     notifications.sendAlert(NEW_USER, {
       userId,
       googleName,
       email,
       gamingName: gamingName || null,
+      memberNumber,
     });
   }
 
