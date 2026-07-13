@@ -1,5 +1,5 @@
 /**
- * Derive haptic feedback events by diffing consecutive game states.
+ * Derive game feedback events (sound/haptics) by diffing consecutive game states.
  * Pure logic with no DOM dependencies (testable in Node).
  */
 
@@ -84,14 +84,14 @@ function parseLogEntry(text, players, myId) {
 }
 
 /**
- * Compare previous and next public game state and return haptic events for new actions.
+ * Compare previous and next public game state and return feedback events for new actions.
  *
  * @param {object|null} prev Previous state snapshot.
  * @param {object|null} next Next state snapshot.
  * @param {string|null} myId Local player id.
  * @returns {Array<{type: string, actorId?: string|null, victimId?: string|null, self: boolean}>}
  */
-function deriveHapticEvents(prev, next, myId) {
+function deriveFeedbackEvents(prev, next, myId) {
   if (!prev || !next) return [];
 
   const events = [];
@@ -125,10 +125,19 @@ function deriveHapticEvents(prev, next, myId) {
   return events;
 }
 
+const deriveHapticEvents = deriveFeedbackEvents;
+
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { deriveHapticEvents, parseLogEntry, maxLogTime, playerIdByName };
+  module.exports = {
+    deriveFeedbackEvents,
+    deriveHapticEvents,
+    parseLogEntry,
+    maxLogTime,
+    playerIdByName,
+  };
 }
 
 if (typeof window !== 'undefined') {
+  window.deriveFeedbackEvents = deriveFeedbackEvents;
   window.deriveHapticEvents = deriveHapticEvents;
 }

@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { deriveHapticEvents, parseLogEntry } = require('../../public/js/haptic-events');
+const { deriveFeedbackEvents, deriveHapticEvents, parseLogEntry } = require('../../public/js/feedback-events');
 
 const PLAYERS = [
   { id: 'p0', name: 'Alice' },
@@ -19,12 +19,12 @@ function makeState(overrides) {
   };
 }
 
-test('deriveHapticEvents returns empty when prev is null', () => {
+test('deriveFeedbackEvents returns empty when prev is null', () => {
   const next = makeState({ log: [{ t: 100, text: 'Alice rolled 1, 2, 3, 4.' }] });
-  assert.deepEqual(deriveHapticEvents(null, next, 'p0'), []);
+  assert.deepEqual(deriveFeedbackEvents(null, next, 'p0'), []);
 });
 
-test('deriveHapticEvents detects new dice roll from log', () => {
+test('deriveHapticEvents alias matches deriveFeedbackEvents', () => {
   const prev = makeState({ log: [{ t: 100, text: 'Lobby message.' }] });
   const next = makeState({
     log: [
@@ -33,14 +33,26 @@ test('deriveHapticEvents detects new dice roll from log', () => {
     ],
     rolled: true,
   });
-  const events = deriveHapticEvents(prev, next, 'p0');
+  assert.deepEqual(deriveHapticEvents(prev, next, 'p0'), deriveFeedbackEvents(prev, next, 'p0'));
+});
+
+test('deriveFeedbackEvents detects new dice roll from log', () => {
+  const prev = makeState({ log: [{ t: 100, text: 'Lobby message.' }] });
+  const next = makeState({
+    log: [
+      { t: 100, text: 'Lobby message.' },
+      { t: 200, text: 'Alice rolled 1, 2, 3, 4.' },
+    ],
+    rolled: true,
+  });
+  const events = deriveFeedbackEvents(prev, next, 'p0');
   assert.equal(events.length, 1);
   assert.equal(events[0].type, 'dice_roll');
   assert.equal(events[0].actorId, 'p0');
   assert.equal(events[0].self, true);
 });
 
-test('deriveHapticEvents detects bump victim', () => {
+test('deriveFeedbackEvents detects bump victim', () => {
   const prev = makeState({ log: [{ t: 100, text: 'Started.' }] });
   const next = makeState({
     log: [
@@ -48,28 +60,28 @@ test('deriveHapticEvents detects bump victim', () => {
       { t: 300, text: "Bob's goat was bumped off the top of Mountain 7!" },
     ],
   });
-  const events = deriveHapticEvents(prev, next, 'p1');
+  const events = deriveFeedbackEvents(prev, next, 'p1');
   assert.equal(events.length, 1);
   assert.equal(events[0].type, 'bump');
   assert.equal(events[0].victimId, 'p1');
   assert.equal(events[0].self, true);
 });
 
-test('deriveHapticEvents uses your_turn fallback when turn changes', () => {
+test('deriveFeedbackEvents uses your_turn fallback when turn changes', () => {
   const prev = makeState({ currentPlayerId: 'p0' });
   const next = makeState({ currentPlayerId: 'p1' });
-  const events = deriveHapticEvents(prev, next, 'p1');
+  const events = deriveFeedbackEvents(prev, next, 'p1');
   assert.ok(events.some((event) => event.type === 'your_turn'));
 });
 
-test('deriveHapticEvents uses game_end fallback when finished flips', () => {
+test('deriveFeedbackEvents uses game_end fallback when finished flips', () => {
   const prev = makeState({ finished: false });
   const next = makeState({ finished: true });
-  const events = deriveHapticEvents(prev, next, 'p0');
+  const events = deriveFeedbackEvents(prev, next, 'p0');
   assert.ok(events.some((event) => event.type === 'game_end'));
 });
 
-test('deriveHapticEvents does not replay old log entries on reconnect-style snapshot', () => {
+test('deriveFeedbackEvents does not replay old log entries on reconnect-style snapshot', () => {
   const prev = makeState({
     log: [{ t: 100, text: 'Alice rolled 1, 2, 3, 4.' }],
     rolled: true,
@@ -78,7 +90,7 @@ test('deriveHapticEvents does not replay old log entries on reconnect-style snap
     log: [{ t: 100, text: 'Alice rolled 1, 2, 3, 4.' }],
     rolled: true,
   });
-  assert.deepEqual(deriveHapticEvents(prev, next, 'p0'), []);
+  assert.deepEqual(deriveFeedbackEvents(prev, next, 'p0'), []);
 });
 
 test('parseLogEntry detects bonus token claim', () => {

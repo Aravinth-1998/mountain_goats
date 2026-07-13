@@ -276,6 +276,7 @@ body { background-color: var(--bg-0); }
   color: var(--green); font-size: 13px; font-weight: 600;
   margin: 0; letter-spacing: 0.3px;
 }
+.feedback-toggle,
 .haptics-toggle {
   background: rgba(255,255,255,0.06);
   border: 1px solid var(--card-border);
@@ -290,14 +291,17 @@ body { background-color: var(--bg-0); }
   flex-shrink: 0;
   opacity: 0.95;
 }
+.feedback-toggle.is-off,
 .haptics-toggle.is-off {
   opacity: 0.45;
   filter: grayscale(0.8);
 }
+.feedback-toggle:focus-visible,
 .haptics-toggle:focus-visible {
   outline: 2px solid var(--primary);
   outline-offset: 2px;
 }
+#screen-game .topbar .feedback-toggle,
 #screen-game .topbar .haptics-toggle {
   width: 34px;
   height: 34px;

@@ -122,7 +122,8 @@
       <p class="tagline">Race your herd over the peaks. Play live with friends.</p>
       <div class="home-meta-row">
         <p id="online-count" class="online-count"></p>
-        <button type="button" class="haptics-toggle" data-haptics-toggle aria-pressed="true" aria-label="Haptics on">📳</button>
+        <button type="button" class="feedback-toggle" data-sound-toggle aria-pressed="true" aria-label="Sound on">🔊</button>
+        <button type="button" class="feedback-toggle" data-haptics-toggle aria-pressed="true" aria-label="Haptics on">📳</button>
       </div>
     </div>
 
@@ -281,7 +282,8 @@
     <div class="topbar">
       <div class="room-pill">Room <strong id="game-code">----</strong></div>
       <div id="turn-banner" class="turn-banner">—</div>
-      <button type="button" class="haptics-toggle" data-haptics-toggle aria-pressed="true" aria-label="Haptics on">📳</button>
+      <button type="button" class="feedback-toggle" data-sound-toggle aria-pressed="true" aria-label="Sound on">🔊</button>
+      <button type="button" class="feedback-toggle" data-haptics-toggle aria-pressed="true" aria-label="Haptics on">📳</button>
       <button class="icon-btn" id="game-leave">Leave</button>
     </div>
 
@@ -362,8 +364,9 @@
   <script src="/socket.io/socket.io.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <script src="/js/auth.js"></script>
-  <script src="/js/haptic-events.js"></script>
+  <script src="/js/feedback-events.js"></script>
   <script src="/js/haptics.js"></script>
+  <script src="/js/sounds.js"></script>
   <script src="/js/main.js"></script>
 </body>
 </html>

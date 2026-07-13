@@ -170,6 +170,7 @@
   const $ = (id) => document.getElementById(id);
 
   if (window.MGHaptics) window.MGHaptics.init();
+  if (window.MGSounds) window.MGSounds.init();
 
   /**
    * Resolve gaming name for create/join (signed-in input or guest input).
@@ -989,12 +990,20 @@
 
   // ===================== GAME CONTROLS =====================
   $('btn-roll').addEventListener('click', () => {
+    if (window.MGSounds) {
+      window.MGSounds.unlock();
+      window.MGSounds.play({ type: 'ui_tap', self: true });
+    }
     if (window.MGHaptics) window.MGHaptics.trigger({ type: 'ui_tap', self: true });
     socket.emit('rollDice');
     $('dice-area').classList.add('rolling');
     setTimeout(() => $('dice-area').classList.remove('rolling'), 500);
   });
   $('btn-endturn').addEventListener('click', () => {
+    if (window.MGSounds) {
+      window.MGSounds.unlock();
+      window.MGSounds.play({ type: 'ui_tap', self: true });
+    }
     if (window.MGHaptics) window.MGHaptics.trigger({ type: 'ui_tap', self: true });
     if (isMyTurn() && state.rolled && anyGroupPossible()) {
       // Show confirmation popup if there are still valid groups
@@ -1069,11 +1078,12 @@
   socket.on('state', (s) => {
     if (leftRoom) return; // ignore stale broadcasts after leaving
     const wasFinished = state && state.finished;
-    if (state && s && window.MGHaptics && typeof deriveHapticEvents === 'function') {
-      const events = deriveHapticEvents(state, s, myId);
-      const didWin = s.finished ? didPlayerWinForState(s, myId) : false;
+    if (state && s && typeof deriveFeedbackEvents === 'function') {
+      const events = deriveFeedbackEvents(state, s, myId);
+      const ctx = { didWin: s.finished ? didPlayerWinForState(s, myId) : false, myId };
       events.forEach((event) => {
-        window.MGHaptics.trigger(event, { didWin, myId });
+        if (window.MGHaptics) window.MGHaptics.trigger(event, ctx);
+        if (window.MGSounds) window.MGSounds.play(event, ctx);
       });
     }
     state = s;
