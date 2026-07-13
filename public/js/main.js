@@ -169,6 +169,8 @@
   };
   const $ = (id) => document.getElementById(id);
 
+  if (window.MGHaptics) window.MGHaptics.init();
+
   /**
    * Resolve gaming name for create/join (signed-in input or guest input).
    *
@@ -987,11 +989,13 @@
 
   // ===================== GAME CONTROLS =====================
   $('btn-roll').addEventListener('click', () => {
+    if (window.MGHaptics) window.MGHaptics.trigger({ type: 'ui_tap', self: true });
     socket.emit('rollDice');
     $('dice-area').classList.add('rolling');
     setTimeout(() => $('dice-area').classList.remove('rolling'), 500);
   });
   $('btn-endturn').addEventListener('click', () => {
+    if (window.MGHaptics) window.MGHaptics.trigger({ type: 'ui_tap', self: true });
     if (isMyTurn() && state.rolled && anyGroupPossible()) {
       // Show confirmation popup if there are still valid groups
       $('endturn-overlay').classList.add('show');
@@ -1065,6 +1069,13 @@
   socket.on('state', (s) => {
     if (leftRoom) return; // ignore stale broadcasts after leaving
     const wasFinished = state && state.finished;
+    if (state && s && window.MGHaptics && typeof deriveHapticEvents === 'function') {
+      const events = deriveHapticEvents(state, s, myId);
+      const didWin = s.finished ? didPlayerWinForState(s, myId) : false;
+      events.forEach((event) => {
+        window.MGHaptics.trigger(event, { didWin, myId });
+      });
+    }
     state = s;
     if (s && !s.finished) hideWinOverlay();
     render();
@@ -1792,18 +1803,32 @@
   }
 
   /**
+   * Returns true when a player won the given finished game state.
+   *
+   * @param {object|null} gameState Public game state.
+   * @param {string|null} playerId Player socket id.
+   * @returns {boolean}
+   */
+  function didPlayerWinForState(gameState, playerId) {
+    if (!gameState || !gameState.finished || !playerId) return false;
+    if (gameState.teamMode && gameState.teams && gameState.winnerTeamId != null) {
+      const winTeam = gameState.teams.find((team) => team.id === gameState.winnerTeamId);
+      const playerTeam = gameState.teams.find((team) => team.members.includes(playerId));
+      return !!(winTeam && playerTeam && playerTeam.id === winTeam.id);
+    }
+    const winnerIds = gameState.winnerPlayerIds && gameState.winnerPlayerIds.length
+      ? gameState.winnerPlayerIds
+      : (gameState.winnerId ? [gameState.winnerId] : []);
+    return winnerIds.includes(playerId);
+  }
+
+  /**
    * Returns true when the local player won the finished game.
    *
    * @returns {boolean}
    */
   function didCurrentPlayerWin() {
-    if (!state || !state.finished) return false;
-    if (state.teamMode && state.teams && state.winnerTeamId != null) {
-      const winTeam = state.teams.find((team) => team.id === state.winnerTeamId);
-      const myTeam = state.teams.find((team) => team.members.includes(myId));
-      return !!(winTeam && myTeam && myTeam.id === winTeam.id);
-    }
-    return isStandardWinner(myId);
+    return didPlayerWinForState(state, myId);
   }
 
   /**
