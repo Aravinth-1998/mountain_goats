@@ -1076,6 +1076,9 @@ input.input-error:focus { border-color: var(--danger); background: rgba(255,93,1
   background: transparent;
   box-shadow: none;
 }
+#screen-home .feedback-bar[hidden] {
+  display: none !important;
+}
 #screen-home .stats-fab {
   position: absolute;
   top: 16px;
