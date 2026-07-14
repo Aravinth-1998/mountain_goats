@@ -279,7 +279,10 @@
     const title = clickable
       ? (p.id === myId ? 'Change colour' : `Change ${p.name}'s colour`)
       : '';
-    return `<span class="swatch${p.id === myId ? ' me' : ''}${clickable}" style="background:${p.color}"${clickable ? ` role="button" tabindex="0" title="${escapeHtml(title)}"` : ''}>${escapeHtml(p.name.charAt(0).toUpperCase())}</span>`;
+    const pen = clickable
+      ? '<span class="swatch-edit" aria-hidden="true">&#9999;&#65039;</span>'
+      : '';
+    return `<span class="swatch${p.id === myId ? ' me' : ''}${clickable}" style="background:${p.color}"${clickable ? ` role="button" tabindex="0" title="${escapeHtml(title)}"` : ''}>${escapeHtml(p.name.charAt(0).toUpperCase())}${pen}</span>`;
   }
   function lobbyWinsBadgeHtml(p) {
     if (typeof p.totalWins === 'number' && p.totalWins > 0) {
