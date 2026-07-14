@@ -263,19 +263,14 @@ body { background-color: var(--bg-0); }
   -webkit-background-clip: text; background-clip: text; color: transparent;
 }
 .tagline { color: var(--muted); margin: 0; font-size: 15px; }
-.home-meta-row {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  margin: 8px 0 0;
-  padding-bottom: 10px;
-  min-height: 18px;
-}
 .online-count {
   color: var(--green); font-size: 13px; font-weight: 600;
-  margin: 0; letter-spacing: 0.3px;
+  margin: 8px 0 0; letter-spacing: 0.3px;
+  padding-bottom: 10px;
+  min-height: 18px;
+  text-align: center;
 }
+#screen-home .feedback-bar .feedback-toggle,
 .feedback-toggle,
 .haptics-toggle {
   background: rgba(255,255,255,0.06);
@@ -300,11 +295,6 @@ body { background-color: var(--bg-0); }
 .haptics-toggle:focus-visible {
   outline: 2px solid var(--primary);
   outline-offset: 2px;
-}
-#screen-game .topbar .feedback-toggle,
-#screen-game .topbar .haptics-toggle {
-  width: 34px;
-  height: 34px;
 }
 
 /* Card */
@@ -1056,6 +1046,19 @@ input.input-error:focus { border-color: var(--danger); background: rgba(255,93,1
 }
 
 /* Profile stats sidebar (home screen) */
+#screen-home .feedback-bar {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  z-index: 40;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+}
 #screen-home .stats-fab {
   position: absolute;
   top: 16px;

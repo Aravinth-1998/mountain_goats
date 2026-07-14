@@ -22,7 +22,7 @@
     game_start: [20, 30, 20],
   };
 
-  let enabled = true;
+  let enabled = false;
 
   /**
    * @returns {boolean}
@@ -141,19 +141,19 @@
   }
 
   /**
-   * Read prefs and bind haptics toggle buttons.
+   * Bind haptics toggle buttons. Haptics are forced off for all users.
    *
    * @returns {void}
    */
   function init() {
+    enabled = false;
     try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      enabled = stored !== 'false';
+      localStorage.setItem(STORAGE_KEY, 'false');
     } catch (err) {
-      enabled = true;
+      // ignore storage errors
     }
 
-    syncToggleButtons(enabled);
+    syncToggleButtons(false);
 
     document.querySelectorAll('[data-haptics-toggle]').forEach((button) => {
       button.addEventListener('click', () => {

@@ -37,6 +37,11 @@
       </span>
     </button>
 
+    <div id="feedback-bar" class="feedback-bar" aria-label="Sound and haptics" hidden>
+      <button type="button" class="feedback-toggle" data-sound-toggle aria-pressed="false" aria-label="Sound off">&#128266;</button>
+      <button type="button" class="feedback-toggle" data-haptics-toggle aria-pressed="false" aria-label="Haptics off">&#128243;</button>
+    </div>
+
     <div id="profile-stats-backdrop" class="stats-backdrop" hidden aria-hidden="true"></div>
 
     <aside id="profile-stats-drawer" class="stats-drawer" hidden aria-label="Profile stats">
@@ -120,11 +125,7 @@
       <div class="goat-emoji">🐐</div>
       <h1>Mountain Goats</h1>
       <p class="tagline">Race your herd over the peaks. Play live with friends.</p>
-      <div class="home-meta-row">
-        <p id="online-count" class="online-count"></p>
-        <button type="button" class="feedback-toggle" data-sound-toggle aria-pressed="true" aria-label="Sound on">🔊</button>
-        <button type="button" class="feedback-toggle" data-haptics-toggle aria-pressed="true" aria-label="Haptics on">📳</button>
-      </div>
+      <p id="online-count" class="online-count"></p>
     </div>
 
     <input id="home-name" type="text" maxlength="16" placeholder="Enter your GOAT name" autocomplete="off" style="text-align:center" />
@@ -282,8 +283,6 @@
     <div class="topbar">
       <div class="room-pill">Room <strong id="game-code">----</strong></div>
       <div id="turn-banner" class="turn-banner">—</div>
-      <button type="button" class="feedback-toggle" data-sound-toggle aria-pressed="true" aria-label="Sound on">🔊</button>
-      <button type="button" class="feedback-toggle" data-haptics-toggle aria-pressed="true" aria-label="Haptics on">📳</button>
       <button class="icon-btn" id="game-leave">Leave</button>
     </div>
 

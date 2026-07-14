@@ -20,7 +20,7 @@
     game_end_loss: '/audio/lose.wav',
   };
 
-  let enabled = true;
+  let enabled = false;
   let unlocked = false;
   const pool = new Map();
 
@@ -189,23 +189,23 @@
   }
 
   /**
-   * Preload clips, read prefs, and bind toggle buttons.
+   * Preload clips and bind toggle buttons. Sound is forced off for all users.
    *
    * @returns {void}
    */
   function init() {
+    enabled = false;
     try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      enabled = stored !== 'false';
+      localStorage.setItem(STORAGE_KEY, 'false');
     } catch (err) {
-      enabled = true;
+      // ignore storage errors
     }
 
     Object.values(CLIPS).forEach((src) => {
       getBaseAudio(src);
     });
 
-    syncToggleButtons(enabled);
+    syncToggleButtons(false);
 
     document.querySelectorAll('[data-sound-toggle]').forEach((button) => {
       button.addEventListener('click', () => {
