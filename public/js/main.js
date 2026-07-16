@@ -792,6 +792,48 @@
     }
   }
 
+  /**
+   * Prepare a cloned win card for html2canvas so entrance animations and
+   * count-up zeros do not produce a blank or partial screenshot.
+   *
+   * @param {Document} clonedDoc Document clone passed to html2canvas onclone.
+   * @returns {void}
+   */
+  function prepareWinCardClone(clonedDoc) {
+    if (!clonedDoc) return;
+    const card = clonedDoc.querySelector('#win-overlay .overlay-card')
+      || clonedDoc.querySelector('.overlay-card');
+    if (!card) return;
+
+    const actions = card.querySelector('.win-actions');
+    if (actions) actions.style.display = 'none';
+
+    const animated = card.querySelectorAll(
+      '.win-head, .trophy, .score-row, .win-extra, .overlay-card'
+    );
+    animated.forEach((el) => {
+      el.style.animation = 'none';
+      el.style.opacity = '1';
+      el.style.transform = 'none';
+    });
+    card.style.animation = 'none';
+    card.style.opacity = '1';
+    card.style.transform = 'none';
+
+    const overlay = clonedDoc.getElementById('win-overlay');
+    if (overlay) {
+      overlay.style.animation = 'none';
+      overlay.style.opacity = '1';
+      overlay.style.transform = 'none';
+    }
+
+    card.querySelectorAll('.sb-count-score, .sb-count-tops').forEach((el) => {
+      if (el.dataset.target != null && el.dataset.target !== '') {
+        el.textContent = el.dataset.target;
+      }
+    });
+  }
+
   function shareWinResult() {
     if (!state) return;
     const sorted = [...state.players].sort((a, b) => b.score - a.score || b.tops - a.tops);
@@ -845,6 +887,7 @@
         scale: 2,
         useCORS: true,
         logging: false,
+        onclone: (clonedDoc) => prepareWinCardClone(clonedDoc),
       }).then((canvas) => {
         if (actions) actions.style.display = '';
         canvas.toBlob((blob) => {
@@ -861,13 +904,12 @@
               files: [file],
             }).catch(() => shareTextOnly(text));
           } else if (navigator.share) {
-            // Can share text but not files — share text only (no download)
+            // Can share text but not files — share text and still save PNG
             shareTextOnly(text);
+            downloadImage(canvas);
           } else {
-            // No share API at all (desktop) — copy text to clipboard
-            if (navigator.clipboard) {
-              navigator.clipboard.writeText(text).then(() => toast('Result copied! 📋'));
-            }
+            // No share API (desktop) — download the restored PNG
+            downloadImage(canvas);
           }
         }, 'image/png');
       }).catch(() => {
