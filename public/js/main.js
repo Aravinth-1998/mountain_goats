@@ -987,9 +987,12 @@
 
   /**
    * Rejoin a saved room when socket is ready and a play name is available.
+   * Also re-binds after socket id changes (auth reconnect) even if state exists.
    */
   async function tryRejoin() {
-    if (!socket.connected || rejoinInFlight || leftRoom || state) return;
+    if (!socket.connected || rejoinInFlight || leftRoom) return;
+    // Already bound to this socket — nothing to do.
+    if (state && myId === socket.id) return;
 
     const code = localStorage.getItem('mg_code');
     if (!code) {
@@ -1010,10 +1013,24 @@
         if (res && res.ok) {
           myId = res.youId;
           storeRejoinKeys(name, code);
+          // Rejoin broadcast may not re-trigger showWin (already finished).
+          if (state && state.finished) {
+            const overlay = $('win-overlay');
+            if (overlay && !overlay.classList.contains('show')) showWin();
+          }
         } else {
           localStorage.removeItem('mg_code');
           localStorage.removeItem('mg_name');
-          show('home');
+          // Keep the scorecard if we already have a finished game locally.
+          if (state && state.finished) {
+            toast((res && res.error) ? res.error : 'Room closed. You can still view the result.');
+            const overlay = $('win-overlay');
+            if (overlay && !overlay.classList.contains('show')) showWin();
+          } else {
+            state = null;
+            hideWinOverlay();
+            show('home');
+          }
         }
       });
     } catch (err) {
@@ -1134,7 +1151,12 @@
     state = s;
     if (s && !s.finished) hideWinOverlay();
     render();
-    if (s.finished && !wasFinished) showWin();
+    if (s.finished && !wasFinished) {
+      showWin();
+    } else if (s.finished) {
+      const overlay = $('win-overlay');
+      if (overlay && !overlay.classList.contains('show')) showWin();
+    }
     if (s && !s.started && isSignedIn()) {
       refreshLobbyPresence();
     }
@@ -1905,13 +1927,28 @@
   }
 
   function showWin() {
-    const winner = state.players.find((p) => p.id === state.winnerId);
-    if (!winner) return;
+    if (!state || !state.finished) return;
+
+    let winner = state.players.find((p) => p.id === state.winnerId) || null;
+    if (!winner && state.winnerPlayerIds && state.winnerPlayerIds.length) {
+      winner = state.players.find((p) => p.id === state.winnerPlayerIds[0]) || null;
+    }
+    if (!winner) {
+      const ranked = [...state.players].sort((a, b) => b.score - a.score || b.tops - a.tops);
+      winner = ranked[0] || null;
+    }
 
     if (state.teamMode && state.teams && state.winnerTeamId != null) {
       // Team mode win screen
       const winTeam = state.teams.find((t) => t.id === state.winnerTeamId);
-      if (!winTeam) return;
+      if (!winTeam) {
+        $('win-title').textContent = 'Game Over!';
+        $('win-sub').innerHTML = '';
+        $('btn-playagain').style.display = state.hostId === myId ? 'block' : 'none';
+        updateWinStatsBanner(didCurrentPlayerWin());
+        revealWinOverlay();
+        return;
+      }
       // Check if I'm on the winning team
       const myTeam = state.teams.find((t) => t.members.includes(myId));
       const myTeamWon = myTeam && myTeam.id === winTeam.id;
@@ -1953,7 +1990,7 @@
       document.querySelector('#win-overlay .win-actions').style.setProperty('--rows', String(rowIdx));
     } else {
       // Standard mode win screen
-      $('win-title').textContent = standardWinTitle();
+      $('win-title').textContent = winner ? standardWinTitle() : 'Game Over!';
       const sorted = [...state.players].sort((a, b) => b.score - a.score || b.tops - a.tops);
       const winnerSlots = winnerSlotCount(state.players.length);
       const rows = sorted.map((p, i) => {
@@ -1967,17 +2004,19 @@
       }).join('');
 
       // Only show tie-break note if it actually mattered.
-      const topScore = winner.score;
-      const tied = state.players.filter(p => p.score === topScore);
       let extraIdx = sorted.length;
       let tieNote = '';
-      if (tied.length > 1) {
-        const topTops = winner.tops;
-        const tiedOnTops = tied.filter(p => p.tops === topTops);
-        if (tiedOnTops.length > 1) {
-          tieNote = `<div class="tiebreak win-extra" style="--i:${extraIdx++}">🏔️ Tie broken by goat on the higher-numbered mountain.</div>`;
-        } else {
-          tieNote = `<div class="tiebreak win-extra" style="--i:${extraIdx++}">👑 Tie broken by most goats on mountain tops.</div>`;
+      if (winner) {
+        const topScore = winner.score;
+        const tied = state.players.filter((p) => p.score === topScore);
+        if (tied.length > 1) {
+          const topTops = winner.tops;
+          const tiedOnTops = tied.filter((p) => p.tops === topTops);
+          if (tiedOnTops.length > 1) {
+            tieNote = `<div class="tiebreak win-extra" style="--i:${extraIdx++}">🏔️ Tie broken by goat on the higher-numbered mountain.</div>`;
+          } else {
+            tieNote = `<div class="tiebreak win-extra" style="--i:${extraIdx++}">👑 Tie broken by most goats on mountain tops.</div>`;
+          }
         }
       }
 

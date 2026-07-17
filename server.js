@@ -1310,6 +1310,10 @@ io.on('connection', (socket) => {
         clearTimeout(existing._lobbyCleanup);
         existing._lobbyCleanup = null;
       }
+      if (room._finishedCleanup) {
+        clearTimeout(room._finishedCleanup);
+        room._finishedCleanup = null;
+      }
       if (wasDisconnected) {
         pushLog(room, `${name} reconnected. 👋`);
       }
@@ -1822,9 +1826,23 @@ function handleDisconnect(socket, immediate = false) {
     if (!hasHuman(room)) {
       if (room.botTimer) clearTimeout(room.botTimer);
       if (room.watchdog) clearInterval(room.watchdog);
+      // Finished games: keep the room briefly so clients can rejoin and see the scorecard
+      // after short disconnects (auth socket refresh, mobile backgrounding).
+      if (room.finished) {
+        if (!room._finishedCleanup) {
+          room._finishedCleanup = setTimeout(() => {
+            room._finishedCleanup = null;
+            if (!rooms[room.code]) return;
+            if (hasHuman(room)) return;
+            delete rooms[room.code];
+          }, 10 * 60 * 1000);
+        }
+        broadcast(room);
+        return;
+      }
       // The last human left an in-progress game. Record it as abandoned so it
       // still appears in the admin history instead of vanishing silently.
-      if (room.started && !room.finished) {
+      if (room.started) {
         recordGameHistory(room, { abandoned: true });
       }
       delete rooms[room.code];
