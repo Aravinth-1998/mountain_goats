@@ -450,6 +450,25 @@
     });
   });
 
+  document.querySelectorAll('.rules-content').forEach((panel) => {
+    panel.addEventListener('click', (e) => {
+      const tab = e.target.closest('.rules-tab');
+      if (!tab || !panel.contains(tab)) return;
+      const mode = tab.getAttribute('data-rules-tab');
+      if (!mode) return;
+      panel.querySelectorAll('.rules-tab').forEach((t) => {
+        const on = t === tab;
+        t.classList.toggle('is-active', on);
+        t.setAttribute('aria-selected', on ? 'true' : 'false');
+      });
+      panel.querySelectorAll('.rules-pane').forEach((pane) => {
+        const on = pane.getAttribute('data-rules-pane') === mode;
+        pane.classList.toggle('is-active', on);
+        pane.hidden = !on;
+      });
+    });
+  });
+
   /**
    * Build a fallback avatar URL for leaderboard rows.
    *

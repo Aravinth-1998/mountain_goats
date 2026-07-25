@@ -159,25 +159,30 @@
     <div class="card rules-toggle">
       <button class="rules-toggle-btn" data-target="home-rules-content">📖 How to Play <span class="toggle-arrow">▾</span></button>
       <div id="home-rules-content" class="rules-content">
-        <p style="font-size:13px;color:var(--gold);font-weight:700;margin:0 0 6px">🐐 Standard Rules</p>
-        <ol>
-          <li>Six mountains <b>5–10</b>. You have a 🐐 at the foot of each. Heights: 5,6→4; 7,8→3; 9,10→2.</li>
-          <li>On your turn, <b>roll 4 dice</b> (multiple 1s: keep one, re‑face the rest).</li>
-          <li><b>Group</b> dice — each group whose <b>sum is 5–10</b> moves that mountain's goat up one space.</li>
-          <li>Reach a <b>top</b> to take a Point Token (and bump the goat there off). Already on top? A match harvests another token.</li>
-          <li>Collect from <b>all 6 mountains</b> (a set) to claim a <b>Bonus Token</b> ✨ (15/12/9/6).</li>
-          <li>End when all Bonus Tokens are gone or 3 mountains empty, then equal turns. <b>Most points wins. 🏆</b></li>
-        </ol>
-        <p style="font-size:13px;color:var(--primary);font-weight:700;margin:14px 0 6px">👥 Team Rules</p>
-        <ol style="color:var(--muted);font-size:13px;line-height:1.6">
-          <li>Teams of <b>2 or 3</b> players share a combined score. Supported: 4p→2 teams, 6p→2 or 3 teams.</li>
-          <li><b>Teammates can share summits</b> — no bumping between teammates.</li>
-          <li>Each player <b>collects their own tokens</b>, even if a teammate is already on that summit.</li>
-          <li>If an <b>opposing player</b> reaches a team-held summit, <b>all</b> teammate goats there are bumped back to base (<b>Team Wipeout</b>).</li>
-          <li>Turns <b>alternate between teams</b> (Red→Blue→Red→Blue…).</li>
-          <li>Team with the <b>highest combined score</b> wins. Same tie‑break rules apply at team level.</li>
-        </ol>
-        <p style="font-size:11px;color:var(--muted);opacity:0.6;margin:10px 0 0;font-style:italic">⚠️ Team rules are a custom variant designed by the developer and are not part of the official Mountain Goats game.</p>
+        <div class="rules-tabs" role="tablist" aria-label="Rules mode">
+          <button type="button" class="rules-tab is-active" role="tab" aria-selected="true" data-rules-tab="standard">🐐 Standard</button>
+          <button type="button" class="rules-tab" role="tab" aria-selected="false" data-rules-tab="team">👥 Team</button>
+        </div>
+        <div class="rules-pane is-active" data-rules-pane="standard" role="tabpanel">
+          <ol>
+            <li>Six mountains <b>5–10</b>. You have a 🐐 at the foot of each. Heights: 5,6→4; 7,8→3; 9,10→2.</li>
+            <li>On your turn, <b>roll 4 dice</b> (multiple 1s: keep one, re‑face the rest).</li>
+            <li><b>Group</b> dice — each group whose <b>sum is 5–10</b> moves that mountain's goat up one space.</li>
+            <li>Reach a <b>top</b> to take a Point Token (and bump the goat there off). Already on top? A match harvests another token.</li>
+            <li>Collect from <b>all 6 mountains</b> (a set) to claim a <b>Bonus Token</b> ✨ (15/12/9/6).</li>
+            <li>End when all Bonus Tokens are gone or 3 mountains empty, then equal turns. <b>Most points wins. 🏆</b></li>
+          </ol>
+        </div>
+        <div class="rules-pane" data-rules-pane="team" role="tabpanel" hidden>
+          <ol>
+            <li>Teams of <b>2 or 3</b> players share a combined score. Supported: 4p→2 teams, 6p→2 or 3 teams.</li>
+            <li><b>Teammates can share summits</b> — no bumping between teammates.</li>
+            <li>Each player <b>collects their own tokens</b>, even if a teammate is already on that summit.</li>
+            <li>If an <b>opposing player</b> reaches a team-held summit, <b>all</b> teammate goats there are bumped back to base (<b>Team Wipeout</b>).</li>
+            <li>Turns <b>alternate between teams</b> (Red→Blue→Red→Blue…).</li>
+            <li>Team with the <b>highest combined score</b> wins. Same tie‑break rules apply at team level.</li>
+          </ol>
+        </div>
       </div>
     </div>
 
@@ -325,25 +330,30 @@
     <div class="card rules-toggle">
       <button class="rules-toggle-btn" data-target="lobby-rules-content">📖 How to Play <span class="toggle-arrow">▾</span></button>
       <div id="lobby-rules-content" class="rules-content">
-        <p style="font-size:13px;color:var(--gold);font-weight:700;margin:0 0 6px">🐐 Standard Rules</p>
-        <ol>
-          <li>Six mountains <b>5–10</b>. You have a 🐐 at the foot of each. Heights: 5,6→4; 7,8→3; 9,10→2.</li>
-          <li>On your turn, <b>roll 4 dice</b> (multiple 1s: keep one, re‑face the rest).</li>
-          <li><b>Group</b> dice — each group whose <b>sum is 5–10</b> moves that mountain's goat up one space.</li>
-          <li>Reach a <b>top</b> to take a Point Token (and bump the goat there off). Already on top? A match harvests another token.</li>
-          <li>Collect from <b>all 6 mountains</b> (a set) to claim a <b>Bonus Token</b> ✨ (15/12/9/6).</li>
-          <li>End when all Bonus Tokens are gone or 3 mountains empty, then equal turns. <b>Most points wins. 🏆</b></li>
-        </ol>
-        <p style="font-size:13px;color:var(--primary);font-weight:700;margin:14px 0 6px">👥 Team Rules</p>
-        <ol style="color:var(--muted);font-size:13px;line-height:1.6">
-          <li>Teams of <b>2 or 3</b> players share a combined score. Supported: 4p→2 teams, 6p→2 or 3 teams.</li>
-          <li><b>Teammates can share summits</b> — no bumping between teammates.</li>
-          <li>Each player <b>collects their own tokens</b>, even if a teammate is already on that summit.</li>
-          <li>If an <b>opposing player</b> reaches a team-held summit, <b>all</b> teammate goats there are bumped back to base (<b>Team Wipeout</b>).</li>
-          <li>Turns <b>alternate between teams</b> (Red→Blue→Red→Blue…).</li>
-          <li>Team with the <b>highest combined score</b> wins. Same tie‑break rules apply at team level.</li>
-        </ol>
-        <p style="font-size:11px;color:var(--muted);opacity:0.6;margin:10px 0 0;font-style:italic">⚠️ Team rules are a custom variant designed by the developer and are not part of the official Mountain Goats game.</p>
+        <div class="rules-tabs" role="tablist" aria-label="Rules mode">
+          <button type="button" class="rules-tab is-active" role="tab" aria-selected="true" data-rules-tab="standard">🐐 Standard</button>
+          <button type="button" class="rules-tab" role="tab" aria-selected="false" data-rules-tab="team">👥 Team</button>
+        </div>
+        <div class="rules-pane is-active" data-rules-pane="standard" role="tabpanel">
+          <ol>
+            <li>Six mountains <b>5–10</b>. You have a 🐐 at the foot of each. Heights: 5,6→4; 7,8→3; 9,10→2.</li>
+            <li>On your turn, <b>roll 4 dice</b> (multiple 1s: keep one, re‑face the rest).</li>
+            <li><b>Group</b> dice — each group whose <b>sum is 5–10</b> moves that mountain's goat up one space.</li>
+            <li>Reach a <b>top</b> to take a Point Token (and bump the goat there off). Already on top? A match harvests another token.</li>
+            <li>Collect from <b>all 6 mountains</b> (a set) to claim a <b>Bonus Token</b> ✨ (15/12/9/6).</li>
+            <li>End when all Bonus Tokens are gone or 3 mountains empty, then equal turns. <b>Most points wins. 🏆</b></li>
+          </ol>
+        </div>
+        <div class="rules-pane" data-rules-pane="team" role="tabpanel" hidden>
+          <ol>
+            <li>Teams of <b>2 or 3</b> players share a combined score. Supported: 4p→2 teams, 6p→2 or 3 teams.</li>
+            <li><b>Teammates can share summits</b> — no bumping between teammates.</li>
+            <li>Each player <b>collects their own tokens</b>, even if a teammate is already on that summit.</li>
+            <li>If an <b>opposing player</b> reaches a team-held summit, <b>all</b> teammate goats there are bumped back to base (<b>Team Wipeout</b>).</li>
+            <li>Turns <b>alternate between teams</b> (Red→Blue→Red→Blue…).</li>
+            <li>Team with the <b>highest combined score</b> wins. Same tie‑break rules apply at team level.</li>
+          </ol>
+        </div>
       </div>
     </div>
   </section>

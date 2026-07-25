@@ -594,6 +594,35 @@ input.input-error:focus { border-color: var(--danger); background: rgba(255,93,1
 .rules-content ol { margin: 4px 0 0; padding-left: 18px; color: var(--muted); line-height: 1.7; font-size: 14px; }
 .rules-content b { color: var(--text); }
 
+.rules-tabs {
+  display: flex;
+  gap: 6px;
+  margin: 10px 0 12px;
+  padding: 3px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--card-border);
+}
+.rules-tab {
+  flex: 1;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--muted);
+  font-family: 'Fredoka', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color .15s, background .15s;
+}
+.rules-tab:hover { color: var(--text); }
+.rules-tab.is-active {
+  background: rgba(255, 209, 102, 0.16);
+  color: var(--gold);
+}
+.rules-pane[hidden] { display: none; }
+
 /* Home leaderboard */
 .leaderboard-content.open {
   max-height: 660px;
