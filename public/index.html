@@ -370,7 +370,7 @@
     <div class="topbar">
       <div class="room-pill">Room <strong id="game-code">----</strong></div>
       <div id="turn-banner" class="turn-banner">—</div>
-      <button class="icon-btn" id="game-leave">Leave</button>
+      <button type="button" class="icon-btn" id="game-leave">Leave</button>
     </div>
 
     <!-- Players stats -->
@@ -388,9 +388,13 @@
     <div class="control-dock">
       <p id="sel-sum" class="sel-sum"></p>
       <div id="dice-area" class="dice-area"></div>
-      <div class="control-buttons">
+      <div class="control-buttons" id="play-controls">
         <button id="btn-roll" class="btn btn-primary">Roll Dice</button>
         <button id="btn-endturn" class="btn btn-ghost">End Turn</button>
+      </div>
+      <div class="control-buttons finished-controls" id="finished-controls" hidden>
+        <button type="button" id="btn-game-lobby" class="btn btn-primary" hidden>Back to Lobby</button>
+        <button type="button" id="btn-results" class="btn btn-ghost" hidden>Results</button>
       </div>
       <p id="game-hint" class="game-hint">—</p>
     </div>
@@ -406,9 +410,9 @@
       </div>
       <div id="win-sub" class="muted"></div>
       <div class="win-actions">
+        <button type="button" id="btn-view-board" class="btn btn-ghost btn-block">View board</button>
+        <button id="btn-home" class="btn btn-primary btn-block">Back to Lobby</button>
         <button id="btn-win-share" class="btn btn-ghost btn-block">Share Result 🔗</button>
-        <button id="btn-playagain" class="btn btn-primary btn-block">Play Again</button>
-        <button id="btn-home" class="btn btn-ghost btn-block">Back to Home</button>
       </div>
     </div>
   </div>

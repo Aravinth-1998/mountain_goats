@@ -31,9 +31,6 @@
     socket.disconnect();
   }
 
-  window.addEventListener('pagehide', disconnectSocketOnUnload);
-  window.addEventListener('beforeunload', disconnectSocketOnUnload);
-
   let socketAuthInFlight = null;
   let socketConnectionHasAuth = false;
 
@@ -621,6 +618,9 @@
         clearHomeLoading();
         if (res.error) return ($('home-error').textContent = res.error);
         leftRoom = false;
+        scorecardHold = false;
+        waitingForLobbyAfterDismiss = false;
+        clearScorecardDone(res.code);
         myId = res.youId;
         storeRejoinKeys(name, res.code);
       });
@@ -671,6 +671,8 @@
         $('btn-join').textContent = 'Join Room';
         if (res.error) return ($('join-error').textContent = res.error);
         leftRoom = false;
+        scorecardHold = false;
+        waitingForLobbyAfterDismiss = false;
         myId = res.youId;
         storeRejoinKeys(name, res.code);
         stopPublicRoomsRefresh();
@@ -734,6 +736,8 @@
                 joinBtn.textContent = 'Join';
                 if (res.error) return ($('join-error').textContent = res.error);
                 leftRoom = false;
+                scorecardHold = false;
+                waitingForLobbyAfterDismiss = false;
                 myId = res.youId;
                 storeRejoinKeys(name, res.code);
                 stopPublicRoomsRefresh();
@@ -980,6 +984,214 @@
   }
   let leftRoom = false; // flag to ignore state broadcasts after leaving
   let rejoinInFlight = false;
+  /** Keep win overlay visible after host Play Again until Back to Lobby. */
+  let scorecardHold = false;
+  /** Dismissed scorecard while room still finished; show lobby when host resets. */
+  let waitingForLobbyAfterDismiss = false;
+
+  /**
+   * Storage key for a dismissed end-game scorecard in a room.
+   *
+   * @param {string|null|undefined} code Room code.
+   * @returns {string|null}
+   */
+  function scorecardDoneKey(code) {
+    return code ? `mg_scorecard_done_${code}` : null;
+  }
+
+  /**
+   * sessionStorage key for an explicit Back to Lobby / Play Again dismiss.
+   *
+   * @param {string|null|undefined} code Room code.
+   * @returns {string|null}
+   */
+  function scorecardUserDismissKey(code) {
+    return code ? `mg_scorecard_user_dismiss_${code}` : null;
+  }
+
+  /**
+   * Returns true when the user already dismissed the scorecard for this room.
+   *
+   * @param {string|null|undefined} code Room code.
+   * @returns {boolean}
+   */
+  function isScorecardDone(code) {
+    const key = scorecardDoneKey(code);
+    if (!key) return false;
+    return !!(sessionStorage.getItem(key) || localStorage.getItem(key));
+  }
+
+  /**
+   * Persist that the scorecard was dismissed for this room.
+   * Uses sessionStorage (plan) and localStorage so tab-close survives reopen.
+   *
+   * @param {string|null|undefined} code Room code.
+   * @returns {void}
+   */
+  function markScorecardDone(code) {
+    const key = scorecardDoneKey(code);
+    if (!key) return;
+    sessionStorage.setItem(key, '1');
+    localStorage.setItem(key, '1');
+  }
+
+  /**
+   * Mark an intentional dismiss so a later refresh does not reopen the scorecard.
+   *
+   * @param {string|null|undefined} code Room code.
+   * @returns {void}
+   */
+  function markScorecardUserDismiss(code) {
+    const key = scorecardUserDismissKey(code);
+    if (key) sessionStorage.setItem(key, '1');
+    markScorecardDone(code);
+  }
+
+  /**
+   * Clear dismissed scorecard flag (new finished match or new room).
+   *
+   * @param {string|null|undefined} code Room code.
+   * @returns {void}
+   */
+  function clearScorecardDone(code) {
+    const key = scorecardDoneKey(code);
+    const dismissKey = scorecardUserDismissKey(code);
+    if (key) {
+      sessionStorage.removeItem(key);
+      localStorage.removeItem(key);
+    }
+    if (dismissKey) sessionStorage.removeItem(dismissKey);
+  }
+
+  // Refresh while viewing scorecard: allow it to show once (pagehide also marks done).
+  try {
+    const navEntry = performance.getEntriesByType('navigation')[0];
+    const reloadCode = localStorage.getItem('mg_code');
+    if (navEntry && navEntry.type === 'reload' && reloadCode) {
+      const userDismiss = scorecardUserDismissKey(reloadCode);
+      if (!userDismiss || !sessionStorage.getItem(userDismiss)) {
+        const doneKey = scorecardDoneKey(reloadCode);
+        if (doneKey) {
+          sessionStorage.removeItem(doneKey);
+          localStorage.removeItem(doneKey);
+        }
+      }
+    }
+  } catch (err) {
+    /* ignore */
+  }
+
+  /**
+   * Leave the scorecard into the lobby without leaving the room.
+   *
+   * @returns {void}
+   */
+  function dismissScorecardToLobby() {
+    const code = state && state.code;
+    if (code) markScorecardUserDismiss(code);
+    scorecardHold = false;
+    hideWinOverlay();
+    if (!state) {
+      waitingForLobbyAfterDismiss = false;
+      show('home');
+      return;
+    }
+    if (!state.started) {
+      waitingForLobbyAfterDismiss = false;
+      show('lobby');
+      renderLobby();
+      return;
+    }
+    if (state.finished) {
+      // Host opens the lobby for everyone; others wait until that happens.
+      if (state.hostId === myId) {
+        waitingForLobbyAfterDismiss = false;
+        socket.emit('playAgain');
+        return;
+      }
+      waitingForLobbyAfterDismiss = true;
+      toast('Waiting for the host to open the lobby…');
+      updateFinishedGameChrome();
+      return;
+    }
+    waitingForLobbyAfterDismiss = false;
+    show('game');
+    renderGame();
+  }
+
+  /**
+   * Dismiss the scorecard and show the finished board without leaving the room.
+   *
+   * @returns {void}
+   */
+  function viewBoardFromScorecard() {
+    const code = state && state.code;
+    if (code) markScorecardUserDismiss(code);
+    scorecardHold = false;
+    waitingForLobbyAfterDismiss = false;
+    hideWinOverlay();
+    if (!state) {
+      show('home');
+      return;
+    }
+    show('game');
+    renderGame();
+  }
+
+  /**
+   * Toggle Results / Back to Lobby / dice controls for a finished match.
+   *
+   * @returns {void}
+   */
+  function updateFinishedGameChrome() {
+    const finished = !!(state && state.started && state.finished);
+    const resultsBtn = $('btn-results');
+    const lobbyBtn = $('btn-game-lobby');
+    const playControls = $('play-controls');
+    const finishedControls = $('finished-controls');
+    const diceArea = $('dice-area');
+    const selSum = $('sel-sum');
+
+    if (playControls) playControls.hidden = finished;
+    if (diceArea) diceArea.hidden = finished;
+    if (selSum) selSum.hidden = finished;
+
+    if (finishedControls) finishedControls.hidden = !finished;
+    if (resultsBtn) resultsBtn.hidden = !finished;
+    if (lobbyBtn) lobbyBtn.hidden = !finished;
+  }
+
+  /**
+   * From the finished board: go to lobby (host resets the room for everyone).
+   *
+   * @returns {void}
+   */
+  function backToLobbyFromBoard() {
+    dismissScorecardToLobby();
+  }
+
+  /**
+   * Mark scorecard dismissed for this room so close/reopen skips it.
+   *
+   * @returns {void}
+   */
+  function markScorecardDoneOnUnload() {
+    if (!state || !state.finished || !state.code) return;
+    const overlay = $('win-overlay');
+    const overlayShown = overlay && overlay.classList.contains('show');
+    if (scorecardHold || overlayShown) {
+      markScorecardDone(state.code);
+    }
+  }
+
+  window.addEventListener('pagehide', () => {
+    markScorecardDoneOnUnload();
+    disconnectSocketOnUnload();
+  });
+  window.addEventListener('beforeunload', () => {
+    markScorecardDoneOnUnload();
+    disconnectSocketOnUnload();
+  });
 
   /**
    * Re-sync lobby presence so signed-in wins load after auth connects.
@@ -1044,13 +1256,18 @@
     }
 
     rejoinInFlight = true;
-    leftRoom = false;
+    const dismissedFinished = isScorecardDone(code) && state && state.finished;
+    if (!dismissedFinished) leftRoom = false;
     try {
       const payload = await buildRoomPayload({ name, code });
       socket.emit('joinRoom', payload, (res) => {
         rejoinInFlight = false;
         if (res && res.ok) {
           myId = res.youId;
+          // Intentionally dismissed or left: do not restore scorecard via rejoin keys.
+          if (leftRoom || isScorecardDone(code)) {
+            return;
+          }
           storeRejoinKeys(name, code);
           // Rejoin broadcast may not re-trigger showWin (already finished).
           if (state && state.finished) {
@@ -1060,13 +1277,15 @@
         } else {
           localStorage.removeItem('mg_code');
           localStorage.removeItem('mg_name');
-          // Keep the scorecard if we already have a finished game locally.
-          if (state && state.finished) {
+          // Keep the scorecard if we already have a finished game locally (and not dismissed).
+          if (state && state.finished && !isScorecardDone(code)) {
             toast((res && res.error) ? res.error : 'Room closed. You can still view the result.');
             const overlay = $('win-overlay');
             if (overlay && !overlay.classList.contains('show')) showWin();
-          } else {
+          } else if (!(state && state.finished && scorecardHold)) {
             state = null;
+            scorecardHold = false;
+            waitingForLobbyAfterDismiss = false;
             hideWinOverlay();
             show('home');
           }
@@ -1080,6 +1299,9 @@
 
   function leaveToHome() {
     leftRoom = true;
+    scorecardHold = false;
+    waitingForLobbyAfterDismiss = false;
+    if (state && state.code) clearScorecardDone(state.code);
     socket.emit('leaveRoom');
     state = null;
     lobbyWinsRefreshAttempts.clear();
@@ -1120,19 +1342,25 @@
   $('btn-endturn-cancel').addEventListener('click', () => {
     $('endturn-overlay').classList.remove('show');
   });
-  $('btn-playagain').addEventListener('click', () => {
-    hideWinOverlay(); // close immediately
-    socket.emit('playAgain');
+  $('btn-game-lobby').addEventListener('click', () => {
+    backToLobbyFromBoard();
+  });
+  $('btn-view-board').addEventListener('click', () => {
+    viewBoardFromScorecard();
+  });
+  $('btn-results').addEventListener('click', () => {
+    showWin({ force: true });
   });
   $('btn-home').addEventListener('click', () => {
-    hideWinOverlay();
-    leaveToHome();
+    dismissScorecardToLobby();
   });
   $('btn-win-share').addEventListener('click', shareWinResult);
 
   // Handle being kicked by the host
   socket.on('kicked', (data) => {
     leftRoom = true;
+    scorecardHold = false;
+    waitingForLobbyAfterDismiss = false;
     state = null;
     localStorage.removeItem('mg_code');
     localStorage.removeItem('mg_name');
@@ -1178,7 +1406,8 @@
 
   socket.on('state', (s) => {
     if (leftRoom) return; // ignore stale broadcasts after leaving
-    const wasFinished = state && state.finished;
+    const wasFinished = !!(state && state.finished);
+    const prevCode = state && state.code;
     if (state && s && typeof deriveFeedbackEvents === 'function') {
       const events = deriveFeedbackEvents(state, s, myId);
       const ctx = { didWin: s.finished ? didPlayerWinForState(s, myId) : false, myId };
@@ -1188,14 +1417,42 @@
       });
     }
     state = s;
-    if (s && !s.finished) hideWinOverlay();
-    render();
-    if (s.finished && !wasFinished) {
-      showWin();
-    } else if (s.finished) {
-      const overlay = $('win-overlay');
-      if (overlay && !overlay.classList.contains('show')) showWin();
+
+    if (prevCode && s && prevCode !== s.code) {
+      scorecardHold = false;
+      waitingForLobbyAfterDismiss = false;
     }
+
+    // New finished match: allow scorecard again for this room.
+    if (s && s.finished && !wasFinished) {
+      clearScorecardDone(s.code);
+    }
+
+    // Host Play Again: keep overlay if still holding; otherwise close.
+    if (s && !s.finished && !scorecardHold) {
+      hideWinOverlay();
+    }
+
+    if (waitingForLobbyAfterDismiss && s && !s.started) {
+      waitingForLobbyAfterDismiss = false;
+      scorecardHold = false;
+      hideWinOverlay();
+      show('lobby');
+      renderLobby();
+    } else {
+      render();
+    }
+
+    const done = !!(s && isScorecardDone(s.code));
+    if (s && s.finished && !done) {
+      if (!wasFinished) {
+        showWin();
+      } else if (scorecardHold) {
+        const overlay = $('win-overlay');
+        if (overlay && !overlay.classList.contains('show')) showWin();
+      }
+    }
+
     if (s && !s.started && isSignedIn()) {
       refreshLobbyPresence();
     }
@@ -1239,6 +1496,11 @@
   // ===================== RENDER =====================
   function render() {
     if (!state) return;
+    // Holding the scorecard: refresh lobby DOM behind the overlay, do not yank screens.
+    if (scorecardHold) {
+      if (!state.started) renderLobby();
+      return;
+    }
     if (!state.started) {
       show('lobby');
       renderLobby();
@@ -1439,6 +1701,7 @@
     try { renderBoard(); } catch(e) { console.error('renderBoard', e); }
     try { renderDice(); } catch(e) { console.error('renderDice', e); }
     try { renderControls(); } catch(e) { console.error('renderControls', e); }
+    try { updateFinishedGameChrome(); } catch(e) { console.error('updateFinishedGameChrome', e); }
   }
 
   function syncSelection() {
@@ -1455,6 +1718,12 @@
 
   function renderTurnBanner() {
     const banner = $('turn-banner');
+    if (state && state.finished) {
+      banner.textContent = 'Game over';
+      banner.classList.remove('my-turn');
+      banner.classList.remove('final');
+      return;
+    }
     const cur = state.players[state.currentIndex];
     if (!cur) { banner.textContent = '—'; return; }
     const finalTag = state.lastRound ? '🔔 Final · ' : '';
@@ -1654,6 +1923,11 @@
 
   function renderDice() {
     const area = $('dice-area');
+    if (!area) return;
+    if (state && state.finished) {
+      area.innerHTML = '';
+      return;
+    }
     area.innerHTML = '';
     const mine = isMyTurn();
     if (!state.rolled || !state.dice) {
@@ -1696,13 +1970,14 @@
 
   function renderControls() {
     const mine = isMyTurn();
-    $('btn-roll').disabled = !mine || state.rolled;
-    $('btn-endturn').disabled = !mine || !state.rolled;
+    const finished = !!(state && state.finished);
+    $('btn-roll').disabled = finished || !mine || state.rolled;
+    $('btn-endturn').disabled = finished || !mine || !state.rolled;
 
     const sumEl = $('sel-sum');
     const sum = selectedSum();
     const tMi = targetMountain();
-    if (mine && state.rolled && selected.size) {
+    if (!finished && mine && state.rolled && selected.size) {
       sumEl.textContent = tMi >= 0 ? `Group = ${sum} → tap Mountain ${sum}` : `Group = ${sum} (no mountain)`;
       sumEl.classList.toggle('ok', tMi >= 0);
     } else {
@@ -1711,8 +1986,10 @@
     }
 
     const hint = $('game-hint');
-    if (state.finished) hint.textContent = 'Game over.';
-    else if (!mine) {
+    if (state.finished) {
+      hint.textContent = 'Game over. Open Results or go Back to Lobby.';
+      hint.classList.remove('auto-end');
+    } else if (!mine) {
       const cur = state.players[state.currentIndex];
       hint.textContent = cur ? `Waiting for ${cur.name}…` : '';
     } else if (!state.rolled) hint.textContent = 'Tap "Roll Dice" to roll 4 dice.';
@@ -1968,8 +2245,17 @@
     banner.innerHTML = `You now have <strong>${winCount}</strong> ${winCount === 1 ? 'win' : 'wins'}!`;
   }
 
-  function showWin() {
+  /**
+   * Show the end-game scorecard overlay.
+   *
+   * @param {{ force?: boolean }} [opts] When force is true, reopen even if dismissed.
+   * @returns {void}
+   */
+  function showWin(opts) {
     if (!state || !state.finished) return;
+    const force = !!(opts && opts.force);
+    if (!force && isScorecardDone(state.code)) return;
+    scorecardHold = true;
 
     let winner = state.players.find((p) => p.id === state.winnerId) || null;
     if (!winner && state.winnerPlayerIds && state.winnerPlayerIds.length) {
@@ -1986,7 +2272,6 @@
       if (!winTeam) {
         $('win-title').textContent = 'Game Over!';
         $('win-sub').innerHTML = '';
-        $('btn-playagain').style.display = state.hostId === myId ? 'block' : 'none';
         updateWinStatsBanner(didCurrentPlayerWin());
         revealWinOverlay();
         return;
@@ -2067,7 +2352,6 @@
         ${endReasonBadge(state.endReason, extraIdx)}`;
       document.querySelector('#win-overlay .win-actions').style.setProperty('--rows', String(sorted.length));
     }
-    $('btn-playagain').style.display = state.hostId === myId ? 'block' : 'none';
     updateWinStatsBanner(didCurrentPlayerWin());
     revealWinOverlay();
   }

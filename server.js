@@ -1287,12 +1287,18 @@ io.on('connection', (socket) => {
       if (socket.authUserId && !existing.authUserId) {
         existing.authUserId = socket.authUserId;
       }
-      // Update team member references when player ID changes on reconnect
-      if (room.teams && oldId !== socket.id) {
-        room.teams.forEach((t) => {
-          const idx = t.members.indexOf(oldId);
-          if (idx !== -1) t.members[idx] = socket.id;
-        });
+      // Remap team / winner ids when player ID changes on reconnect
+      if (oldId !== socket.id) {
+        if (room.teams) {
+          room.teams.forEach((t) => {
+            const idx = t.members.indexOf(oldId);
+            if (idx !== -1) t.members[idx] = socket.id;
+          });
+        }
+        if (room.winnerId === oldId) room.winnerId = socket.id;
+        if (Array.isArray(room.winnerPlayerIds) && room.winnerPlayerIds.length) {
+          room.winnerPlayerIds = room.winnerPlayerIds.map((id) => (id === oldId ? socket.id : id));
+        }
       }
       if (!room.hostId || !room.players.some((p) => p.id === room.hostId && p.connected)) {
         room.hostId = socket.id;

@@ -412,6 +412,14 @@ input.input-error:focus { border-color: var(--danger); background: rgba(255,93,1
 
 /* Topbar */
 .topbar { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+#dice-area[hidden],
+#play-controls[hidden],
+#sel-sum[hidden],
+#finished-controls[hidden],
+#btn-results[hidden],
+#btn-game-lobby[hidden] { display: none !important; }
+.finished-controls { margin-top: 4px; }
+.finished-controls .btn { flex: 1; }
 .room-pill {
   background: rgba(255,255,255,0.06);
   border: 1px solid var(--card-border);
