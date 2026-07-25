@@ -66,6 +66,14 @@ body { background-color: var(--bg-0); }
 }
 .screen.active { display: flex; }
 
+/* Keep loading visible during mid-game refresh rejoin (set before paint) */
+html.mg-rejoining #screen-home {
+  display: none !important;
+}
+html.mg-rejoining #screen-loading {
+  display: flex !important;
+}
+
 /* Loading screen */
 .loading-center {
   display: flex; flex-direction: column; align-items: center;
@@ -888,6 +896,12 @@ input.input-error:focus { border-color: var(--danger); background: rgba(255,93,1
   border-radius: 24px; padding: 24px 20px 20px;
   box-shadow: var(--shadow);
   margin: auto; /* centres vertically when content is short */
+}
+.overlay-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 14px;
 }
 .win-head { margin-bottom: 2px; }
 #win-overlay.show .win-head {

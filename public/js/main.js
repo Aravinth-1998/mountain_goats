@@ -239,6 +239,9 @@
   function show(name) {
     Object.values(screens).forEach((s) => s.classList.remove('active'));
     screens[name].classList.add('active');
+    if (name !== 'loading') {
+      document.documentElement.classList.remove('mg-rejoining');
+    }
     if (name === 'home') {
       const lb = document.getElementById('home-leaderboard-content');
       if (lb && lb.classList.contains('open')) {
@@ -247,9 +250,8 @@
     }
   }
 
-  // If there's a saved session, show the loading screen immediately
-  // so the user never sees the home page flash.
-  if (localStorage.getItem('mg_code') && (localStorage.getItem('mg_name') || isSignedIn())) {
+  // Saved room: stay on loading until lobby/game state arrives (no home flash).
+  if (localStorage.getItem('mg_code')) {
     show('loading');
   }
   function toast(msg) {
@@ -1028,9 +1030,18 @@
       return;
     }
 
-    const storedName = isSignedIn() ? '' : localStorage.getItem('mg_name');
+    // Prefer live input, then guest storage, then cached signed-in GOAT name.
+    const storedName = localStorage.getItem('mg_name') || localStorage.getItem('mg_gaming_name') || '';
     const name = getPlayName() || storedName;
-    if (!name) return;
+    if (!name) {
+      // Auth/name not ready yet — keep loading and retry on mg-auth-changed / connect.
+      if (!screens.loading.classList.contains('active')) show('loading');
+      return;
+    }
+
+    if (!screens.loading.classList.contains('active') && !(state && state.started)) {
+      show('loading');
+    }
 
     rejoinInFlight = true;
     leftRoom = false;

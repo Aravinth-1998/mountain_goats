@@ -10,6 +10,13 @@
   <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
   <noscript><link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" /></noscript>
   <link rel="stylesheet" href="/css/style.css" />
+  <script>
+    try {
+      if (localStorage.getItem('mg_code')) {
+        document.documentElement.classList.add('mg-rejoining');
+      }
+    } catch (e) { /* ignore */ }
+  </script>
 </head>
 <body>
   <div class="bg-mountains" aria-hidden="true"></div>
@@ -414,8 +421,10 @@
       <div style="font-size:40px;margin-bottom:8px">⚠️</div>
       <h2 style="margin:0 0 8px">End turn early?</h2>
       <p class="muted">You still have dice that can make a valid group (5–10).</p>
-      <button id="btn-endturn-confirm" class="btn btn-danger btn-block">Yes, End Turn</button>
-      <button id="btn-endturn-cancel" class="btn btn-ghost btn-block">Keep Playing</button>
+      <div class="overlay-actions">
+        <button id="btn-endturn-confirm" class="btn btn-danger btn-block">Yes, End Turn</button>
+        <button id="btn-endturn-cancel" class="btn btn-ghost btn-block">Keep Playing</button>
+      </div>
     </div>
   </div>
 
@@ -425,9 +434,10 @@
       <div style="font-size:40px;margin-bottom:8px">🏃‍♂️</div>
       <h2 style="margin:0 0 8px">Leave the game?</h2>
       <p class="muted" id="leave-msg">You will lose your progress.</p>
-      <button id="btn-leave-confirm" class="btn btn-danger btn-block">Yes, Leave</button>
-      <div style="height:10px"></div>
-      <button id="btn-leave-cancel" class="btn btn-ghost btn-block">Stay</button>
+      <div class="overlay-actions">
+        <button id="btn-leave-confirm" class="btn btn-danger btn-block">Yes, Leave</button>
+        <button id="btn-leave-cancel" class="btn btn-ghost btn-block">Stay</button>
+      </div>
     </div>
   </div>
 
