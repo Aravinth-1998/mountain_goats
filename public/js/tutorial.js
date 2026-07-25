@@ -12,8 +12,6 @@
     { value: 10, height: 2, chips: 5, color: '#aab8c9' },
   ];
 
-  const MI_5 = 0;
-  const MI_6 = 1;
   const MI_10 = 5;
   const YOU_ID = 'tut-you';
   const RIVAL_ID = 'tut-rival';
@@ -25,11 +23,13 @@
   /** @type {string|null} */
   let autoEndNext = null;
 
-  /** Inline Continue — board stays visible */
+  /** Inline Continue — board stays visible, highlights only (no fade) */
   const INLINE_CONTINUE = {
-    boardStart: 'At the start, every goat sits at the foot (bottom) of each mountain. Look below each hill.',
-    tokens: 'Each mountain has point tokens worth its number (5–10). The × count shows how many remain.',
+    mountainsExplain: 'Six mountains numbered 5–10. A dice group that sums to that number climbs that mountain. 5–6 are tall (4 spaces); 9–10 are short (2 spaces).',
+    tokens: 'Each colored circle is the mountain number. The × count is how many point tokens remain — a token is worth that mountain\'s number when you take the summit.',
+    boardStart: 'Every goat starts at the foot (bottom) of each mountain. Yours and Rival\'s are highlighted below.',
     noticeUsed: 'Dice you already used this turn are dimmed and cannot be selected again.',
+    firstToken: 'First summit! You took 1 point token from Mountain 10 — that adds 10 points to your score. The × count on that mountain dropped by 1.',
     rivalBump: 'Rival took your summit — you were bumped back to the foot. Only one goat holds a summit in Standard mode.',
     bonusSetup: 'Fast-forward: you already have a point token from mountains 5–9. Only mountain 10 is missing from your set. Claim it to earn a Bonus Token.',
   };
@@ -133,29 +133,16 @@
   }
 
   /**
-   * Demonstrate the real-game 2s auto-end when no 5–10 groups remain.
+   * Teach that turns end when no 5–10 groups remain.
+   * Tutorial never auto-advances — player must tap End Turn.
    * @param {string} nextStepId
+   * @param {string} [message]
    */
-  function beginAutoEnd(nextStepId) {
+  function beginAutoEnd(nextStepId, message) {
     clearAutoEndTimers();
     autoEndNext = nextStepId;
-    let left = 2;
-    state.banner = 'No groups of 5–10 left — ending turn in ' + left + 's…';
+    state.banner = message || 'No groups of 5–10 left — tap End Turn.';
     setStep('autoEnd');
-    autoEndInterval = setInterval(() => {
-      left -= 1;
-      if (left <= 0 || !state) return;
-      state.banner = 'No groups of 5–10 left — ending turn in ' + left + 's…';
-      const hint = $('tut-hint');
-      const coach = $('tut-coach');
-      if (hint) hint.textContent = hintText();
-      if (coach) coach.textContent = coachText();
-      const banner = $('tut-turn-banner');
-      if (banner) banner.textContent = state.banner;
-    }, 1000);
-    autoEndTimer = setTimeout(() => {
-      finishAutoEnd();
-    }, 2000);
   }
 
   function finishAutoEnd() {
@@ -223,9 +210,11 @@
   function activeTarget() {
     switch (stepId) {
       case 'intro': return 'start';
+      case 'mountainsExplain':
       case 'boardStart':
       case 'tokens':
       case 'noticeUsed':
+      case 'firstToken':
       case 'rivalBump':
       case 'onesExplain':
         return 'continue';
@@ -242,9 +231,6 @@
       case 'selH4': return 'die-0';
       case 'selH6': return 'die-1';
       case 'harvest': return 'mountain-10';
-      case 'selL2': return 'die-2';
-      case 'selL3': return 'die-3';
-      case 'climbLeftover': return 'mountain-5';
       case 'autoEnd': return 'endturn';
       case 'freeTurn': return 'free';
       case 'bonusSetup':
@@ -314,12 +300,11 @@
       case 'selH4': return 'Tap 4 — a matching group while on top harvests another token.';
       case 'selH6': return 'Tap 6 to finish the group of 10.';
       case 'harvest': return 'Tap Mountain 10 to harvest another point token.';
-      case 'selL2': return '2 + 3 = 5 — still a valid group. Tap the die showing 2.';
-      case 'selL3': return 'Tap the die showing 3.';
-      case 'climbLeftover': return 'Tap Mountain 5 to climb with your leftover dice.';
-      case 'autoEnd': return 'No groups of 5–10 remain. Turns auto-end after 2 seconds — or tap End Turn to skip the wait.';
+      case 'autoEnd': return (state && state.banner)
+        ? state.banner + ' In a real game this wait auto-ends after 2 seconds.'
+        : 'No groups of 5–10 remain. Tap End Turn.';
       case 'roll3': return 'Tap Roll Dice — you rolled two 1s.';
-      case 'freeTurn': return 'Your turn — re-face 1s with ↻ if you want, group dice (sum 5–10), climb, then End Turn when done.';
+      case 'freeTurn': return 'Your turn — re-face 1s with ↻ if you want, group dice (sum 5–10), and climb. The turn ends when you have used all the dice you can.';
       case 'rollBonus': return 'Tap Roll Dice — finish the set on mountain 10.';
       case 'selB4': return 'Tap 4.';
       case 'selB6': return 'Tap 6 (4+6=10).';
@@ -334,7 +319,7 @@
   function hintText() {
     if (
       stepId === 'climb1' || stepId === 'summit' || stepId === 'harvest'
-      || stepId === 'climbLeftover' || stepId === 'climbBonus'
+      || stepId === 'climbBonus'
     ) {
       return 'Tap the glowing mountain to climb.';
     }
@@ -349,7 +334,7 @@
       return 'Tap "Roll Dice" to roll.';
     }
     if (stepId === 'autoEnd') {
-      return state && state.banner ? state.banner : 'Ending turn automatically…';
+      return 'Tap "End Turn" to continue.';
     }
     if (INLINE_CONTINUE[stepId]) return 'Tap Continue when you understand.';
     return state && state.banner ? state.banner : '';
@@ -413,14 +398,17 @@
     if (!board || !state) return;
     board.innerHTML = '';
     const targetMi = targetMountainIndex();
+    const glowMountains = stepId === 'mountainsExplain';
     const glowFeet = stepId === 'boardStart';
     const glowTokens = stepId === 'tokens';
+    const glowFirstToken = stepId === 'firstToken';
     const freePlay = stepId === 'freeTurn';
 
     state.mountains.forEach((m, mi) => {
       const col = document.createElement('div');
       col.className = 'mcol';
-      if (glowTokens) col.classList.add('tut-token-glow');
+      if (glowMountains) col.classList.add('tut-mountain-glow');
+      if (glowTokens || (glowFirstToken && mi === MI_10)) col.classList.add('tut-token-glow');
       if (targetMi === mi) {
         const key = 'mountain-' + m.value;
         col.classList.add('target');
@@ -650,8 +638,6 @@
     else if (stepId === 'sel5b') setStep('summit', { keepSelection: true });
     else if (stepId === 'selH4') setStep('selH6', { keepSelection: true });
     else if (stepId === 'selH6') setStep('harvest', { keepSelection: true });
-    else if (stepId === 'selL2') setStep('selL3', { keepSelection: true });
-    else if (stepId === 'selL3') setStep('climbLeftover', { keepSelection: true });
     else if (stepId === 'selB4') setStep('selB6', { keepSelection: true });
     else if (stepId === 'selB6') setStep('climbBonus', { keepSelection: true });
     else render();
@@ -687,8 +673,8 @@
       selected.clear();
       state.rolled = false;
       state.adjustable = [];
-      state.banner = 'Summit! You took a point token.';
-      setStep('roll2');
+      state.banner = 'Summit! +10 points, token taken.';
+      setStep('firstToken');
       return;
     }
 
@@ -700,17 +686,8 @@
       }
       selected.forEach((i) => { state.diceUsed[i] = true; });
       selected.clear();
-      state.banner = 'Harvested! You still have 2 and 3 left.';
-      setStep('selL2');
-      return;
-    }
-
-    if (stepId === 'climbLeftover') {
-      me.pos[MI_5] = Math.min((me.pos[MI_5] || 0) + 1, m.height);
-      selected.forEach((i) => { state.diceUsed[i] = true; });
-      selected.clear();
-      state.banner = 'Used every valid group.';
-      beginAutoEnd('rivalBump');
+      state.banner = 'Harvested — leftover 1 and 2 cannot make 5–10.';
+      beginAutoEnd('rivalBump', '1 + 2 = 3 — not a valid group (need 5–10). Tap End Turn.');
       return;
     }
 
@@ -777,7 +754,15 @@
       ? ('Token from Mountain ' + m.value + '!')
       : ('Climbed Mountain ' + m.value + '.');
     render();
-    if (!freeAnyGroupPossible()) beginAutoEnd('bonusSetup');
+    if (!freeAnyGroupPossible()) {
+      const allUsed = state.diceUsed.every((u) => u);
+      beginAutoEnd(
+        'bonusSetup',
+        allUsed
+          ? 'You used all your dice — the turn ends. Tap End Turn.'
+          : 'You used every dice group you could — the turn ends. Tap End Turn.'
+      );
+    }
   }
 
   /**
@@ -831,7 +816,7 @@
 
     if (stepId === 'roll2') {
       state.rolled = true;
-      state.dice = [4, 6, 2, 3];
+      state.dice = [4, 6, 1, 2];
       state.diceUsed = [false, false, false, false];
       state.adjustable = [];
       state.banner = 'Already on top — matching group harvests.';
@@ -867,7 +852,6 @@
       return;
     }
     if (activeTarget() !== 'endturn') return;
-    // During autoEnd, End Turn skips the remaining wait (same outcome).
     if (stepId === 'autoEnd') {
       finishAutoEnd();
     }
@@ -904,9 +888,11 @@
 
   function onContinue() {
     if (activeTarget() !== 'continue') return;
-    if (stepId === 'boardStart') setStep('tokens');
-    else if (stepId === 'tokens') setStep('roll1');
+    if (stepId === 'mountainsExplain') setStep('tokens');
+    else if (stepId === 'tokens') setStep('boardStart');
+    else if (stepId === 'boardStart') setStep('roll1');
     else if (stepId === 'noticeUsed') setStep('sel5a');
+    else if (stepId === 'firstToken') setStep('roll2');
     else if (stepId === 'rivalBump') setStep('onesExplain');
     else if (stepId === 'onesExplain') setStep('roll3');
     else if (stepId === 'bonusSetup') setStep('rollBonus');
@@ -933,7 +919,7 @@
       start.addEventListener('click', () => {
         if (stepId !== 'intro') return;
         hidePanels();
-        setStep('boardStart');
+        setStep('mountainsExplain');
       });
     }
 

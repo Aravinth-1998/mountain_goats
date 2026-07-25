@@ -1877,6 +1877,17 @@ input.input-error:focus { border-color: var(--danger); background: rgba(255,93,1
   box-shadow: 0 0 0 2px var(--gold), 0 0 12px rgba(255, 209, 102, 0.4);
   border-radius: 10px;
   padding: 2px;
+  animation: tut-pulse 1.2s ease-in-out infinite;
+}
+.tut-mountain-glow {
+  box-shadow: 0 0 0 2px var(--gold), 0 0 14px rgba(255, 209, 102, 0.35);
+  background: rgba(255, 209, 102, 0.06);
+  border-radius: 10px;
+  animation: tut-pulse 1.2s ease-in-out infinite;
+}
+.tut-mountain-glow .track .cell {
+  opacity: 1;
+  box-shadow: inset 0 0 0 1.5px rgba(255, 209, 102, 0.45);
 }
 
 #screen-tutorial.active .die.tut-die-used,
@@ -1888,36 +1899,54 @@ input.input-error:focus { border-color: var(--danger); background: rgba(255,93,1
 }
 
 /* Gate input: only the active spotlight target receives taps */
-#screen-tutorial.active[data-tut-step]:not([data-tut-step="intro"]):not([data-tut-step="onesExplain"]):not([data-tut-step="bonusClaimed"]):not([data-tut-step="ending"]):not([data-tut-step="done"]):not([data-tut-step="freeTurn"]) .mcol,
-#screen-tutorial.active[data-tut-step]:not([data-tut-step="intro"]):not([data-tut-step="onesExplain"]):not([data-tut-step="bonusClaimed"]):not([data-tut-step="ending"]):not([data-tut-step="done"]):not([data-tut-step="freeTurn"]) .die,
-#screen-tutorial.active[data-tut-step]:not([data-tut-step="intro"]):not([data-tut-step="onesExplain"]):not([data-tut-step="bonusClaimed"]):not([data-tut-step="ending"]):not([data-tut-step="done"]):not([data-tut-step="freeTurn"]) #tut-btn-roll,
-#screen-tutorial.active[data-tut-step]:not([data-tut-step="intro"]):not([data-tut-step="onesExplain"]):not([data-tut-step="bonusClaimed"]):not([data-tut-step="ending"]):not([data-tut-step="done"]):not([data-tut-step="freeTurn"]) #tut-btn-endturn {
+#screen-tutorial.active[data-tut-step]:not([data-tut-step="intro"]):not([data-tut-step="mountainsExplain"]):not([data-tut-step="tokens"]):not([data-tut-step="boardStart"]):not([data-tut-step="firstToken"]):not([data-tut-step="onesExplain"]):not([data-tut-step="bonusClaimed"]):not([data-tut-step="ending"]):not([data-tut-step="done"]):not([data-tut-step="freeTurn"]):not([data-tut-step="noticeUsed"]):not([data-tut-step="rivalBump"]):not([data-tut-step="bonusSetup"]):not([data-tut-step="autoEnd"]) .mcol,
+#screen-tutorial.active[data-tut-step]:not([data-tut-step="intro"]):not([data-tut-step="mountainsExplain"]):not([data-tut-step="tokens"]):not([data-tut-step="boardStart"]):not([data-tut-step="firstToken"]):not([data-tut-step="onesExplain"]):not([data-tut-step="bonusClaimed"]):not([data-tut-step="ending"]):not([data-tut-step="done"]):not([data-tut-step="freeTurn"]):not([data-tut-step="noticeUsed"]):not([data-tut-step="rivalBump"]):not([data-tut-step="bonusSetup"]):not([data-tut-step="autoEnd"]) .die,
+#screen-tutorial.active[data-tut-step]:not([data-tut-step="intro"]):not([data-tut-step="mountainsExplain"]):not([data-tut-step="tokens"]):not([data-tut-step="boardStart"]):not([data-tut-step="firstToken"]):not([data-tut-step="onesExplain"]):not([data-tut-step="bonusClaimed"]):not([data-tut-step="ending"]):not([data-tut-step="done"]):not([data-tut-step="freeTurn"]):not([data-tut-step="noticeUsed"]):not([data-tut-step="rivalBump"]):not([data-tut-step="bonusSetup"]):not([data-tut-step="autoEnd"]) #tut-btn-roll,
+#screen-tutorial.active[data-tut-step]:not([data-tut-step="intro"]):not([data-tut-step="mountainsExplain"]):not([data-tut-step="tokens"]):not([data-tut-step="boardStart"]):not([data-tut-step="firstToken"]):not([data-tut-step="onesExplain"]):not([data-tut-step="bonusClaimed"]):not([data-tut-step="ending"]):not([data-tut-step="done"]):not([data-tut-step="freeTurn"]):not([data-tut-step="noticeUsed"]):not([data-tut-step="rivalBump"]):not([data-tut-step="bonusSetup"]):not([data-tut-step="autoEnd"]) #tut-btn-endturn {
   pointer-events: none;
   opacity: 0.4;
   filter: grayscale(0.35);
   transition: opacity 0.2s, filter 0.2s, box-shadow 0.2s;
 }
 
-/* Inline continue / auto-end steps: keep board readable */
-#screen-tutorial.active[data-tut-step="boardStart"] .mcol,
+/* Intro explain steps: full board visible, no fade — only Continue is interactive */
+#screen-tutorial.active[data-tut-step="mountainsExplain"] .mcol,
 #screen-tutorial.active[data-tut-step="tokens"] .mcol,
+#screen-tutorial.active[data-tut-step="boardStart"] .mcol,
+#screen-tutorial.active[data-tut-step="firstToken"] .mcol,
+#screen-tutorial.active[data-tut-step="mountainsExplain"] .die,
+#screen-tutorial.active[data-tut-step="tokens"] .die,
+#screen-tutorial.active[data-tut-step="boardStart"] .die,
+#screen-tutorial.active[data-tut-step="firstToken"] .die,
+#screen-tutorial.active[data-tut-step="mountainsExplain"] #tut-btn-roll,
+#screen-tutorial.active[data-tut-step="tokens"] #tut-btn-roll,
+#screen-tutorial.active[data-tut-step="boardStart"] #tut-btn-roll,
+#screen-tutorial.active[data-tut-step="firstToken"] #tut-btn-roll,
+#screen-tutorial.active[data-tut-step="mountainsExplain"] #tut-btn-endturn,
+#screen-tutorial.active[data-tut-step="tokens"] #tut-btn-endturn,
+#screen-tutorial.active[data-tut-step="boardStart"] #tut-btn-endturn,
+#screen-tutorial.active[data-tut-step="firstToken"] #tut-btn-endturn {
+  opacity: 1 !important;
+  filter: none !important;
+  pointer-events: none;
+}
+
+/* Other watch steps: board readable */
 #screen-tutorial.active[data-tut-step="noticeUsed"] .mcol,
 #screen-tutorial.active[data-tut-step="rivalBump"] .mcol,
+#screen-tutorial.active[data-tut-step="bonusSetup"] .mcol,
 #screen-tutorial.active[data-tut-step="autoEnd"] .mcol,
-#screen-tutorial.active[data-tut-step="boardStart"] .die,
-#screen-tutorial.active[data-tut-step="tokens"] .die,
 #screen-tutorial.active[data-tut-step="noticeUsed"] .die,
 #screen-tutorial.active[data-tut-step="rivalBump"] .die,
+#screen-tutorial.active[data-tut-step="bonusSetup"] .die,
 #screen-tutorial.active[data-tut-step="autoEnd"] .die,
-#screen-tutorial.active[data-tut-step="boardStart"] #tut-btn-roll,
-#screen-tutorial.active[data-tut-step="tokens"] #tut-btn-roll,
 #screen-tutorial.active[data-tut-step="noticeUsed"] #tut-btn-roll,
 #screen-tutorial.active[data-tut-step="rivalBump"] #tut-btn-roll,
+#screen-tutorial.active[data-tut-step="bonusSetup"] #tut-btn-roll,
 #screen-tutorial.active[data-tut-step="autoEnd"] #tut-btn-roll,
-#screen-tutorial.active[data-tut-step="boardStart"] #tut-btn-endturn,
-#screen-tutorial.active[data-tut-step="tokens"] #tut-btn-endturn,
 #screen-tutorial.active[data-tut-step="noticeUsed"] #tut-btn-endturn,
-#screen-tutorial.active[data-tut-step="rivalBump"] #tut-btn-endturn {
+#screen-tutorial.active[data-tut-step="rivalBump"] #tut-btn-endturn,
+#screen-tutorial.active[data-tut-step="bonusSetup"] #tut-btn-endturn {
   opacity: 1;
   filter: none;
   pointer-events: none;
@@ -1966,7 +1995,9 @@ input.input-error:focus { border-color: var(--danger); background: rgba(255,93,1
 
 @media (prefers-reduced-motion: reduce) {
   #screen-tutorial.active [data-tut-active],
-  .tut-foot-glow {
+  .tut-foot-glow,
+  .tut-token-glow .mhead,
+  .tut-mountain-glow {
     animation: none;
   }
 }
