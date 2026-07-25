@@ -471,6 +471,9 @@ input.input-error:focus { border-color: var(--danger); background: rgba(255,93,1
 .swatch-clickable {
   cursor: pointer;
   transition: transform 0.12s ease;
+  touch-action: manipulation;
+  position: relative;
+  z-index: 2;
 }
 .swatch-clickable:active { transform: scale(0.94); }
 .swatch-edit {
@@ -1038,16 +1041,93 @@ input.input-error:focus { border-color: var(--danger); background: rgba(255,93,1
 
 /* ===== TEAM MODE STYLES ===== */
 
-/* Lobby: team header */
-.team-header {
-  display: flex; align-items: center; gap: 10px;
-  background: rgba(255,255,255,0.03) !important;
-  border: none !important;
-  padding: 8px 14px !important;
-  border-radius: 10px !important;
-  margin-top: 6px;
+/* Lobby: team bands */
+.player-list.team-lobby {
+  gap: 12px;
 }
-.team-header:first-child { margin-top: 0; }
+.player-list > li.team-band {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  padding: 10px;
+  border-radius: 14px;
+  border: 1px solid var(--card-border);
+  background: rgba(0, 0, 0, 0.25);
+  list-style: none;
+}
+.player-list > li.team-band.team-band-unassigned {
+  border-style: dashed;
+  background: rgba(255, 255, 255, 0.03);
+}
+.player-list > li.team-band.drag-over {
+  outline: 2px dashed rgba(255, 209, 102, 0.65);
+  outline-offset: 2px;
+}
+.team-band-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 2px 4px;
+}
+.team-band-members {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 8px;
+}
+.team-band-members > li.team-member {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--card-border);
+  border-radius: 14px;
+  padding: 12px 14px;
+  margin: 0;
+}
+.team-band-members > li.team-member.team-movable {
+  cursor: grab;
+}
+.team-band-members > li.team-member.team-movable:active {
+  cursor: grabbing;
+}
+.team-band-members > li.team-member.team-movable.dragging {
+  touch-action: none;
+}
+.team-band-members > li.team-member.team-selected {
+  border-color: rgba(255, 209, 102, 0.55);
+  box-shadow: 0 0 0 1px rgba(255, 209, 102, 0.35);
+}
+.player-list > li.lobby-you,
+.team-band-members > li.team-member.lobby-you {
+  border-color: rgba(255, 209, 102, 0.55);
+  box-shadow: 0 0 0 1px rgba(255, 209, 102, 0.28);
+  animation: lobby-you-blink 2s ease-in-out infinite;
+}
+.team-band-members > li.team-member.lobby-you.team-selected {
+  border-color: rgba(255, 209, 102, 0.75);
+  box-shadow: 0 0 0 2px rgba(255, 209, 102, 0.4);
+  animation: none;
+}
+@keyframes lobby-you-blink {
+  0%, 70%, 100% {
+    border-color: rgba(255, 209, 102, 0.55);
+    box-shadow: 0 0 0 1px rgba(255, 209, 102, 0.28);
+  }
+  80%, 90% {
+    border-color: rgba(255, 209, 102, 0.95);
+    box-shadow: 0 0 0 2px rgba(255, 209, 102, 0.55), 0 0 12px rgba(255, 209, 102, 0.25);
+  }
+}
+.team-band-members > li.team-member.dragging {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
 .team-dot {
   width: 16px; height: 16px; border-radius: 50%; flex: 0 0 auto;
   box-shadow: 0 0 6px rgba(255,255,255,0.2);
@@ -1059,25 +1139,6 @@ input.input-error:focus { border-color: var(--danger); background: rgba(255,93,1
 .team-count {
   margin-left: auto; font-size: 11px; color: var(--muted); font-weight: 600;
 }
-
-/* Lobby: team member indented */
-.team-member {
-  margin-left: 8px;
-}
-
-/* Lobby: team swap buttons */
-.team-swap {
-  display: inline-flex; gap: 4px;
-}
-.team-swap-btn {
-  width: 22px; height: 22px; border-radius: 6px;
-  border: none; cursor: pointer;
-  color: #fff; font-size: 10px; font-weight: 800;
-  display: flex; align-items: center; justify-content: center;
-  opacity: 0.7; transition: opacity .15s, transform .1s;
-}
-.team-swap-btn:hover { opacity: 1; }
-.team-swap-btn:active { transform: scale(0.9); }
 
 /* Team mode toggle button */
 .btn.team-active {

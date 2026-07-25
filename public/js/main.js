@@ -401,10 +401,19 @@
     if (!canPickLobbyColor(p)) return;
     const swatch = li.querySelector('.swatch-clickable');
     if (!swatch) return;
-    swatch.addEventListener('click', (e) => {
+    const open = (e) => {
+      e.preventDefault();
       e.stopPropagation();
       if (colorPickerEl) closeColorPicker();
       else openColorPicker(swatch, p);
+    };
+    // Stop team-row drag/select from stealing the gesture.
+    swatch.addEventListener('pointerdown', (e) => {
+      e.stopPropagation();
+    });
+    swatch.addEventListener('click', open);
+    swatch.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') open(e);
     });
   }
   function lobbyPlayerEndBeforeIcon(parent) {
@@ -1494,6 +1503,281 @@
   }
 
   // ===================== RENDER =====================
+
+  /** Selected player id for tap-to-move team assignment. */
+  let teamMoveSelectedPlayerId = null;
+  let teamDragState = null;
+
+  /**
+   * Returns true when this client may move the given player between teams.
+   *
+   * @param {string} playerId Player socket id.
+   * @param {boolean} amHost Whether local user is host.
+   * @returns {boolean}
+   */
+  function canMoveTeamPlayer(playerId, amHost) {
+    if (!state || !state.teamMode || !state.teams || state.teams.length < 1) return false;
+    return amHost || playerId === myId;
+  }
+
+  /**
+   * Emit a team move for host (any player) or self.
+   *
+   * @param {string} playerId Player to move.
+   * @param {number} toTeamId Destination team id.
+   * @returns {void}
+   */
+  function emitTeamMove(playerId, toTeamId) {
+    if (!state || !state.teamMode || !state.teams) return;
+    const amHost = state.hostId === myId;
+    if (!canMoveTeamPlayer(playerId, amHost)) return;
+    const toId = Number(toTeamId);
+    if (!Number.isFinite(toId)) return;
+    const current = state.teams.find((t) => t.members.includes(playerId));
+    if (current && current.id === toId) return;
+    if (!state.teams.some((t) => t.id === toId)) return;
+
+    clearTeamMoveSelection();
+    if (amHost) {
+      socket.emit('swapTeam', { playerId, toTeamId: toId });
+    } else {
+      socket.emit('selfSwapTeam', { toTeamId: toId });
+    }
+  }
+
+  /**
+   * Clear tap-to-move selection highlight.
+   *
+   * @returns {void}
+   */
+  function clearTeamMoveSelection() {
+    teamMoveSelectedPlayerId = null;
+    document.querySelectorAll('.team-member.team-selected').forEach((el) => {
+      el.classList.remove('team-selected');
+    });
+  }
+
+  /**
+   * Build one lobby player row inside a team band.
+   *
+   * @param {object} p Player.
+   * @param {number|null} fromTeamId Current team id or null if unassigned.
+   * @param {boolean} amHost Whether local user is host.
+   * @param {string} [extraBadge] Optional badge HTML.
+   * @returns {HTMLLIElement}
+   */
+  function buildTeamMemberRow(p, fromTeamId, amHost, extraBadge) {
+    const li = document.createElement('li');
+    li.className = 'team-member';
+    if (p.id === myId) li.classList.add('lobby-you');
+    li.dataset.playerId = p.id;
+    if (fromTeamId != null) li.dataset.fromTeamId = String(fromTeamId);
+    li.innerHTML = lobbyPlayerRowHtml(p, lobbyPlayerBadgesHtml(p, extraBadge || ''));
+    appendKickBtn(li, p, amHost);
+    attachLobbySwatch(li, p);
+
+    const movable = canMoveTeamPlayer(p.id, amHost) && state.teams && state.teams.length > 0;
+    if (movable) {
+      li.classList.add('team-movable');
+      li.title = 'Drag to another team, or tap then tap a team';
+    }
+    if (teamMoveSelectedPlayerId === p.id) {
+      li.classList.add('team-selected');
+    }
+    return li;
+  }
+
+  /**
+   * Build a colored team band with header and member rows.
+   *
+   * @param {object} team Team public state.
+   * @param {boolean} amHost Whether local user is host.
+   * @returns {HTMLLIElement}
+   */
+  function buildTeamBand(team, amHost) {
+    const band = document.createElement('li');
+    band.className = 'team-band';
+    band.dataset.teamId = String(team.id);
+    band.style.setProperty('--team-color', team.color);
+    band.style.borderColor = team.color;
+    band.style.background = `${team.color}22`;
+
+    const header = document.createElement('div');
+    header.className = 'team-band-header';
+    header.innerHTML = `<span class="team-dot" style="background:${team.color}"></span>
+      <span class="team-label">Team ${escapeHtml(team.name)}</span>
+      <span class="team-count">${team.members.length} player${team.members.length !== 1 ? 's' : ''}</span>`;
+    band.appendChild(header);
+
+    const members = document.createElement('ul');
+    members.className = 'team-band-members';
+    team.members.forEach((pid) => {
+      const p = state.players.find((pl) => pl.id === pid);
+      if (!p) return;
+      members.appendChild(buildTeamMemberRow(p, team.id, amHost));
+    });
+    band.appendChild(members);
+    return band;
+  }
+
+  /**
+   * Build the unassigned players band (source for assigning into teams).
+   *
+   * @param {object[]} unassigned Players not on any team.
+   * @param {boolean} amHost Whether local user is host.
+   * @returns {HTMLLIElement}
+   */
+  function buildUnassignedBand(unassigned, amHost) {
+    const band = document.createElement('li');
+    band.className = 'team-band team-band-unassigned';
+    band.dataset.teamId = '';
+    band.style.setProperty('--team-color', '#666666');
+
+    const header = document.createElement('div');
+    header.className = 'team-band-header';
+    header.innerHTML = `<span class="team-dot" style="background:#666"></span>
+      <span class="team-label">Unassigned</span>
+      <span class="team-count">${unassigned.length} player${unassigned.length !== 1 ? 's' : ''}</span>`;
+    band.appendChild(header);
+
+    const members = document.createElement('ul');
+    members.className = 'team-band-members';
+    unassigned.forEach((p) => {
+      members.appendChild(buildTeamMemberRow(p, null, amHost, '<span class="badge">UNASSIGNED</span>'));
+    });
+    band.appendChild(members);
+    return band;
+  }
+
+  /**
+   * Find team band element under a point.
+   *
+   * @param {number} clientX X coordinate.
+   * @param {number} clientY Y coordinate.
+   * @returns {HTMLElement|null}
+   */
+  function teamBandFromPoint(clientX, clientY) {
+    const stack = typeof document.elementsFromPoint === 'function'
+      ? document.elementsFromPoint(clientX, clientY)
+      : [document.elementFromPoint(clientX, clientY)].filter(Boolean);
+    for (let i = 0; i < stack.length; i++) {
+      const el = stack[i];
+      if (!el || !el.closest) continue;
+      if (el.classList && el.classList.contains('dragging')) continue;
+      const band = el.closest('.team-band');
+      if (band) return band;
+    }
+    return null;
+  }
+
+  /**
+   * Wire pointer drag and tap-to-move on team bands in the lobby list.
+   *
+   * @param {HTMLElement} listRoot Lobby players list element.
+   * @param {boolean} amHost Whether local user is host.
+   * @returns {void}
+   */
+  function wireTeamBandInteractions(listRoot, amHost) {
+    const DRAG_THRESHOLD = 8;
+
+    listRoot.querySelectorAll('.team-member.team-movable').forEach((row) => {
+      row.addEventListener('pointerdown', (e) => {
+        if (e.button != null && e.button !== 0) return;
+        if (e.target.closest && (
+          e.target.closest('.kick-btn')
+          || e.target.closest('.swatch-clickable')
+          || e.target.closest('.swatch')
+          || e.target.closest('button')
+        )) return;
+
+        const playerId = row.dataset.playerId;
+        if (!playerId || !canMoveTeamPlayer(playerId, amHost)) return;
+
+        teamDragState = {
+          playerId,
+          fromTeamId: row.dataset.fromTeamId != null && row.dataset.fromTeamId !== ''
+            ? Number(row.dataset.fromTeamId)
+            : null,
+          startX: e.clientX,
+          startY: e.clientY,
+          dragging: false,
+          pointerId: e.pointerId,
+          row,
+        };
+
+        const onMove = (ev) => {
+          if (!teamDragState || teamDragState.pointerId !== ev.pointerId) return;
+          const dx = ev.clientX - teamDragState.startX;
+          const dy = ev.clientY - teamDragState.startY;
+          if (!teamDragState.dragging && (Math.abs(dx) > DRAG_THRESHOLD || Math.abs(dy) > DRAG_THRESHOLD)) {
+            teamDragState.dragging = true;
+            clearTeamMoveSelection();
+            row.classList.add('dragging');
+            row.style.touchAction = 'none';
+            try { row.setPointerCapture(ev.pointerId); } catch (err) { /* ignore */ }
+          }
+          if (!teamDragState.dragging) return;
+          listRoot.querySelectorAll('.team-band.drag-over').forEach((b) => b.classList.remove('drag-over'));
+          const band = teamBandFromPoint(ev.clientX, ev.clientY);
+          if (band && band.dataset.teamId !== '' && Number(band.dataset.teamId) !== teamDragState.fromTeamId) {
+            band.classList.add('drag-over');
+          }
+        };
+
+        const onUp = (ev) => {
+          if (!teamDragState || teamDragState.pointerId !== ev.pointerId) return;
+          document.removeEventListener('pointermove', onMove);
+          document.removeEventListener('pointerup', onUp);
+          document.removeEventListener('pointercancel', onUp);
+
+          const wasDragging = teamDragState.dragging;
+          const pid = teamDragState.playerId;
+          const fromId = teamDragState.fromTeamId;
+          row.classList.remove('dragging');
+          row.style.touchAction = '';
+          listRoot.querySelectorAll('.team-band.drag-over').forEach((b) => b.classList.remove('drag-over'));
+
+          if (wasDragging) {
+            const band = teamBandFromPoint(ev.clientX, ev.clientY);
+            if (band && band.dataset.teamId !== '') {
+              const toId = Number(band.dataset.teamId);
+              if (Number.isFinite(toId) && toId !== fromId) {
+                emitTeamMove(pid, toId);
+              }
+            }
+            teamDragState = null;
+            return;
+          }
+
+          // Tap: toggle selection, or move if already selected another/same flow
+          teamDragState = null;
+          if (teamMoveSelectedPlayerId === pid) {
+            clearTeamMoveSelection();
+            return;
+          }
+          clearTeamMoveSelection();
+          teamMoveSelectedPlayerId = pid;
+          row.classList.add('team-selected');
+        };
+
+        document.addEventListener('pointermove', onMove);
+        document.addEventListener('pointerup', onUp);
+        document.addEventListener('pointercancel', onUp);
+      });
+    });
+
+    listRoot.querySelectorAll('.team-band').forEach((band) => {
+      band.addEventListener('click', (e) => {
+        if (!teamMoveSelectedPlayerId) return;
+        if (e.target.closest && e.target.closest('.team-member')) return;
+        if (band.dataset.teamId === '') return;
+        const toId = Number(band.dataset.teamId);
+        if (!Number.isFinite(toId)) return;
+        emitTeamMove(teamMoveSelectedPlayerId, toId);
+      });
+    });
+  }
+
   function render() {
     if (!state) return;
     // Holding the scorecard: refresh lobby DOM behind the overlay, do not yank screens.
@@ -1531,101 +1815,27 @@
 
     const ul = $('lobby-players');
     ul.innerHTML = '';
+    ul.classList.toggle('team-lobby', !!(state.teamMode && state.teams));
 
     if (state.teamMode && state.teams) {
-      // Team mode: render players grouped by team
       state.teams.forEach((team) => {
-        const teamHeader = document.createElement('li');
-        teamHeader.className = 'team-header';
-        teamHeader.innerHTML = `<span class="team-dot" style="background:${team.color}"></span>
-          <span class="team-label">Team ${escapeHtml(team.name)}</span>
-          <span class="team-count">${team.members.length} player${team.members.length !== 1 ? 's' : ''}</span>`;
-        ul.appendChild(teamHeader);
-
-        team.members.forEach((pid) => {
-          const p = state.players.find((pl) => pl.id === pid);
-          if (!p) return;
-          const li = document.createElement('li');
-          li.className = 'team-member';
-          li.innerHTML = lobbyPlayerRowHtml(p, lobbyPlayerBadgesHtml(p, p.id === myId ? '<span class="badge you">YOU</span>' : ''));
-          // Team swap buttons:
-          // - Host can swap ANY player (including themselves)
-          // - Non-host can only swap THEMSELVES
-          const canSwap = state.teams.length > 1 && (amHost || p.id === myId);
-          if (canSwap) {
-            const swapWrap = document.createElement('span');
-            swapWrap.className = 'team-swap';
-            state.teams.forEach((otherTeam) => {
-              if (otherTeam.id === team.id) return;
-              const btn = document.createElement('button');
-              btn.className = 'team-swap-btn';
-              btn.style.background = otherTeam.color;
-              btn.title = `Move to Team ${otherTeam.name}`;
-              btn.textContent = otherTeam.name.charAt(0);
-              btn.addEventListener('click', () => {
-                if (amHost) {
-                  // Host uses swapTeam (can move anyone)
-                  socket.emit('swapTeam', { playerId: p.id, toTeamId: otherTeam.id });
-                } else {
-                  // Non-host uses selfSwapTeam (can only move self)
-                  socket.emit('selfSwapTeam', { toTeamId: otherTeam.id });
-                }
-              });
-              swapWrap.appendChild(btn);
-            });
-            li.querySelector('.player-end').insertBefore(swapWrap, lobbyPlayerEndBeforeIcon(li));
-          }
-          appendKickBtn(li, p, amHost);
-          attachLobbySwatch(li, p);
-          ul.appendChild(li);
-        });
+        ul.appendChild(buildTeamBand(team, amHost));
       });
-      // Show any unassigned players with swap controls
+
       const assigned = new Set(state.teams.flatMap((t) => t.members));
       const unassigned = state.players.filter((p) => !assigned.has(p.id));
       if (unassigned.length) {
-        const unHeader = document.createElement('li');
-        unHeader.className = 'team-header';
-        unHeader.innerHTML = `<span class="team-dot" style="background:#666"></span>
-          <span class="team-label">Unassigned</span>
-          <span class="team-count">${unassigned.length} player${unassigned.length !== 1 ? 's' : ''}</span>`;
-        ul.appendChild(unHeader);
+        ul.appendChild(buildUnassignedBand(unassigned, amHost));
       }
-      unassigned.forEach((p) => {
-        const li = document.createElement('li');
-        li.className = 'team-member';
-        li.innerHTML = lobbyPlayerRowHtml(p, lobbyPlayerBadgesHtml(p, p.id === myId ? '<span class="badge you">YOU</span>' : '<span class="badge">UNASSIGNED</span>'));
-        // Swap buttons: host can assign anyone, non-host only self
-        const canSwap = amHost || p.id === myId;
-        if (canSwap && state.teams.length > 0) {
-          const swapWrap = document.createElement('span');
-          swapWrap.className = 'team-swap';
-          state.teams.forEach((team) => {
-            const btn = document.createElement('button');
-            btn.className = 'team-swap-btn';
-            btn.style.background = team.color;
-            btn.title = `Assign to Team ${team.name}`;
-            btn.textContent = team.name.charAt(0);
-            btn.addEventListener('click', () => {
-              if (amHost) {
-                socket.emit('swapTeam', { playerId: p.id, toTeamId: team.id });
-              } else {
-                socket.emit('selfSwapTeam', { toTeamId: team.id });
-              }
-            });
-            swapWrap.appendChild(btn);
-          });
-          li.querySelector('.player-end').appendChild(swapWrap);
-        }
-        appendKickBtn(li, p, amHost);
-        attachLobbySwatch(li, p);
-        ul.appendChild(li);
-      });
+
+      wireTeamBandInteractions(ul, amHost);
     } else {
+      clearTeamMoveSelection();
       // Standard mode: render flat player list
       state.players.forEach((p) => {
         const li = document.createElement('li');
-        li.innerHTML = lobbyPlayerRowHtml(p, lobbyPlayerBadgesHtml(p, p.id === myId ? '<span class="badge you">YOU</span>' : ''));
+        if (p.id === myId) li.classList.add('lobby-you');
+        li.innerHTML = lobbyPlayerRowHtml(p, lobbyPlayerBadgesHtml(p, ''));
         appendKickBtn(li, p, amHost);
         attachLobbySwatch(li, p);
         ul.appendChild(li);
