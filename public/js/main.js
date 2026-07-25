@@ -166,6 +166,7 @@
     join: document.getElementById('screen-join'),
     lobby: document.getElementById('screen-lobby'),
     game: document.getElementById('screen-game'),
+    tutorial: document.getElementById('screen-tutorial'),
   };
   const $ = (id) => document.getElementById(id);
 
@@ -617,6 +618,14 @@
     show('join');
     refreshPublicRooms();
     startPublicRoomsRefresh();
+  });
+
+  $('btn-play-tutorial').addEventListener('click', () => {
+    if (!window.MGTutorial) return;
+    window.MGTutorial.start({
+      showScreen: show,
+      goHome: () => show('home'),
+    });
   });
 
   // Join screen back button
@@ -1599,9 +1608,12 @@
   function goatCluster(players) {
     const wrap = document.createElement('div');
     wrap.className = 'goats';
+    const turnId = state && state.started && !state.finished ? state.currentPlayerId : null;
     players.forEach((p) => {
       const g = document.createElement('div');
-      g.className = 'goat' + (p.id === myId ? ' me' : '');
+      g.className = 'goat'
+        + (p.id === myId ? ' me' : '')
+        + (turnId && p.id === turnId ? ' turn' : '');
       g.style.background = p.color;
       g.textContent = p.name.charAt(0).toUpperCase();
       g.title = p.name;

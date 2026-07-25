@@ -180,6 +180,76 @@
         <p style="font-size:11px;color:var(--muted);opacity:0.6;margin:10px 0 0;font-style:italic">⚠️ Team rules are a custom variant designed by the developer and are not part of the official Mountain Goats game.</p>
       </div>
     </div>
+
+    <div class="card rules-toggle">
+      <button type="button" id="btn-play-tutorial" class="rules-toggle-btn">🐐 Play Tutorial</button>
+    </div>
+  </section>
+
+  <!-- TUTORIAL (client-only practice) -->
+  <section id="screen-tutorial" class="screen">
+    <div class="topbar">
+      <div class="room-pill">Tutorial</div>
+      <div id="tut-turn-banner" class="turn-banner">Your turn</div>
+      <button type="button" class="icon-btn" id="tut-exit">Exit</button>
+    </div>
+
+    <div id="tut-stats-strip" class="stats-strip"></div>
+    <div id="tut-bonus-row" class="bonus-row"></div>
+    <p id="tut-coach" class="tut-coach" role="status"></p>
+    <div id="tut-inline-continue-wrap" class="tut-inline-continue-wrap" hidden>
+      <button type="button" id="tut-btn-inline-continue" class="btn btn-primary btn-block" data-tut-target="continue">Continue</button>
+    </div>
+
+    <div class="board-wrap">
+      <div id="tut-board" class="board"></div>
+    </div>
+
+    <div class="control-dock">
+      <p id="tut-sel-sum" class="sel-sum"></p>
+      <div id="tut-dice-area" class="dice-area"></div>
+      <div class="control-buttons">
+        <button type="button" id="tut-btn-roll" class="btn btn-primary" data-tut-target="roll">Roll Dice</button>
+        <button type="button" id="tut-btn-endturn" class="btn btn-ghost" data-tut-target="endturn">End Turn</button>
+      </div>
+      <p id="tut-hint" class="game-hint">—</p>
+    </div>
+
+    <div id="tut-intro" class="tut-panel overlay show">
+      <div class="overlay-card" style="max-width:340px">
+        <div style="font-size:40px;margin-bottom:8px">🐐</div>
+        <h2 style="margin:0 0 8px">Standard Tutorial</h2>
+        <p class="muted">Learn the full Standard rules — starting positions, dice, climbing, bumps, harvest, End Turn, bonuses, and how games end. Tap the glowing controls to continue.</p>
+        <button type="button" id="tut-btn-start" class="btn btn-primary btn-block" data-tut-target="start">Start</button>
+      </div>
+    </div>
+
+    <div id="tut-continue-panel" class="tut-panel overlay">
+      <div class="overlay-card" style="max-width:340px">
+        <div id="tut-continue-icon" style="font-size:40px;margin-bottom:8px">🐐</div>
+        <h2 id="tut-continue-title" style="margin:0 0 8px">Continue</h2>
+        <p class="muted" id="tut-continue-body"></p>
+        <button type="button" id="tut-btn-continue" class="btn btn-primary btn-block" data-tut-target="continue">Continue</button>
+      </div>
+    </div>
+
+    <div id="tut-info" class="tut-panel overlay">
+      <div class="overlay-card" style="max-width:340px">
+        <div id="tut-info-icon" style="font-size:40px;margin-bottom:8px">✨</div>
+        <h2 id="tut-info-title" style="margin:0 0 8px">Bonus tokens</h2>
+        <p class="muted" id="tut-info-body">Collect a token from all 6 mountains (a full set) to claim a Bonus Token (15 / 12 / 9 / 6).</p>
+        <button type="button" id="tut-btn-gotit" class="btn btn-primary btn-block" data-tut-target="gotit">Got it</button>
+      </div>
+    </div>
+
+    <div id="tut-done" class="tut-panel overlay">
+      <div class="overlay-card" style="max-width:340px">
+        <div style="font-size:40px;margin-bottom:8px">🏆</div>
+        <h2 style="margin:0 0 8px">You're ready!</h2>
+        <p class="muted">You know the Standard rules. Create a room or join friends to play for real. Team mode tips stay under How to Play.</p>
+        <button type="button" id="tut-btn-home" class="btn btn-primary btn-block" data-tut-target="home">Back to Home</button>
+      </div>
+    </div>
   </section>
 
   <!-- JOIN ROOM -->
@@ -366,6 +436,7 @@
   <script src="/js/feedback-events.js"></script>
   <script src="/js/haptics.js"></script>
   <script src="/js/sounds.js"></script>
+  <script src="/js/tutorial.js"></script>
   <script src="/js/main.js"></script>
 </body>
 </html>
