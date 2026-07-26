@@ -1922,13 +1922,9 @@
   function renderStats() {
     const strip = $('stats-strip');
     strip.innerHTML = '';
-    const lead = Math.max(0, ...state.players.map((p) => p.score || 0));
 
     if (state.teamMode && state.teams) {
       // Team mode: display team scorecards
-      const teamLead = Math.max(0, ...state.teams.map((t) => t.score || 0));
-      const numTeams = state.teams.length;
-
       // Build ordered member lists per team based on actual turn order
       const teamOrder = state.teams.map(() => []);
       state.players.forEach((p) => {
@@ -1938,7 +1934,6 @@
 
       // All team configs: stacked vertically, each team as a block with members in a row
       state.teams.forEach((t, tIdx) => {
-        const isLead = t.score === teamLead && teamLead > 0;
         const teamBlock = document.createElement('div');
         teamBlock.className = 'team-block';
         teamBlock.style.setProperty('--tc', t.color);
@@ -1949,8 +1944,7 @@
         head.style.setProperty('--tc', t.color);
         head.innerHTML = `<span class="tg-dot" style="background:${t.color}"></span>
           <span class="tg-name">${escapeHtml(t.name)}</span>
-          <span class="tg-tops">👑${t.tops || 0}</span>
-          <span class="tg-score">${isLead ? '▲ ' : ''}⭐ ${t.score || 0}</span>`;
+          <span class="tg-score">⭐ ${t.score || 0}</span>`;
         teamBlock.appendChild(head);
 
         // Members in a row
@@ -1976,15 +1970,12 @@
           const n = collected[mi] || 0;
           chips += `<span class="pp-chip${n > 0 ? ' has' : ''}${onTop ? ' top' : ''}" style="--c:${m.color}">${m.value}<b>×${n}</b></span>`;
         });
-        const topsTag = (p.tops || 0) > 0 ? `<span class="pp-tops">👑${p.tops}</span>` : '';
         const bonusTag = p.bonus && p.bonus.length ? `<span class="pp-bonus">✨${p.bonusPoints || 0}</span>` : '';
-        const setsTag = (p.sets || 0) > 0 ? `<span class="pp-sets">📦${p.sets}</span>` : '';
-        const offTag = !p.connected && !p.isBot ? '<span class="pp-auto">🤖 auto</span>' : '';
         panel.innerHTML = `
           <div class="pp-head">
             ${playerCoinHtml(p, 'sm')}
-            <span class="pp-name">${escapeHtml(p.name)}${p.id === myId ? ' (You)' : ''}</span>
-            ${offTag}${setsTag}${topsTag}${bonusTag}<span class="pp-score">⭐ ${p.score || 0}</span>
+            <span class="pp-name">${escapeHtml(p.name)}</span>
+            ${bonusTag}<span class="pp-score">⭐ ${p.score || 0}</span>
           </div>
           <div class="pp-mtns">${chips}</div>`;
         return panel;
@@ -2002,16 +1993,12 @@
           const n = collected[mi] || 0;
           chips += `<span class="pp-chip${n > 0 ? ' has' : ''}${onTop ? ' top' : ''}" style="--c:${m.color}">${m.value}<b>×${n}</b></span>`;
         });
-        const leadTag = (p.score || 0) === lead && lead > 0 ? '<span class="pp-lead">▲</span>' : '';
-        const topsTag = (p.tops || 0) > 0 ? `<span class="pp-tops">👑${p.tops}</span>` : '';
         const bonusTag = p.bonus && p.bonus.length ? `<span class="pp-bonus">✨${p.bonusPoints || 0}</span>` : '';
-        const setsTag = (p.sets || 0) > 0 ? `<span class="pp-sets">📦${p.sets}</span>` : '';
-        const offTag = !p.connected && !p.isBot ? '<span class="pp-auto">🤖 auto</span>' : '';
         panel.innerHTML = `
           <div class="pp-head">
             ${playerCoinHtml(p, 'sm')}
-            <span class="pp-name">${escapeHtml(p.name)}${p.id === myId ? ' (You)' : ''}</span>
-            ${offTag}${setsTag}${topsTag}${bonusTag}<span class="pp-score">${leadTag}⭐ ${p.score || 0}</span>
+            <span class="pp-name">${escapeHtml(p.name)}</span>
+            ${bonusTag}<span class="pp-score">⭐ ${p.score || 0}</span>
           </div>
           <div class="pp-mtns">${chips}</div>`;
         strip.appendChild(panel);

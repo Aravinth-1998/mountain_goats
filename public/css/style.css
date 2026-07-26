@@ -804,11 +804,7 @@ input.input-error:focus { border-color: var(--danger); background: rgba(255,93,1
 .pp-head { display: flex; align-items: center; gap: 7px; margin-bottom: 7px; }
 .pp-name { font-weight: 700; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; }
 .pp-score { font-weight: 800; font-size: 13px; color: var(--gold); white-space: nowrap; display: flex; align-items: center; gap: 3px; }
-.pp-lead { color: var(--green); font-size: 10px; }
-.pp-tops { font-size: 11px; font-weight: 800; color: var(--text); white-space: nowrap; }
 .pp-bonus { font-size: 11px; font-weight: 800; color: var(--gold); white-space: nowrap; }
-.pp-sets { font-size: 11px; font-weight: 800; color: var(--green); white-space: nowrap; }
-.pp-auto { font-size: 10px; font-weight: 700; color: var(--muted); background: rgba(255,255,255,0.07); border-radius: 6px; padding: 1px 5px; white-space: nowrap; }
 .pp-mtns { display: flex; gap: 4px; }
 .pp-chip {
   position: relative;
@@ -1175,8 +1171,7 @@ input.input-error:focus { border-color: var(--danger); background: rgba(255,93,1
   width: 9px; height: 9px; border-radius: 50%; flex: 0 0 auto;
 }
 .tg-name { color: var(--tc, var(--text)); font-family: 'Fredoka', sans-serif; font-size: 12px; }
-.tg-tops { font-size: 10px; color: var(--muted); margin-left: auto; }
-.tg-score { font-weight: 800; color: var(--gold); white-space: nowrap; font-size: 12px; }
+.tg-score { font-weight: 800; color: var(--gold); white-space: nowrap; font-size: 12px; margin-left: auto; }
 
 /* Player panels inside team grid / block */
 .pp.team-pp {
