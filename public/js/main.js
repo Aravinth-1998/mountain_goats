@@ -149,7 +149,7 @@
     '#4f7cff', // blue
     '#06d6a0', // mint green
     '#ff6b9d', // pink
-    '#118ab2', // sky blue
+    '#1eb5db', // sky blue
     '#40916c', // forest green
     '#c1121f', // dark red
     '#1e40af', // navy blue

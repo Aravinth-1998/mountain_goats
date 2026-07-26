@@ -14,7 +14,7 @@ const PLAYER_COLORS = [
   '#4f7cff',
   '#06d6a0',
   '#ff6b9d',
-  '#118ab2',
+  '#1eb5db',
   '#40916c',
   '#c1121f',
   '#1e40af',
