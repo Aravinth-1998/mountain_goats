@@ -919,13 +919,37 @@ input.input-error:focus { border-color: var(--danger); background: rgba(255,93,1
   animation: winHeadIn 0.4s ease-out 0.2s both;
   opacity: 0;
 }
+.win-place {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+.win-head-mid {
+  padding-top: 8px;
+}
+.win-head-mid .win-place {
+  color: var(--muted);
+}
+.win-outcome {
+  margin: 0 0 4px;
+  font-size: 13px;
+  line-height: 1.35;
+}
+.win-head-mid #win-title {
+  color: var(--text);
+  font-size: 22px;
+}
 .win-actions { display: flex; flex-direction: column; gap: 10px; margin-top: 14px; }
 #win-overlay.show .win-actions {
   animation: winHeadIn 0.35s ease-out both;
   animation-delay: calc(0.55s + var(--rows, 3) * 90ms);
   opacity: 0;
 }
-.trophy { font-size: 56px; }
+.trophy { font-size: 56px; line-height: 1; }
+.trophy[hidden] { display: none; }
 #win-overlay.show .trophy {
   animation: winHeadIn 0.4s ease-out 0.2s both, bob 2.4s ease-in-out 0.65s infinite;
 }

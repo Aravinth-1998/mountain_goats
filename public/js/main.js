@@ -2348,8 +2348,18 @@
     return winnerIds.includes(playerId);
   }
 
+  /** Fixed catchphrases by zero-based place (standard mode, local player). */
+  const STANDARD_PLACE_PHRASES = [
+    'You are the real GOAT!',
+    'Almost claimed the summit',
+    'Solid climb - keep hoofing',
+    'The mountain remembers',
+    'Every goat starts at base',
+    "Next summit's yours",
+  ];
+
   /**
-   * Build the standard-mode win overlay title.
+   * Build the standard-mode win overlay title (share / fallback).
    *
    * @returns {string}
    */
@@ -2364,6 +2374,119 @@
     return winner ? `${winner.name} Wins!` : 'Game Over!';
   }
 
+  /**
+   * Players sorted by score then tops (same order as the scoreboard).
+   *
+   * @returns {object[]}
+   */
+  function sortedPlayersByScore() {
+    if (!state || !state.players) return [];
+    return [...state.players].sort((a, b) => b.score - a.score || b.tops - a.tops);
+  }
+
+  /**
+   * Ordinal place label for a 1-based place number.
+   *
+   * @param {number} placeOneBased Place starting at 1.
+   * @returns {string}
+   */
+  function ordinalPlace(placeOneBased) {
+    const n = placeOneBased;
+    const mod100 = n % 100;
+    if (mod100 >= 11 && mod100 <= 13) return n + 'th';
+    switch (n % 10) {
+      case 1: return n + 'st';
+      case 2: return n + 'nd';
+      case 3: return n + 'rd';
+      default: return n + 'th';
+    }
+  }
+
+  /**
+   * Catchphrase for the local player's place in standard mode.
+   *
+   * @param {number} rankIndex Zero-based rank in sorted standings.
+   * @param {number} winnerSlots Number of winner slots for this game.
+   * @returns {string}
+   */
+  function standardCatchphrase(rankIndex, winnerSlots) {
+    if (rankIndex === 1 && winnerSlots >= 2) return 'Shared summit!';
+    if (rankIndex >= 0 && rankIndex < STANDARD_PLACE_PHRASES.length) {
+      return STANDARD_PLACE_PHRASES[rankIndex];
+    }
+    return STANDARD_PLACE_PHRASES[STANDARD_PLACE_PHRASES.length - 1];
+  }
+
+  /**
+   * Reset place / outcome / trophy chrome on the win head.
+   *
+   * @returns {void}
+   */
+  function resetWinHeadChrome() {
+    const placeEl = $('win-place');
+    const outcomeEl = $('win-outcome');
+    const head = document.querySelector('#win-overlay .win-head');
+    const trophy = document.querySelector('#win-overlay .trophy');
+    if (placeEl) {
+      placeEl.hidden = true;
+      placeEl.textContent = '';
+    }
+    if (outcomeEl) {
+      outcomeEl.hidden = true;
+      outcomeEl.textContent = '';
+    }
+    if (head) head.classList.remove('win-head-mid');
+    if (trophy) {
+      trophy.hidden = false;
+      trophy.textContent = '🏆';
+    }
+  }
+
+  /**
+   * Fill standard-mode place line, catchphrase, trophy, and outcome subline.
+   *
+   * @param {object|null} winner Top-ranked or designated winner player.
+   * @returns {void}
+   */
+  function applyStandardWinHead(winner) {
+    const placeEl = $('win-place');
+    const outcomeEl = $('win-outcome');
+    const titleEl = $('win-title');
+    const head = document.querySelector('#win-overlay .win-head');
+    const trophy = document.querySelector('#win-overlay .trophy');
+    const sorted = sortedPlayersByScore();
+    const rankIndex = sorted.findIndex((p) => p.id === myId);
+    const winnerSlots = winnerSlotCount(state.players.length);
+    const localWon = didCurrentPlayerWin();
+
+    if (rankIndex < 0) {
+      resetWinHeadChrome();
+      titleEl.textContent = winner ? standardWinTitle() : 'Game Over!';
+      return;
+    }
+
+    if (placeEl) {
+      placeEl.hidden = false;
+      placeEl.textContent = ordinalPlace(rankIndex + 1) + ' place';
+    }
+    titleEl.textContent = standardCatchphrase(rankIndex, winnerSlots);
+    if (trophy) {
+      trophy.textContent = localWon ? '🏆' : '';
+      trophy.hidden = !localWon;
+    }
+    if (head) head.classList.toggle('win-head-mid', !localWon);
+
+    if (outcomeEl) {
+      if (!localWon && winner) {
+        outcomeEl.hidden = false;
+        outcomeEl.textContent = winner.name + ' won with ' + winner.score + ' pts';
+      } else {
+        outcomeEl.hidden = true;
+        outcomeEl.textContent = '';
+      }
+    }
+  }
+
   function hideWinOverlay() {
     cancelWinCountUp();
     pendingMatchStats = null;
@@ -2372,6 +2495,7 @@
       banner.hidden = true;
       banner.textContent = '';
     }
+    resetWinHeadChrome();
     $('win-overlay').classList.remove('show');
   }
 
@@ -2445,6 +2569,7 @@
 
     if (state.teamMode && state.teams && state.winnerTeamId != null) {
       // Team mode win screen
+      resetWinHeadChrome();
       const winTeam = state.teams.find((t) => t.id === state.winnerTeamId);
       if (!winTeam) {
         $('win-title').textContent = 'Game Over!';
@@ -2494,8 +2619,12 @@
       document.querySelector('#win-overlay .win-actions').style.setProperty('--rows', String(rowIdx));
     } else {
       // Standard mode win screen
-      $('win-title').textContent = winner ? standardWinTitle() : 'Game Over!';
-      const sorted = [...state.players].sort((a, b) => b.score - a.score || b.tops - a.tops);
+      if (winner) applyStandardWinHead(winner);
+      else {
+        resetWinHeadChrome();
+        $('win-title').textContent = 'Game Over!';
+      }
+      const sorted = sortedPlayersByScore();
       const winnerSlots = winnerSlotCount(state.players.length);
       const rows = sorted.map((p, i) => {
         const prefix = scoreRankPrefixHtml(i, winnerSlots);
