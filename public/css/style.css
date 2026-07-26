@@ -1211,6 +1211,127 @@ input.input-error:focus { border-color: var(--danger); background: rgba(255,93,1
   font-size: 11px; color: var(--muted); font-weight: 400;
 }
 
+/* Win screen: 2-team rivalry */
+#win-overlay .win-rival {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 8px;
+  align-items: center;
+  margin: 4px 0 10px;
+}
+#win-overlay .win-rival-side {
+  text-align: center;
+  padding: 12px 8px;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--team-color, #fff) 45%, var(--card-border));
+  background: color-mix(in srgb, var(--team-color, #fff) 14%, transparent);
+}
+#win-overlay .win-rival-side.winner {
+  box-shadow: 0 0 0 1px rgba(255, 209, 102, 0.45);
+}
+#win-overlay .win-rival-name {
+  font-family: 'Fredoka', sans-serif;
+  font-size: 16px;
+  margin: 0 0 4px;
+  font-weight: 700;
+}
+#win-overlay .win-rival-score {
+  font-size: 28px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+#win-overlay .win-rival-vs {
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--muted);
+}
+#win-overlay .win-bar-track {
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+  display: flex;
+  margin: 0 0 4px;
+}
+#win-overlay .win-bar-seg {
+  height: 100%;
+  min-width: 0;
+}
+
+/* Win screen: 3-team podium */
+#win-overlay .win-podium {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 8px;
+  margin: 4px 0 8px;
+  min-height: 120px;
+}
+#win-overlay .win-pod {
+  flex: 1;
+  text-align: center;
+  border-radius: 12px 12px 4px 4px;
+  padding: 10px 6px 8px;
+  border: 1px solid var(--card-border);
+  background: rgba(255, 255, 255, 0.04);
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+#win-overlay .win-pod.first {
+  order: 2;
+  background: rgba(255, 209, 102, 0.14);
+  border-color: rgba(255, 209, 102, 0.4);
+  padding-top: 14px;
+}
+#win-overlay .win-pod.second { order: 1; }
+#win-overlay .win-pod.third { order: 3; }
+#win-overlay .win-pod-place {
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--muted);
+}
+#win-overlay .win-pod.first .win-pod-place { color: var(--gold); }
+#win-overlay .win-pod-name {
+  font-family: 'Fredoka', sans-serif;
+  font-size: 14px;
+  margin: 6px 0 8px;
+  font-weight: 700;
+}
+#win-overlay .win-pod-height {
+  margin-top: auto;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--team-color, #fff) 45%, rgba(255, 255, 255, 0.06));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+}
+#win-overlay .win-pod.first .win-pod-height {
+  height: 44px;
+  background: color-mix(in srgb, var(--team-color, var(--gold)) 55%, rgba(255, 255, 255, 0.08));
+}
+#win-overlay .win-pod.second .win-pod-height { height: 30px; }
+#win-overlay .win-pod.third .win-pod-height { height: 22px; }
+#win-overlay .win-pod-bar-score {
+  font-size: 14px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: #fff;
+  line-height: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #win-overlay.show .win-rival-side,
+  #win-overlay.show .win-pod,
+  #win-overlay.show .win-bar-track {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}
+
 /* ===== HOME ACTIONS ===== */
 .home-actions {
   display: flex; flex-direction: column; gap: 12px;

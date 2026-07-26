@@ -2487,6 +2487,146 @@
     }
   }
 
+  /** Fixed catchphrases by zero-based team place (team mode, local herd). */
+  const TEAM_PLACE_PHRASES = [
+    'The GOAT team won!',
+    'Almost owned the ridge',
+    'Base camp builds champions',
+  ];
+
+  /**
+   * Teams sorted by score then tops (same order as the team scoreboard).
+   *
+   * @returns {object[]}
+   */
+  function sortedTeamsByScore() {
+    if (!state || !state.teams) return [];
+    return [...state.teams].sort((a, b) => (b.score || 0) - (a.score || 0) || (b.tops || 0) - (a.tops || 0));
+  }
+
+  /**
+   * Zero-based rank of the local player's team in sorted standings.
+   *
+   * @param {object[]} sortedTeams Teams sorted by score.
+   * @returns {number}
+   */
+  function localTeamRankIndex(sortedTeams) {
+    return sortedTeams.findIndex((t) => t.members && t.members.includes(myId));
+  }
+
+  /**
+   * Catchphrase for the local player's team place.
+   *
+   * @param {number} rankIndex Zero-based team rank.
+   * @returns {string}
+   */
+  function teamCatchphrase(rankIndex) {
+    if (rankIndex >= 0 && rankIndex < TEAM_PLACE_PHRASES.length) {
+      return TEAM_PLACE_PHRASES[rankIndex];
+    }
+    return TEAM_PLACE_PHRASES[TEAM_PLACE_PHRASES.length - 1];
+  }
+
+  /**
+   * Fill team-mode place line, catchphrase, trophy, and outcome subline.
+   *
+   * @param {object} winTeam Winning team object.
+   * @param {object[]} sortedTeams Teams sorted by score.
+   * @returns {void}
+   */
+  function applyTeamWinHead(winTeam, sortedTeams) {
+    const placeEl = $('win-place');
+    const outcomeEl = $('win-outcome');
+    const titleEl = $('win-title');
+    const head = document.querySelector('#win-overlay .win-head');
+    const trophy = document.querySelector('#win-overlay .trophy');
+    const rankIndex = localTeamRankIndex(sortedTeams);
+    const localWon = didCurrentPlayerWin();
+
+    if (rankIndex < 0) {
+      resetWinHeadChrome();
+      titleEl.textContent = winTeam ? `Team ${winTeam.name} Wins!` : 'Game Over!';
+      return;
+    }
+
+    if (placeEl) {
+      placeEl.hidden = false;
+      placeEl.textContent = ordinalPlace(rankIndex + 1) + ' place';
+    }
+    titleEl.textContent = teamCatchphrase(rankIndex);
+    if (trophy) {
+      trophy.textContent = localWon ? '🏆' : '';
+      trophy.hidden = !localWon;
+    }
+    if (head) head.classList.toggle('win-head-mid', !localWon);
+
+    if (outcomeEl) {
+      if (!localWon && winTeam) {
+        outcomeEl.hidden = false;
+        outcomeEl.textContent = 'Team ' + winTeam.name + ' took the peak · ' + (winTeam.score || 0) + ' pts';
+      } else {
+        outcomeEl.hidden = true;
+        outcomeEl.textContent = '';
+      }
+    }
+  }
+
+  /**
+   * Build rivalry HTML for a 2-team scorecard.
+   *
+   * @param {object[]} sortedTeams Exactly two teams, sorted by score.
+   * @param {object} winTeam Winning team.
+   * @returns {string}
+   */
+  function teamRivalryHtml(sortedTeams, winTeam) {
+    const a = sortedTeams[0];
+    const b = sortedTeams[1];
+    const total = (a.score || 0) + (b.score || 0);
+    const pctA = total > 0 ? Math.round(((a.score || 0) / total) * 100) : 50;
+    const pctB = 100 - pctA;
+    const side = (t, i) => {
+      const isWin = t.id === winTeam.id;
+      return `<div class="win-rival-side${isWin ? ' winner' : ''} win-extra" style="--i:${i};--team-color:${escapeHtml(t.color)}">
+        <div class="win-rival-name" style="color:${escapeHtml(t.color)}">${escapeHtml(t.name)}</div>
+        <div class="win-rival-score">${t.score || 0}</div>
+      </div>`;
+    };
+    return `<div class="win-rival">
+      ${side(a, 0)}
+      <div class="win-rival-vs win-extra" style="--i:0">VS</div>
+      ${side(b, 1)}
+    </div>
+    <div class="win-bar-track win-extra" style="--i:1">
+      <div class="win-bar-seg" style="width:${pctA}%;background:${escapeHtml(a.color)}"></div>
+      <div class="win-bar-seg" style="width:${pctB}%;background:${escapeHtml(b.color)}"></div>
+    </div>`;
+  }
+
+  /**
+   * Build podium HTML for a 3-team scorecard.
+   *
+   * @param {object[]} sortedTeams At least three teams, sorted by score.
+   * @returns {string}
+   */
+  function teamPodiumHtml(sortedTeams) {
+    const first = sortedTeams[0];
+    const second = sortedTeams[1];
+    const third = sortedTeams[2];
+    const pod = (t, placeClass, placeLabel, i) => {
+      if (!t) return '';
+      return `<div class="win-pod ${placeClass} win-extra" style="--i:${i};--team-color:${escapeHtml(t.color)}">
+        <div class="win-pod-place">${placeLabel}</div>
+        <div class="win-pod-name" style="color:${escapeHtml(t.color)}">${escapeHtml(t.name)}</div>
+        <div class="win-pod-height"><span class="win-pod-bar-score">${t.score || 0}</span></div>
+      </div>`;
+    };
+    return `<div class="win-podium">
+      ${pod(second, 'second', '2nd', 0)}
+      ${pod(first, 'first', '1st', 1)}
+      ${pod(third, 'third', '3rd', 2)}
+    </div>`;
+  }
+
   function hideWinOverlay() {
     cancelWinCountUp();
     pendingMatchStats = null;
@@ -2568,51 +2708,46 @@
     }
 
     if (state.teamMode && state.teams && state.winnerTeamId != null) {
-      // Team mode win screen
-      resetWinHeadChrome();
+      // Team mode win screen: rivalry (2) or podium (3)
       const winTeam = state.teams.find((t) => t.id === state.winnerTeamId);
       if (!winTeam) {
+        resetWinHeadChrome();
         $('win-title').textContent = 'Game Over!';
         $('win-sub').innerHTML = '';
         updateWinStatsBanner(didCurrentPlayerWin());
         revealWinOverlay();
         return;
       }
-      // Check if I'm on the winning team
-      const myTeam = state.teams.find((t) => t.members.includes(myId));
-      const myTeamWon = myTeam && myTeam.id === winTeam.id;
-      $('win-title').textContent = myTeamWon ? 'Your Team Wins! 🎉' : `Team ${winTeam.name} Wins!`;
 
-      // Team scoreboard
-      const sortedTeams = [...state.teams].sort((a, b) => (b.score || 0) - (a.score || 0) || (b.tops || 0) - (a.tops || 0));
-      const teamRows = sortedTeams.map((t, i) => {
-        const prefix = teamRankPrefixHtml(i);
-        const isWin = t.id === winTeam.id;
-        const members = t.members.map((pid) => {
-          const pl = state.players.find((p) => p.id === pid);
-          return pl ? escapeHtml(pl.name) : '?';
-        }).join(', ');
-        return `<div class="score-row${isWin ? ' win' : ''}" style="--i:${i};border-left:3px solid ${t.color}">
-          <span class="sb-left">${prefix} <b style="color:${t.color}">Team ${escapeHtml(t.name)}</b> <span class="sb-members">(${members})</span></span>
-          ${winScoreRightHtml(t.score, t.tops)}
-        </div>`;
-      }).join('');
+      const sortedTeams = sortedTeamsByScore();
+      applyTeamWinHead(winTeam, sortedTeams);
 
-      // Individual player breakdown
-      let rowIdx = sortedTeams.length;
+      let teamViz = '';
+      let vizRows = 2;
+      if (sortedTeams.length === 2) {
+        teamViz = teamRivalryHtml(sortedTeams, winTeam);
+        vizRows = 2;
+      } else if (sortedTeams.length >= 3) {
+        teamViz = teamPodiumHtml(sortedTeams);
+        vizRows = 3;
+      }
+
+      let rowIdx = vizRows;
       const labelIdx = rowIdx++;
-      const sorted = [...state.players].sort((a, b) => b.score - a.score || b.tops - a.tops);
+      const sorted = sortedPlayersByScore();
       const playerRows = sorted.map((p) => {
         const bonusTag = p.bonus && p.bonus.length ? ` <span class="sb-bonus">✨+${p.bonusPoints}</span>` : '';
+        const team = state.teams.find((t) => t.members.includes(p.id));
+        const teamBorder = team ? `border-color:${escapeHtml(team.color)}` : '';
         const idx = rowIdx++;
-        return `<div class="score-row score-row-sm" style="--i:${idx}">
+        return `<div class="score-row score-row-sm" style="--i:${idx};${teamBorder}">
           <span class="sb-left">${playerCoinHtml(p, 'sm')} ${escapeHtml(p.name)}${p.isBot ? ' 🤖' : ''}${bonusTag}</span>
           ${winScoreRightHtml(p.score, p.tops)}
         </div>`;
       }).join('');
       const extraIdx = rowIdx;
 
-      $('win-sub').innerHTML = `<div class="scoreboard">${teamRows}</div>
+      $('win-sub').innerHTML = `${teamViz}
         <div class="team-breakdown-label win-extra" style="--i:${labelIdx}">Individual Scores</div>
         <div class="scoreboard scoreboard-sm">${playerRows}</div>
         ${endReasonBadge(state.endReason, extraIdx)}`;
