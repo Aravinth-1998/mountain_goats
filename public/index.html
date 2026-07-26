@@ -314,21 +314,28 @@
           <button id="btn-maxp-up" class="count-btn">+</button>
         </div>
       </div>
+      <div class="setting-row">
+        <label class="setting-label">Game mode</label>
+        <div class="toggle-group">
+          <button type="button" id="btn-teams-off" class="toggle-btn active">Standard</button>
+          <button type="button" id="btn-teams-on" class="toggle-btn">Team</button>
+        </div>
+      </div>
+      <div class="setting-row" id="team-config-row" hidden>
+        <label class="setting-label">Team count</label>
+        <div class="toggle-group" id="team-config-wrap">
+          <button type="button" id="btn-2teams" class="toggle-btn">2 teams</button>
+          <button type="button" id="btn-3teams" class="toggle-btn">3 teams</button>
+        </div>
+      </div>
     </div>
 
     <div class="card">
       <h2>Lobby</h2>
       <p class="muted">Share the room code with friends. The host starts the game.</p>
+      <p id="team-move-hint" class="muted team-move-hint" hidden></p>
       <ul id="lobby-players" class="player-list"></ul>
       <button id="btn-addbot" class="btn btn-ghost btn-block">+ Add Bot 🤖</button>
-      <div id="team-controls" style="display:none">
-        <div style="height:10px"></div>
-        <button id="btn-teammode" class="btn btn-ghost btn-block">👥 Enable Teams</button>
-        <div id="team-config-wrap" class="team-config-wrap" style="display:none">
-          <button id="btn-2teams" class="team-cfg-btn">2 Teams</button>
-          <button id="btn-3teams" class="team-cfg-btn">3 Teams</button>
-        </div>
-      </div>
       <div style="height:10px"></div>
       <button id="btn-start" class="btn btn-primary btn-block">Start Game</button>
       <p id="lobby-hint" class="muted center">Waiting for players…</p>

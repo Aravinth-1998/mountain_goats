@@ -269,7 +269,10 @@
     if (p.id === state.hostId) {
       return `<span class="host-icon" title="Host">👑</span>`;
     }
-    return `<span class="player-type-icon ${p.isBot ? 'bot' : 'human'}" title="${p.isBot ? 'Bot' : 'Player'}">${p.isBot ? '🤖' : '👤'}</span>`;
+    if (p.isBot) {
+      return `<span class="player-type-icon bot" title="Bot">🤖</span>`;
+    }
+    return '';
   }
   function canPickLobbyColor(p) {
     return p.id === myId || (state && state.hostId === myId);
@@ -794,9 +797,13 @@
   $('btn-start').addEventListener('click', () => socket.emit('startGame'));
   $('btn-addbot').addEventListener('click', () => socket.emit('addBot'));
   // Team mode controls
-  $('btn-teammode').addEventListener('click', () => {
-    if (!state) return;
-    socket.emit('setTeamMode', { enabled: !state.teamMode });
+  $('btn-teams-off').addEventListener('click', () => {
+    if (!state || !state.teamMode) return;
+    socket.emit('setTeamMode', { enabled: false });
+  });
+  $('btn-teams-on').addEventListener('click', () => {
+    if (!state || state.teamMode) return;
+    socket.emit('setTeamMode', { enabled: true });
   });
   $('btn-2teams').addEventListener('click', () => socket.emit('setTeamConfig', { numTeams: 2 }));
   $('btn-3teams').addEventListener('click', () => socket.emit('setTeamConfig', { numTeams: 3 }));
@@ -1504,8 +1511,6 @@
 
   // ===================== RENDER =====================
 
-  /** Selected player id for tap-to-move team assignment. */
-  let teamMoveSelectedPlayerId = null;
   let teamDragState = null;
 
   /**
@@ -1530,31 +1535,20 @@
   function emitTeamMove(playerId, toTeamId) {
     if (!state || !state.teamMode || !state.teams) return;
     const amHost = state.hostId === myId;
-    if (!canMoveTeamPlayer(playerId, amHost)) return;
+    // Non-hosts may only move themselves.
+    const moveId = amHost ? playerId : myId;
+    if (!canMoveTeamPlayer(moveId, amHost)) return;
     const toId = Number(toTeamId);
     if (!Number.isFinite(toId)) return;
-    const current = state.teams.find((t) => t.members.includes(playerId));
+    const current = state.teams.find((t) => t.members.includes(moveId));
     if (current && current.id === toId) return;
     if (!state.teams.some((t) => t.id === toId)) return;
 
-    clearTeamMoveSelection();
     if (amHost) {
-      socket.emit('swapTeam', { playerId, toTeamId: toId });
+      socket.emit('swapTeam', { playerId: moveId, toTeamId: toId });
     } else {
       socket.emit('selfSwapTeam', { toTeamId: toId });
     }
-  }
-
-  /**
-   * Clear tap-to-move selection highlight.
-   *
-   * @returns {void}
-   */
-  function clearTeamMoveSelection() {
-    teamMoveSelectedPlayerId = null;
-    document.querySelectorAll('.team-member.team-selected').forEach((el) => {
-      el.classList.remove('team-selected');
-    });
   }
 
   /**
@@ -1579,10 +1573,9 @@
     const movable = canMoveTeamPlayer(p.id, amHost) && state.teams && state.teams.length > 0;
     if (movable) {
       li.classList.add('team-movable');
-      li.title = 'Drag to another team, or tap then tap a team';
-    }
-    if (teamMoveSelectedPlayerId === p.id) {
-      li.classList.add('team-selected');
+      li.title = amHost
+        ? 'Drag to another team'
+        : 'Drag yourself to another team';
     }
     return li;
   }
@@ -1711,7 +1704,6 @@
           const dy = ev.clientY - teamDragState.startY;
           if (!teamDragState.dragging && (Math.abs(dx) > DRAG_THRESHOLD || Math.abs(dy) > DRAG_THRESHOLD)) {
             teamDragState.dragging = true;
-            clearTeamMoveSelection();
             row.classList.add('dragging');
             row.style.touchAction = 'none';
             try { row.setPointerCapture(ev.pointerId); } catch (err) { /* ignore */ }
@@ -1736,44 +1728,21 @@
           row.classList.remove('dragging');
           row.style.touchAction = '';
           listRoot.querySelectorAll('.team-band.drag-over').forEach((b) => b.classList.remove('drag-over'));
-
-          if (wasDragging) {
-            const band = teamBandFromPoint(ev.clientX, ev.clientY);
-            if (band && band.dataset.teamId !== '') {
-              const toId = Number(band.dataset.teamId);
-              if (Number.isFinite(toId) && toId !== fromId) {
-                emitTeamMove(pid, toId);
-              }
-            }
-            teamDragState = null;
-            return;
-          }
-
-          // Tap: toggle selection, or move if already selected another/same flow
           teamDragState = null;
-          if (teamMoveSelectedPlayerId === pid) {
-            clearTeamMoveSelection();
-            return;
+
+          if (!wasDragging) return;
+          const band = teamBandFromPoint(ev.clientX, ev.clientY);
+          if (band && band.dataset.teamId !== '') {
+            const toId = Number(band.dataset.teamId);
+            if (Number.isFinite(toId) && toId !== fromId) {
+              emitTeamMove(pid, toId);
+            }
           }
-          clearTeamMoveSelection();
-          teamMoveSelectedPlayerId = pid;
-          row.classList.add('team-selected');
         };
 
         document.addEventListener('pointermove', onMove);
         document.addEventListener('pointerup', onUp);
         document.addEventListener('pointercancel', onUp);
-      });
-    });
-
-    listRoot.querySelectorAll('.team-band').forEach((band) => {
-      band.addEventListener('click', (e) => {
-        if (!teamMoveSelectedPlayerId) return;
-        if (e.target.closest && e.target.closest('.team-member')) return;
-        if (band.dataset.teamId === '') return;
-        const toId = Number(band.dataset.teamId);
-        if (!Number.isFinite(toId)) return;
-        emitTeamMove(teamMoveSelectedPlayerId, toId);
       });
     });
   }
@@ -1830,7 +1799,6 @@
 
       wireTeamBandInteractions(ul, amHost);
     } else {
-      clearTeamMoveSelection();
       // Standard mode: render flat player list
       state.players.forEach((p) => {
         const li = document.createElement('li');
@@ -1842,33 +1810,32 @@
       });
     }
 
-    // Team mode toggle (host only)
-    const teamSection = $('team-controls');
-    if (teamSection) {
-      if (amHost) {
-        teamSection.style.display = 'block';
-        const toggleBtn = $('btn-teammode');
-        toggleBtn.textContent = state.teamMode ? '🏁 Disable Teams' : '👥 Enable Teams';
-        toggleBtn.className = state.teamMode ? 'btn btn-ghost btn-block team-active' : 'btn btn-ghost btn-block';
-        // Team config selector
-        const configWrap = $('team-config-wrap');
+    // Game mode + team count (host only, inside room settings).
+    const teamsOffBtn = $('btn-teams-off');
+    const teamsOnBtn = $('btn-teams-on');
+    const teamConfigRow = $('team-config-row');
+    if (amHost && teamsOffBtn && teamsOnBtn) {
+      teamsOffBtn.classList.toggle('active', !state.teamMode);
+      teamsOnBtn.classList.toggle('active', !!state.teamMode);
+      if (teamConfigRow) {
+        teamConfigRow.hidden = !state.teamMode;
         if (state.teamMode && state.teams) {
-          configWrap.style.display = 'flex';
           const numTeams = state.teams.length;
           $('btn-2teams').classList.toggle('active', numTeams === 2);
           $('btn-3teams').classList.toggle('active', numTeams === 3);
-          // Only show 3-team option if 6 players
-          $('btn-3teams').style.display = state.players.length >= 6 ? 'inline-block' : 'none';
-        } else {
-          configWrap.style.display = 'none';
+          $('btn-3teams').style.display = '';
         }
-      } else {
-        teamSection.style.display = state.teamMode ? 'block' : 'none';
-        if (state.teamMode) {
-          // Non-host sees team info but no controls
-          $('btn-teammode').style.display = 'none';
-          $('team-config-wrap').style.display = 'none';
-        }
+      }
+    }
+
+    const teamMoveHint = $('team-move-hint');
+    if (teamMoveHint) {
+      const showHint = !!(state.teamMode && state.teams);
+      teamMoveHint.hidden = !showHint;
+      if (showHint) {
+        teamMoveHint.textContent = amHost
+          ? 'Drag players onto another team to change teams.'
+          : 'Drag your row onto another team to switch.';
       }
     }
 

@@ -1098,20 +1098,11 @@ input.input-error:focus { border-color: var(--danger); background: rgba(255,93,1
 .team-band-members > li.team-member.team-movable.dragging {
   touch-action: none;
 }
-.team-band-members > li.team-member.team-selected {
-  border-color: rgba(255, 209, 102, 0.55);
-  box-shadow: 0 0 0 1px rgba(255, 209, 102, 0.35);
-}
 .player-list > li.lobby-you,
 .team-band-members > li.team-member.lobby-you {
   border-color: rgba(255, 209, 102, 0.55);
   box-shadow: 0 0 0 1px rgba(255, 209, 102, 0.28);
   animation: lobby-you-blink 2s ease-in-out infinite;
-}
-.team-band-members > li.team-member.lobby-you.team-selected {
-  border-color: rgba(255, 209, 102, 0.75);
-  box-shadow: 0 0 0 2px rgba(255, 209, 102, 0.4);
-  animation: none;
 }
 @keyframes lobby-you-blink {
   0%, 70%, 100% {
@@ -1139,34 +1130,6 @@ input.input-error:focus { border-color: var(--danger); background: rgba(255,93,1
 .team-count {
   margin-left: auto; font-size: 11px; color: var(--muted); font-weight: 600;
 }
-
-/* Team mode toggle button */
-.btn.team-active {
-  background: rgba(79,124,255,0.18);
-  border-color: rgba(79,124,255,0.4);
-  color: var(--primary);
-}
-
-/* Team config selector */
-.team-config-wrap {
-  display: flex; gap: 8px; justify-content: center;
-  margin-top: 8px;
-}
-.team-cfg-btn {
-  flex: 1;
-  padding: 8px 12px; border-radius: 10px;
-  border: 1px solid var(--card-border);
-  background: rgba(255,255,255,0.06);
-  color: var(--muted); font-size: 13px; font-weight: 700;
-  cursor: pointer; transition: all .15s;
-  font-family: inherit;
-}
-.team-cfg-btn.active {
-  background: rgba(79,124,255,0.2);
-  border-color: var(--primary);
-  color: var(--text);
-}
-.team-cfg-btn:hover { background: rgba(255,255,255,0.1); }
 
 /* Game: team grid layout — teams as columns, players as rows */
 .team-grid {
@@ -1810,6 +1773,17 @@ input.input-error:focus { border-color: var(--danger); background: rgba(255,93,1
 }
 .setting-row + .setting-row {
   border-top: 1px solid rgba(255,255,255,0.06);
+}
+#team-config-row[hidden] {
+  display: none !important;
+}
+.team-move-hint {
+  margin: 0 0 10px;
+  font-size: 13px;
+  line-height: 1.35;
+}
+#team-move-hint[hidden] {
+  display: none !important;
 }
 .setting-label {
   font-size: 14px; font-weight: 600; color: var(--text);
