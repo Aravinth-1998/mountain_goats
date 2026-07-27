@@ -1113,16 +1113,16 @@ input.input-error:focus { border-color: var(--danger); background: rgba(255,93,1
   cursor: grab;
   user-select: none;
   -webkit-user-select: none;
+  -webkit-user-drag: none;
+  touch-action: none;
 }
 .team-band-members > li.team-member.team-movable:active {
   cursor: grabbing;
 }
-.team-band-members > li.team-member.team-movable.dragging {
-  touch-action: none;
-}
 .player-list.team-lobby.is-dragging {
   user-select: none;
   -webkit-user-select: none;
+  touch-action: none;
 }
 .player-list > li.lobby-you,
 .team-band-members > li.team-member.lobby-you {

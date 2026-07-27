@@ -1664,7 +1664,7 @@
   }
 
   /**
-   * Wire pointer drag and tap-to-move on team bands in the lobby list.
+   * Wire pointer drag on team bands in the lobby list.
    *
    * @param {HTMLElement} listRoot Lobby players list element.
    * @param {boolean} amHost Whether local user is host.
@@ -1686,6 +1686,12 @@
         const playerId = row.dataset.playerId;
         if (!playerId || !canMoveTeamPlayer(playerId, amHost)) return;
 
+        // Claim the gesture immediately so page scroll cannot cancel it.
+        e.preventDefault();
+        try { row.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+        const sel = window.getSelection && window.getSelection();
+        if (sel && sel.removeAllRanges) sel.removeAllRanges();
+
         teamDragState = {
           playerId,
           fromTeamId: row.dataset.fromTeamId != null && row.dataset.fromTeamId !== ''
@@ -1700,19 +1706,16 @@
 
         const onMove = (ev) => {
           if (!teamDragState || teamDragState.pointerId !== ev.pointerId) return;
+          ev.preventDefault();
           const dx = ev.clientX - teamDragState.startX;
           const dy = ev.clientY - teamDragState.startY;
           if (!teamDragState.dragging && (Math.abs(dx) > DRAG_THRESHOLD || Math.abs(dy) > DRAG_THRESHOLD)) {
             teamDragState.dragging = true;
             row.classList.add('dragging');
             listRoot.classList.add('is-dragging');
-            row.style.touchAction = 'none';
-            try { row.setPointerCapture(ev.pointerId); } catch (err) { /* ignore */ }
-            const sel = window.getSelection && window.getSelection();
             if (sel && sel.removeAllRanges) sel.removeAllRanges();
           }
           if (!teamDragState.dragging) return;
-          ev.preventDefault();
           listRoot.querySelectorAll('.team-band.drag-over').forEach((b) => b.classList.remove('drag-over'));
           const band = teamBandFromPoint(ev.clientX, ev.clientY);
           if (band && band.dataset.teamId !== '' && Number(band.dataset.teamId) !== teamDragState.fromTeamId) {
@@ -1722,16 +1725,16 @@
 
         const onUp = (ev) => {
           if (!teamDragState || teamDragState.pointerId !== ev.pointerId) return;
-          document.removeEventListener('pointermove', onMove);
-          document.removeEventListener('pointerup', onUp);
-          document.removeEventListener('pointercancel', onUp);
+          row.removeEventListener('pointermove', onMove);
+          row.removeEventListener('pointerup', onUp);
+          row.removeEventListener('pointercancel', onUp);
+          try { row.releasePointerCapture(ev.pointerId); } catch (err) { /* ignore */ }
 
           const wasDragging = teamDragState.dragging;
           const pid = teamDragState.playerId;
           const fromId = teamDragState.fromTeamId;
           row.classList.remove('dragging');
           listRoot.classList.remove('is-dragging');
-          row.style.touchAction = '';
           listRoot.querySelectorAll('.team-band.drag-over').forEach((b) => b.classList.remove('drag-over'));
           teamDragState = null;
 
@@ -1745,10 +1748,10 @@
           }
         };
 
-        document.addEventListener('pointermove', onMove, { passive: false });
-        document.addEventListener('pointerup', onUp);
-        document.addEventListener('pointercancel', onUp);
-      });
+        row.addEventListener('pointermove', onMove, { passive: false });
+        row.addEventListener('pointerup', onUp);
+        row.addEventListener('pointercancel', onUp);
+      }, { passive: false });
     });
   }
 
