@@ -315,7 +315,15 @@
         </div>
       </div>
       <div class="setting-row">
-        <label class="setting-label">Game mode</label>
+        <label class="setting-label">Turn Timer</label>
+        <div class="player-count-selector">
+          <button type="button" id="btn-turn-timer-down" class="count-btn">&lt;</button>
+          <span id="turn-timer-display" class="count-display">0s</span>
+          <button type="button" id="btn-turn-timer-up" class="count-btn">&gt;</button>
+        </div>
+      </div>
+      <div class="setting-row">
+        <label class="setting-label">Game Mode</label>
         <div class="toggle-group">
           <button type="button" id="btn-teams-off" class="toggle-btn active">Standard</button>
           <button type="button" id="btn-teams-on" class="toggle-btn">Team</button>
@@ -394,7 +402,10 @@
     <!-- Controls (always pinned at bottom) -->
     <div class="control-dock">
       <p id="sel-sum" class="sel-sum"></p>
-      <div id="dice-area" class="dice-area"></div>
+      <div class="dice-row">
+        <div id="dice-area" class="dice-area"></div>
+        <div id="turn-timer" class="turn-timer" hidden aria-live="polite">—</div>
+      </div>
       <div class="control-buttons" id="play-controls">
         <button id="btn-roll" class="btn btn-primary">Roll Dice</button>
         <button id="btn-endturn" class="btn btn-ghost">End Turn</button>

@@ -34,3 +34,15 @@ test('shouldBotPlay is false when game is not started or is finished', () => {
   assert.equal(shouldBotPlay(roomWithCurrent(bot, { started: false })), false);
   assert.equal(shouldBotPlay(roomWithCurrent(bot, { finished: true })), false);
 });
+
+test('shouldBotPlay is true when autoPlayTurn is set for connected human', () => {
+  const room = roomWithCurrent(makePlayer({ id: 'p0', isBot: false, connected: true }));
+  room.autoPlayTurn = true;
+  assert.equal(shouldBotPlay(room), true);
+});
+
+test('shouldBotPlay is false when autoPlayTurn is false for connected human', () => {
+  const room = roomWithCurrent(makePlayer({ id: 'p0', isBot: false, connected: true }));
+  room.autoPlayTurn = false;
+  assert.equal(shouldBotPlay(room), false);
+});

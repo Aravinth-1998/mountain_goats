@@ -139,6 +139,7 @@
   const selected = new Set(); // selected die indices for the current group
   let selSig = '';
   let autoEndTimer = null; // timer for auto-ending turn when no groups possible
+  let turnTimerLocalInterval = null;
   let colorPickerEl = null;
   let colorPickerOutsideHandler = null;
   let teamPickerEl = null;
@@ -242,6 +243,9 @@
     screens[name].classList.add('active');
     if (name !== 'loading') {
       document.documentElement.classList.remove('mg-rejoining');
+    }
+    if (name !== 'game') {
+      clearLocalTurnTimer();
     }
     if (name === 'home') {
       const lb = document.getElementById('home-leaderboard-content');
@@ -852,6 +856,40 @@
     if (cur < 6) socket.emit('setMaxPlayers', { maxPlayers: cur + 1 });
   });
 
+  const TURN_TIME_OPTIONS = [0, 10, 15, 20, 30, 45, 60];
+
+  /**
+   * Format turn timer seconds for the lobby display.
+   * @param {number} sec
+   * @returns {string}
+   */
+  function formatTurnTimeSec(sec) {
+    return `${sec || 0}s`;
+  }
+
+  /**
+   * Index of the current turn timer option (defaults to 0s).
+   * @returns {number}
+   */
+  function turnTimeOptionIndex() {
+    const cur = state ? (state.turnTimeSec || 0) : 0;
+    const idx = TURN_TIME_OPTIONS.indexOf(cur);
+    return idx >= 0 ? idx : 0;
+  }
+
+  $('btn-turn-timer-down').addEventListener('click', () => {
+    if (!state) return;
+    const idx = turnTimeOptionIndex();
+    if (idx <= 0) return;
+    socket.emit('setTurnTimer', { turnTimeSec: TURN_TIME_OPTIONS[idx - 1] });
+  });
+  $('btn-turn-timer-up').addEventListener('click', () => {
+    if (!state) return;
+    const idx = turnTimeOptionIndex();
+    if (idx >= TURN_TIME_OPTIONS.length - 1) return;
+    socket.emit('setTurnTimer', { turnTimeSec: TURN_TIME_OPTIONS[idx + 1] });
+  });
+
   // ===================== LOBBY / NAV =====================
   $('btn-start').addEventListener('click', () => socket.emit('startGame'));
   $('btn-addbot').addEventListener('click', () => socket.emit('addBot'));
@@ -1230,6 +1268,11 @@
     if (playControls) playControls.hidden = finished;
     if (diceArea) diceArea.hidden = finished;
     if (selSum) selSum.hidden = finished;
+    const turnTimerEl = $('turn-timer');
+    if (finished && turnTimerEl) {
+      clearLocalTurnTimer();
+      turnTimerEl.hidden = true;
+    }
 
     if (finishedControls) finishedControls.hidden = !finished;
     if (resultsBtn) resultsBtn.hidden = !finished;
@@ -1846,6 +1889,10 @@
         $('maxp-display').textContent = state.maxPlayers || 6;
         $('btn-maxp-down').disabled = (state.maxPlayers || 6) <= Math.max(2, state.players.length);
         $('btn-maxp-up').disabled = (state.maxPlayers || 6) >= 6;
+        const turnIdx = turnTimeOptionIndex();
+        $('turn-timer-display').textContent = formatTurnTimeSec(TURN_TIME_OPTIONS[turnIdx]);
+        $('btn-turn-timer-down').disabled = turnIdx <= 0;
+        $('btn-turn-timer-up').disabled = turnIdx >= TURN_TIME_OPTIONS.length - 1;
       }
     }
 
@@ -1936,6 +1983,57 @@
     }
   }
 
+  /**
+   * Stop the local countdown interval used for the in-game turn timer.
+   * @returns {void}
+   */
+  function clearLocalTurnTimer() {
+    if (turnTimerLocalInterval) {
+      clearInterval(turnTimerLocalInterval);
+      turnTimerLocalInterval = null;
+    }
+  }
+
+  /**
+   * Sync the dice-row countdown to server turnDeadline.
+   * @returns {void}
+   */
+  function syncTurnTimerDisplay() {
+    const el = $('turn-timer');
+    if (!el) return;
+    clearLocalTurnTimer();
+
+    const active = !!(
+      state
+      && state.started
+      && !state.finished
+      && (state.turnTimeSec || 0) > 0
+      && state.turnDeadline
+    );
+
+    if (!active) {
+      el.hidden = true;
+      el.textContent = '—';
+      el.classList.remove('warn');
+      return;
+    }
+
+    el.hidden = false;
+
+    /**
+     * Paint remaining whole seconds from the server deadline.
+     * @returns {void}
+     */
+    function paint() {
+      const remaining = Math.max(0, Math.ceil((state.turnDeadline - Date.now()) / 1000));
+      el.textContent = String(remaining);
+      el.classList.toggle('warn', remaining <= 5);
+    }
+
+    paint();
+    turnTimerLocalInterval = setInterval(paint, 250);
+  }
+
   function renderGame() {
     try { $('game-code').textContent = state.code; } catch(e) {}
     syncSelection();
@@ -1944,6 +2042,7 @@
     try { renderBonusRow(); } catch(e) { console.error('renderBonusRow', e); }
     try { renderBoard(); } catch(e) { console.error('renderBoard', e); }
     try { renderDice(); } catch(e) { console.error('renderDice', e); }
+    try { syncTurnTimerDisplay(); } catch(e) { console.error('syncTurnTimerDisplay', e); }
     try { renderControls(); } catch(e) { console.error('renderControls', e); }
     try { updateFinishedGameChrome(); } catch(e) { console.error('updateFinishedGameChrome', e); }
   }

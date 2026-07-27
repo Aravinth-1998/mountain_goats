@@ -849,8 +849,37 @@ input.input-error:focus { border-color: var(--danger); background: rgba(255,93,1
 }
 .sel-sum { text-align: center; font-size: 13px; font-weight: 700; color: var(--muted); margin: 0 0 8px; min-height: 16px; }
 .sel-sum.ok { color: var(--gold); }
-.dice-area { display: flex; justify-content: center; gap: 10px; margin-bottom: 10px; }
+.dice-row {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.dice-area { display: flex; justify-content: center; gap: 10px; margin-bottom: 0; }
 .dice-area.rolling .die { animation: shake .5s ease; }
+.turn-timer {
+  min-width: 52px;
+  min-height: 52px;
+  padding: 0 10px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--text);
+  background: rgba(255,255,255,0.08);
+  border: 1px solid var(--card-border);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+.turn-timer.warn {
+  color: #ff6b6b;
+  border-color: rgba(255,107,107,0.45);
+  background: rgba(255,107,107,0.12);
+}
+#turn-timer[hidden] { display: none !important; }
 .die {
   position: relative;
   width: 52px; height: 52px; border-radius: 14px;
@@ -2030,6 +2059,9 @@ input.input-error:focus { border-color: var(--danger); background: rgba(255,93,1
   border-left: 1px solid rgba(255,255,255,0.08);
   border-right: 1px solid rgba(255,255,255,0.08);
   line-height: 34px;
+}
+#turn-timer-display {
+  width: 44px;
 }
 
 @media (min-width: 560px) {
