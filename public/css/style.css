@@ -66,15 +66,10 @@ body { background-color: var(--bg-0); }
 }
 .screen.active { display: flex; }
 
-/* Prevent text selection while dragging players between teams */
+/* Prevent text selection in the lobby */
 #screen-lobby {
   user-select: none;
   -webkit-user-select: none;
-}
-body.team-drag-active,
-#screen-lobby.team-drag-active {
-  overflow: hidden;
-  touch-action: none;
 }
 
 /* Keep loading visible during mid-game refresh rejoin (set before paint) */
@@ -1091,10 +1086,6 @@ input.input-error:focus { border-color: var(--danger); background: rgba(255,93,1
   border-style: dashed;
   background: rgba(255, 255, 255, 0.03);
 }
-.player-list > li.team-band.drag-over {
-  outline: 2px dashed rgba(255, 209, 102, 0.65);
-  outline-offset: 2px;
-}
 .team-band-header {
   display: flex;
   align-items: center;
@@ -1121,20 +1112,7 @@ input.input-error:focus { border-color: var(--danger); background: rgba(255,93,1
   margin: 0;
 }
 .team-band-members > li.team-member.team-movable {
-  cursor: grab;
-  -webkit-touch-callout: none;
-}
-.team-band-members > li.team-member.team-movable:active {
-  cursor: grabbing;
-}
-.team-band-members > li.team-member.team-movable.team-armed,
-.team-band-members > li.team-member.team-movable.dragging {
-  touch-action: none;
-}
-.team-band-members > li.team-member.team-armed {
-  border-color: rgba(255, 209, 102, 0.85);
-  box-shadow: 0 0 0 2px rgba(255, 209, 102, 0.45);
-  transform: scale(1.01);
+  cursor: pointer;
 }
 .player-list > li.lobby-you,
 .team-band-members > li.team-member.lobby-you {
@@ -1152,9 +1130,61 @@ input.input-error:focus { border-color: var(--danger); background: rgba(255,93,1
     box-shadow: 0 0 0 2px rgba(255, 209, 102, 0.55), 0 0 12px rgba(255, 209, 102, 0.25);
   }
 }
-.team-band-members > li.team-member.dragging {
-  opacity: 0.45;
-  pointer-events: none;
+
+.team-band-members > li.team-member.team-move-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-color: rgba(255, 209, 102, 0.85);
+  box-shadow: 0 0 0 2px rgba(255, 209, 102, 0.45);
+  background: rgba(255, 255, 255, 0.07);
+  cursor: default;
+}
+.team-move-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.team-move-choices {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.team-move-chip {
+  min-width: 34px;
+  height: 34px;
+  padding: 0 10px;
+  border-radius: 9px;
+  border: 1px solid color-mix(in srgb, var(--tc, #fff) 55%, rgba(255, 255, 255, 0.25));
+  background: color-mix(in srgb, var(--tc, #fff) 30%, rgba(255, 255, 255, 0.05));
+  color: #fff;
+  font-weight: 800;
+  font-family: 'Fredoka', sans-serif;
+  font-size: 14px;
+  cursor: pointer;
+  line-height: 1;
+}
+.team-move-chip:active {
+  transform: scale(0.96);
+}
+.team-move-close {
+  margin-left: auto;
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--muted);
+  font-size: 14px;
+  cursor: pointer;
+  line-height: 1;
+}
+.team-move-close:active {
+  background: rgba(255, 255, 255, 0.12);
 }
 
 .team-dot {
