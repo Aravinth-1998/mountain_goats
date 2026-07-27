@@ -265,6 +265,31 @@
   function escapeHtml(s) {
     return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   }
+
+  /**
+   * Convert a hex color to rgba with the given alpha.
+   * Accepts #rgb or #rrggbb. Falls back to white at the given alpha.
+   *
+   * @param {string} hex Color string.
+   * @param {number} alpha Opacity 0–1.
+   * @returns {string}
+   */
+  function colorWithAlpha(hex, alpha) {
+    const raw = String(hex || '').trim();
+    const a = Math.max(0, Math.min(1, Number(alpha)));
+    let h = raw.charAt(0) === '#' ? raw.slice(1) : raw;
+    if (h.length === 3) {
+      h = h.split('').map((c) => c + c).join('');
+    }
+    if (!/^[0-9a-fA-F]{6}$/.test(h)) {
+      return `rgba(255, 255, 255, ${a})`;
+    }
+    const r = parseInt(h.slice(0, 2), 16);
+    const g = parseInt(h.slice(2, 4), 16);
+    const b = parseInt(h.slice(4, 6), 16);
+    return `rgba(${r}, ${g}, ${b}, ${a})`;
+  }
+
   function playerCoinHtml(p, sizeClass) {
     const cls = 'swatch' + (sizeClass ? ' ' + sizeClass : '') + (p.id === myId ? ' me' : '');
     return `<span class="${cls}" style="background:${p.color}">${escapeHtml(p.name.charAt(0).toUpperCase())}</span>`;
@@ -2615,7 +2640,9 @@
     const pctB = 100 - pctA;
     const side = (t, i) => {
       const isWin = t.id === winTeam.id;
-      return `<div class="win-rival-side${isWin ? ' winner' : ''} win-extra" style="--i:${i};--team-color:${escapeHtml(t.color)}">
+      const bg = colorWithAlpha(t.color, 0.14);
+      const border = colorWithAlpha(t.color, 0.45);
+      return `<div class="win-rival-side${isWin ? ' winner' : ''} win-extra" style="--i:${i};background:${bg};border-color:${border}">
         <div class="win-rival-name" style="color:${escapeHtml(t.color)}">${escapeHtml(t.name)}</div>
         <div class="win-rival-score">${t.score || 0}</div>
       </div>`;
@@ -2643,10 +2670,12 @@
     const third = sortedTeams[2];
     const pod = (t, placeClass, placeLabel, i) => {
       if (!t) return '';
-      return `<div class="win-pod ${placeClass} win-extra" style="--i:${i};--team-color:${escapeHtml(t.color)}">
+      const barAlpha = placeClass === 'first' ? 0.55 : 0.45;
+      const barBg = colorWithAlpha(t.color, barAlpha);
+      return `<div class="win-pod ${placeClass} win-extra" style="--i:${i}">
         <div class="win-pod-place">${placeLabel}</div>
         <div class="win-pod-name" style="color:${escapeHtml(t.color)}">${escapeHtml(t.name)}</div>
-        <div class="win-pod-height"><span class="win-pod-bar-score">${t.score || 0}</span></div>
+        <div class="win-pod-height" style="background:${barBg}"><span class="win-pod-bar-score">${t.score || 0}</span></div>
       </div>`;
     };
     return `<div class="win-podium">

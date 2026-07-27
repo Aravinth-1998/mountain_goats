@@ -1266,8 +1266,8 @@ input.input-error:focus { border-color: var(--danger); background: rgba(255,93,1
   text-align: center;
   padding: 12px 8px;
   border-radius: 14px;
-  border: 1px solid color-mix(in srgb, var(--team-color, #fff) 45%, var(--card-border));
-  background: color-mix(in srgb, var(--team-color, #fff) 14%, transparent);
+  border: 1px solid var(--card-border);
+  background: rgba(255, 255, 255, 0.04);
 }
 #win-overlay .win-rival-side.winner {
   box-shadow: 0 0 0 1px rgba(255, 209, 102, 0.45);
@@ -1345,7 +1345,7 @@ input.input-error:focus { border-color: var(--danger); background: rgba(255,93,1
 #win-overlay .win-pod-height {
   margin-top: auto;
   border-radius: 6px;
-  background: color-mix(in srgb, var(--team-color, #fff) 45%, rgba(255, 255, 255, 0.06));
+  background: rgba(255, 255, 255, 0.12);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1353,7 +1353,6 @@ input.input-error:focus { border-color: var(--danger); background: rgba(255,93,1
 }
 #win-overlay .win-pod.first .win-pod-height {
   height: 44px;
-  background: color-mix(in srgb, var(--team-color, var(--gold)) 55%, rgba(255, 255, 255, 0.08));
 }
 #win-overlay .win-pod.second .win-pod-height { height: 30px; }
 #win-overlay .win-pod.third .win-pod-height { height: 22px; }
