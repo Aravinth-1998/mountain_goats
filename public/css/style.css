@@ -66,6 +66,17 @@ body { background-color: var(--bg-0); }
 }
 .screen.active { display: flex; }
 
+/* Prevent text selection while dragging players between teams */
+#screen-lobby {
+  user-select: none;
+  -webkit-user-select: none;
+}
+body.team-drag-active,
+#screen-lobby.team-drag-active {
+  overflow: hidden;
+  touch-action: none;
+}
+
 /* Keep loading visible during mid-game refresh rejoin (set before paint) */
 html.mg-rejoining #screen-home {
   display: none !important;
@@ -1111,12 +1122,19 @@ input.input-error:focus { border-color: var(--danger); background: rgba(255,93,1
 }
 .team-band-members > li.team-member.team-movable {
   cursor: grab;
+  -webkit-touch-callout: none;
 }
 .team-band-members > li.team-member.team-movable:active {
   cursor: grabbing;
 }
+.team-band-members > li.team-member.team-movable.team-armed,
 .team-band-members > li.team-member.team-movable.dragging {
   touch-action: none;
+}
+.team-band-members > li.team-member.team-armed {
+  border-color: rgba(255, 209, 102, 0.85);
+  box-shadow: 0 0 0 2px rgba(255, 209, 102, 0.45);
+  transform: scale(1.01);
 }
 .player-list > li.lobby-you,
 .team-band-members > li.team-member.lobby-you {

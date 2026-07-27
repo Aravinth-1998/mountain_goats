@@ -1514,6 +1514,41 @@
   let teamDragState = null;
 
   /**
+   * Lock or unlock page scroll while a team row is armed for drag.
+   *
+   * @param {boolean} lock Whether scroll should be locked.
+   * @returns {void}
+   */
+  function setTeamDragScrollLock(lock) {
+    document.body.classList.toggle('team-drag-active', lock);
+    const lobby = $('screen-lobby');
+    if (lobby) lobby.classList.toggle('team-drag-active', lock);
+  }
+
+  /**
+   * Clear in-progress team drag UI/state.
+   *
+   * @param {HTMLElement} listRoot Lobby players list element.
+   * @param {HTMLElement|null} row Active player row, if any.
+   * @returns {void}
+   */
+  function clearTeamDragUi(listRoot, row) {
+    if (teamDragState && teamDragState.longPressTimer) {
+      clearTimeout(teamDragState.longPressTimer);
+    }
+    if (row) {
+      row.classList.remove('team-armed', 'dragging');
+      row.style.touchAction = '';
+    }
+    if (listRoot) {
+      listRoot.classList.remove('team-drag-active');
+      listRoot.querySelectorAll('.team-band.drag-over').forEach((b) => b.classList.remove('drag-over'));
+    }
+    setTeamDragScrollLock(false);
+    teamDragState = null;
+  }
+
+  /**
    * Returns true when this client may move the given player between teams.
    *
    * @param {string} playerId Player socket id.
@@ -1574,8 +1609,8 @@
     if (movable) {
       li.classList.add('team-movable');
       li.title = amHost
-        ? 'Drag to another team'
-        : 'Drag yourself to another team';
+        ? 'Drag to another team (press and hold on touch)'
+        : 'Press and hold, then drag to another team';
     }
     return li;
   }
@@ -1664,7 +1699,9 @@
   }
 
   /**
-   * Wire pointer drag and tap-to-move on team bands in the lobby list.
+   * Wire pointer drag on team bands in the lobby list.
+   * Touch: press and hold to arm a row, then drag to another team.
+   * Mouse: drag immediately after a small movement threshold.
    *
    * @param {HTMLElement} listRoot Lobby players list element.
    * @param {boolean} amHost Whether local user is host.
@@ -1672,8 +1709,12 @@
    */
   function wireTeamBandInteractions(listRoot, amHost) {
     const DRAG_THRESHOLD = 8;
+    const LONG_PRESS_MS = 450;
+    const ARM_CANCEL_MOVE = 10;
 
     listRoot.querySelectorAll('.team-member.team-movable').forEach((row) => {
+      row.addEventListener('contextmenu', (e) => e.preventDefault());
+
       row.addEventListener('pointerdown', (e) => {
         if (e.button != null && e.button !== 0) return;
         if (e.target.closest && (
@@ -1686,6 +1727,29 @@
         const playerId = row.dataset.playerId;
         if (!playerId || !canMoveTeamPlayer(playerId, amHost)) return;
 
+        const isTouch = e.pointerType === 'touch';
+        let removed = false;
+
+        const removeListeners = () => {
+          if (removed) return;
+          removed = true;
+          document.removeEventListener('pointermove', onMove);
+          document.removeEventListener('pointerup', onUp);
+          document.removeEventListener('pointercancel', onUp);
+        };
+
+        const armRow = () => {
+          if (!teamDragState || teamDragState.armed) return;
+          teamDragState.armed = true;
+          teamDragState.dragging = true;
+          row.classList.add('team-armed', 'dragging');
+          listRoot.classList.add('team-drag-active');
+          setTeamDragScrollLock(true);
+          row.style.touchAction = 'none';
+          try { row.setPointerCapture(teamDragState.pointerId); } catch (err) { /* ignore */ }
+          if (navigator.vibrate) navigator.vibrate(15);
+        };
+
         teamDragState = {
           playerId,
           fromTeamId: row.dataset.fromTeamId != null && row.dataset.fromTeamId !== ''
@@ -1694,21 +1758,41 @@
           startX: e.clientX,
           startY: e.clientY,
           dragging: false,
+          armed: false,
           pointerId: e.pointerId,
           row,
+          isTouch,
+          longPressTimer: null,
         };
+
+        if (isTouch) {
+          teamDragState.longPressTimer = setTimeout(armRow, LONG_PRESS_MS);
+        }
 
         const onMove = (ev) => {
           if (!teamDragState || teamDragState.pointerId !== ev.pointerId) return;
           const dx = ev.clientX - teamDragState.startX;
           const dy = ev.clientY - teamDragState.startY;
-          if (!teamDragState.dragging && (Math.abs(dx) > DRAG_THRESHOLD || Math.abs(dy) > DRAG_THRESHOLD)) {
-            teamDragState.dragging = true;
-            row.classList.add('dragging');
-            row.style.touchAction = 'none';
-            try { row.setPointerCapture(ev.pointerId); } catch (err) { /* ignore */ }
+
+          if (isTouch && !teamDragState.armed) {
+            if (Math.abs(dx) > ARM_CANCEL_MOVE || Math.abs(dy) > ARM_CANCEL_MOVE) {
+              removeListeners();
+              clearTeamDragUi(listRoot, row);
+              return;
+            }
+            return;
           }
+
+          if (!isTouch && !teamDragState.dragging) {
+            if (Math.abs(dx) > DRAG_THRESHOLD || Math.abs(dy) > DRAG_THRESHOLD) {
+              teamDragState.dragging = true;
+              row.classList.add('dragging');
+              try { row.setPointerCapture(ev.pointerId); } catch (err) { /* ignore */ }
+            }
+          }
+
           if (!teamDragState.dragging) return;
+          if (isTouch) ev.preventDefault();
           listRoot.querySelectorAll('.team-band.drag-over').forEach((b) => b.classList.remove('drag-over'));
           const band = teamBandFromPoint(ev.clientX, ev.clientY);
           if (band && band.dataset.teamId !== '' && Number(band.dataset.teamId) !== teamDragState.fromTeamId) {
@@ -1718,17 +1802,12 @@
 
         const onUp = (ev) => {
           if (!teamDragState || teamDragState.pointerId !== ev.pointerId) return;
-          document.removeEventListener('pointermove', onMove);
-          document.removeEventListener('pointerup', onUp);
-          document.removeEventListener('pointercancel', onUp);
+          removeListeners();
 
           const wasDragging = teamDragState.dragging;
           const pid = teamDragState.playerId;
           const fromId = teamDragState.fromTeamId;
-          row.classList.remove('dragging');
-          row.style.touchAction = '';
-          listRoot.querySelectorAll('.team-band.drag-over').forEach((b) => b.classList.remove('drag-over'));
-          teamDragState = null;
+          clearTeamDragUi(listRoot, row);
 
           if (!wasDragging) return;
           const band = teamBandFromPoint(ev.clientX, ev.clientY);
@@ -1740,7 +1819,7 @@
           }
         };
 
-        document.addEventListener('pointermove', onMove);
+        document.addEventListener('pointermove', onMove, { passive: false });
         document.addEventListener('pointerup', onUp);
         document.addEventListener('pointercancel', onUp);
       });
@@ -1833,9 +1912,16 @@
       const showHint = !!(state.teamMode && state.teams);
       teamMoveHint.hidden = !showHint;
       if (showHint) {
-        teamMoveHint.textContent = amHost
-          ? 'Drag players onto another team to change teams.'
-          : 'Drag your row onto another team to switch.';
+        const touchUi = window.matchMedia('(pointer: coarse)').matches;
+        if (touchUi) {
+          teamMoveHint.textContent = amHost
+            ? 'Press and hold a player, then drag to another team.'
+            : 'Press and hold your row, then drag to another team.';
+        } else {
+          teamMoveHint.textContent = amHost
+            ? 'Drag players onto another team to change teams.'
+            : 'Drag your row onto another team to switch.';
+        }
       }
     }
 
