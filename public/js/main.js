@@ -1705,10 +1705,14 @@
           if (!teamDragState.dragging && (Math.abs(dx) > DRAG_THRESHOLD || Math.abs(dy) > DRAG_THRESHOLD)) {
             teamDragState.dragging = true;
             row.classList.add('dragging');
+            listRoot.classList.add('is-dragging');
             row.style.touchAction = 'none';
             try { row.setPointerCapture(ev.pointerId); } catch (err) { /* ignore */ }
+            const sel = window.getSelection && window.getSelection();
+            if (sel && sel.removeAllRanges) sel.removeAllRanges();
           }
           if (!teamDragState.dragging) return;
+          ev.preventDefault();
           listRoot.querySelectorAll('.team-band.drag-over').forEach((b) => b.classList.remove('drag-over'));
           const band = teamBandFromPoint(ev.clientX, ev.clientY);
           if (band && band.dataset.teamId !== '' && Number(band.dataset.teamId) !== teamDragState.fromTeamId) {
@@ -1726,6 +1730,7 @@
           const pid = teamDragState.playerId;
           const fromId = teamDragState.fromTeamId;
           row.classList.remove('dragging');
+          listRoot.classList.remove('is-dragging');
           row.style.touchAction = '';
           listRoot.querySelectorAll('.team-band.drag-over').forEach((b) => b.classList.remove('drag-over'));
           teamDragState = null;
@@ -1740,7 +1745,7 @@
           }
         };
 
-        document.addEventListener('pointermove', onMove);
+        document.addEventListener('pointermove', onMove, { passive: false });
         document.addEventListener('pointerup', onUp);
         document.addEventListener('pointercancel', onUp);
       });
