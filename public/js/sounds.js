@@ -189,23 +189,29 @@
   }
 
   /**
-   * Preload clips and bind toggle buttons. Sound is forced off for all users.
+   * @returns {boolean}
+   */
+  function readStoredEnabled() {
+    try {
+      return localStorage.getItem(STORAGE_KEY) === 'true';
+    } catch (err) {
+      return false;
+    }
+  }
+
+  /**
+   * Preload clips and bind toggle buttons.
    *
    * @returns {void}
    */
   function init() {
-    enabled = false;
-    try {
-      localStorage.setItem(STORAGE_KEY, 'false');
-    } catch (err) {
-      // ignore storage errors
-    }
+    enabled = readStoredEnabled();
 
     Object.values(CLIPS).forEach((src) => {
       getBaseAudio(src);
     });
 
-    syncToggleButtons(false);
+    syncToggleButtons(enabled);
 
     document.querySelectorAll('[data-sound-toggle]').forEach((button) => {
       button.addEventListener('click', () => {
