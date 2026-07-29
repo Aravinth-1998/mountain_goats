@@ -518,8 +518,12 @@
     const played = stats && typeof stats.matchesPlayed === 'number' ? stats.matchesPlayed : 0;
     const won = stats && typeof stats.matchesWon === 'number' ? stats.matchesWon : 0;
     const lost = stats && typeof stats.matchesLost === 'number' ? stats.matchesLost : 0;
-    const standard = stats && stats.standard ? stats.standard : { played: 0, won: 0, lost: 0 };
-    const team = stats && stats.team ? stats.team : { played: 0, won: 0, lost: 0 };
+    const standard = (stats && stats.modes && stats.modes.standard)
+      || (stats && stats.standard)
+      || { played: 0, won: 0, lost: 0 };
+    const team = (stats && stats.modes && stats.modes.team)
+      || (stats && stats.team)
+      || { played: 0, won: 0, lost: 0 };
     const winStreak = stats && typeof stats.winStreak === 'number' ? stats.winStreak : 0;
     const bestWinStreak = stats && typeof stats.bestWinStreak === 'number' ? stats.bestWinStreak : 0;
 

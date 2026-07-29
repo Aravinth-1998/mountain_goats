@@ -6,6 +6,7 @@ module.exports = {
   id: 'standard',
   label: 'Standard',
   statKey: 'standard',
+  usesTeams: false,
   applyClimb: climb.applyClimb,
   resolveWinners: winners.resolveWinners,
   getWinningAuthUserIds: winners.getWinningAuthUserIds,

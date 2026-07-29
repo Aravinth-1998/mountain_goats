@@ -333,27 +333,12 @@
     const badge = badgeHtml || '';
     return `<div class="player-main">${lobbySwatchHtml(p)}<span class="player-name">${escapeHtml(p.name)}</span></div><div class="player-end">${badge}${lobbyPlayerEndIconHtml(p)}</div>`;
   }
+  /** @returns {object} Active client mode module for current state. */
+  function currentMode() {
+    return GameModes.getModeForState(state);
+  }
   function getPlayerColors(p) {
-    if (state && state.teamMode && state.teamPalettes) {
-      if (p) {
-        const team = state.teams && state.teams.find((t) => t.members.includes(p.id));
-        if (team && state.teamPalettes[team.id]) {
-          return state.teamPalettes[team.id];
-        }
-        const seen = new Set();
-        const colors = [];
-        state.teamPalettes.forEach((pal) => {
-          pal.forEach((c) => {
-            if (!seen.has(c)) {
-              seen.add(c);
-              colors.push(c);
-            }
-          });
-        });
-        if (colors.length) return colors;
-      }
-    }
-    return (state && state.playerColors) || PLAYER_COLORS;
+    return currentMode().getPlayerColors(state, p, PLAYER_COLORS);
   }
   function closeColorPicker() {
     if (colorPickerEl) {
@@ -792,7 +777,7 @@
         card.innerHTML = `
           <div class="pr-info">
             <span class="pr-host">🐐 ${escapeHtml(r.hostName)}</span>
-            <span class="pr-meta">${r.playerCount}/${r.maxPlayers} players · ${r.teamMode ? '👥 Team' : '🎯 Solo'}</span>
+            <span class="pr-meta">${r.playerCount}/${r.maxPlayers} players · ${GameModes.getModeForState(r).roomsListLabel(r)}</span>
           </div>
           <button class="btn btn-join btn-sm pr-join" ${full ? 'disabled' : ''} data-code="${r.code}">${full ? 'Full' : 'Join'}</button>
         `;
@@ -893,14 +878,14 @@
   // ===================== LOBBY / NAV =====================
   $('btn-start').addEventListener('click', () => socket.emit('startGame'));
   $('btn-addbot').addEventListener('click', () => socket.emit('addBot'));
-  // Team mode controls
+  // Game mode controls (via client mode registry)
   $('btn-teams-off').addEventListener('click', () => {
-    if (!state || !state.teamMode) return;
-    socket.emit('setTeamMode', { enabled: false });
+    if (!state || currentMode().id === 'standard') return;
+    GameModes.getMode('standard').emitSetMode(socket);
   });
   $('btn-teams-on').addEventListener('click', () => {
-    if (!state || state.teamMode) return;
-    socket.emit('setTeamMode', { enabled: true });
+    if (!state || currentMode().id === 'standardTeam') return;
+    GameModes.getMode('standardTeam').emitSetMode(socket);
   });
   $('btn-2teams').addEventListener('click', () => socket.emit('setTeamConfig', { numTeams: 2 }));
   $('btn-3teams').addEventListener('click', () => socket.emit('setTeamConfig', { numTeams: 3 }));
@@ -983,42 +968,9 @@
 
   function shareWinResult() {
     if (!state) return;
-    const sorted = [...state.players].sort((a, b) => b.score - a.score || b.tops - a.tops);
-    const winnerSlots = winnerSlotCount(state.players.length);
-
-    let standings = '';
-    if (state.teamMode && state.teams) {
-      const sortedTeams = [...state.teams].sort((a, b) => (b.score || 0) - (a.score || 0) || (b.tops || 0) - (a.tops || 0));
-      standings = sortedTeams.map((t, i) => {
-        const prefix = teamRankPrefix(i);
-        return `${prefix} Team ${t.name}: ${t.score || 0}pts`;
-      }).join('\n');
-    } else {
-      standings = sorted.map((p, i) => {
-        const prefix = scoreRankPrefix(i, winnerSlots);
-        return `${prefix} ${p.name}: ${p.score}pts`;
-      }).join('\n');
-    }
-
-    let winnerLine = '';
-    if (state.teamMode && state.teams && state.winnerTeamId != null) {
-      const winTeam = state.teams.find((t) => t.id === state.winnerTeamId);
-      winnerLine = winTeam ? `Team ${winTeam.name} wins!` : 'Game over!';
-    } else {
-      const winnerIds = state.winnerPlayerIds && state.winnerPlayerIds.length
-        ? state.winnerPlayerIds
-        : (state.winnerId ? [state.winnerId] : []);
-      const winners = winnerIds
-        .map((id) => state.players.find((p) => p.id === id))
-        .filter(Boolean);
-      if (winners.length === 2) {
-        winnerLine = `${winners[0].name} and ${winners[1].name} win!`;
-      } else if (winners.length === 1) {
-        winnerLine = `${winners[0].name} wins!`;
-      } else {
-        winnerLine = 'Game over!';
-      }
-    }
+    const share = currentMode().shareLines(state);
+    const standings = share.standings;
+    const winnerLine = share.winnerLine;
 
     const text = `🐐 Mountain Goats — ${winnerLine}\n\n${standings}\n\nPlay at: ${location.origin}`;
 
@@ -1621,7 +1573,7 @@
    * @returns {boolean}
    */
   function canMoveTeamPlayer(playerId, amHost) {
-    if (!state || !state.teamMode || !state.teams || state.teams.length < 1) return false;
+    if (!state || !GameModes.modeUsesTeams(currentMode()) || !state.teams || state.teams.length < 1) return false;
     return amHost || playerId === myId;
   }
 
@@ -1633,7 +1585,7 @@
    * @returns {void}
    */
   function emitTeamMove(playerId, toTeamId) {
-    if (!state || !state.teamMode || !state.teams) return;
+    if (!state || !GameModes.modeUsesTeams(currentMode()) || !state.teams) return;
     const amHost = state.hostId === myId;
     // Non-hosts may only move themselves.
     const moveId = amHost ? playerId : myId;
@@ -1898,60 +1850,20 @@
 
     const ul = $('lobby-players');
     ul.innerHTML = '';
-    ul.classList.toggle('team-lobby', !!(state.teamMode && state.teams));
+    currentMode().renderLobbyPlayers(ul, {
+      state,
+      myId,
+      amHost,
+      lobbyPlayerRowHtml,
+      lobbyPlayerBadgesHtml,
+      appendKickBtn,
+      attachLobbySwatch,
+      buildTeamBand,
+      buildUnassignedBand,
+      wireTeamBandInteractions,
+    });
 
-    if (state.teamMode && state.teams) {
-      state.teams.forEach((team) => {
-        ul.appendChild(buildTeamBand(team, amHost));
-      });
-
-      const assigned = new Set(state.teams.flatMap((t) => t.members));
-      const unassigned = state.players.filter((p) => !assigned.has(p.id));
-      if (unassigned.length) {
-        ul.appendChild(buildUnassignedBand(unassigned, amHost));
-      }
-
-      wireTeamBandInteractions(ul, amHost);
-    } else {
-      // Standard mode: render flat player list
-      state.players.forEach((p) => {
-        const li = document.createElement('li');
-        if (p.id === myId) li.classList.add('lobby-you');
-        li.innerHTML = lobbyPlayerRowHtml(p, lobbyPlayerBadgesHtml(p, ''));
-        appendKickBtn(li, p, amHost);
-        attachLobbySwatch(li, p);
-        ul.appendChild(li);
-      });
-    }
-
-    // Game mode + team count (host only, inside room settings).
-    const teamsOffBtn = $('btn-teams-off');
-    const teamsOnBtn = $('btn-teams-on');
-    const teamConfigRow = $('team-config-row');
-    if (amHost && teamsOffBtn && teamsOnBtn) {
-      teamsOffBtn.classList.toggle('active', !state.teamMode);
-      teamsOnBtn.classList.toggle('active', !!state.teamMode);
-      if (teamConfigRow) {
-        teamConfigRow.hidden = !state.teamMode;
-        if (state.teamMode && state.teams) {
-          const numTeams = state.teams.length;
-          $('btn-2teams').classList.toggle('active', numTeams === 2);
-          $('btn-3teams').classList.toggle('active', numTeams === 3);
-          $('btn-3teams').style.display = '';
-        }
-      }
-    }
-
-    const teamMoveHint = $('team-move-hint');
-    if (teamMoveHint) {
-      const showHint = !!(state.teamMode && state.teams);
-      teamMoveHint.hidden = !showHint;
-      if (showHint) {
-        teamMoveHint.textContent = amHost
-          ? 'Tap a player to change their team.'
-          : 'Tap your row to switch teams.';
-      }
-    }
+    currentMode().updateLobbySettings({ $, state, amHost });
 
     const startBtn = $('btn-start');
     const addBtn = $('btn-addbot');
@@ -1959,12 +1871,7 @@
     addBtn.style.display = amHost ? 'block' : 'none';
     addBtn.disabled = state.players.length >= (state.maxPlayers || 6);
 
-    // Check if teams are equal (required to start in team mode)
-    let teamsUnequal = false;
-    if (state.teamMode && state.teams && state.teams.length >= 2) {
-      const sizes = state.teams.map((t) => t.members.length);
-      teamsUnequal = sizes.some((s) => s !== sizes[0]) || sizes.some((s) => s === 0);
-    }
+    const teamsUnequal = currentMode().teamsUnequal(state);
 
     startBtn.disabled = state.players.length < 2 || teamsUnequal;
     if (amHost) {
@@ -1974,7 +1881,7 @@
         $('lobby-hint').textContent = '⚠️ Teams must be equal to start!';
         $('lobby-hint').style.color = 'var(--danger)';
       } else {
-        $('lobby-hint').textContent = state.teamMode ? 'Teams ready! Start when you are!' : 'Ready when you are!';
+        $('lobby-hint').textContent = currentMode().lobbyReadyHint(state, amHost);
         $('lobby-hint').style.color = '';
       }
     } else {
@@ -1983,10 +1890,6 @@
     }
   }
 
-  /**
-   * Stop the local countdown interval used for the in-game turn timer.
-   * @returns {void}
-   */
   function clearLocalTurnTimer() {
     if (turnTimerLocalInterval) {
       clearInterval(turnTimerLocalInterval);
@@ -2088,88 +1991,7 @@
   function renderStats() {
     const strip = $('stats-strip');
     strip.innerHTML = '';
-
-    if (state.teamMode && state.teams) {
-      // Team mode: display team scorecards
-      // Build ordered member lists per team based on actual turn order
-      const teamOrder = state.teams.map(() => []);
-      state.players.forEach((p) => {
-        const tIdx = state.teams.findIndex((t) => t.members.includes(p.id));
-        if (tIdx >= 0) teamOrder[tIdx].push(p);
-      });
-
-      // All team configs: stacked vertically, each team as a block with members in a row
-      state.teams.forEach((t, tIdx) => {
-        const teamBlock = document.createElement('div');
-        teamBlock.className = 'team-block';
-        teamBlock.style.setProperty('--tc', t.color);
-
-        // Team header
-        const head = document.createElement('div');
-        head.className = 'tg-head';
-        head.style.setProperty('--tc', t.color);
-        head.innerHTML = `<span class="tg-dot" style="background:${t.color}"></span>
-          <span class="tg-name">${escapeHtml(t.name)}</span>
-          <span class="tg-score">⭐ ${t.score || 0}</span>`;
-        teamBlock.appendChild(head);
-
-        // Members in a row
-        const membersRow = document.createElement('div');
-        membersRow.className = 'team-block-members';
-        teamOrder[tIdx].forEach((p) => {
-          membersRow.appendChild(buildPlayerPanel(p));
-        });
-        teamBlock.appendChild(membersRow);
-        strip.appendChild(teamBlock);
-      });
-
-      // Helper to build a player panel
-      function buildPlayerPanel(p) {
-        const idx = state.players.indexOf(p);
-        const panel = document.createElement('div');
-        panel.className = 'pp team-pp' + (idx === state.currentIndex ? ' active' : '') + (p.connected ? '' : ' off');
-        const pos = p.pos || [];
-        const collected = p.collected || [];
-        let chips = '';
-        state.mountains.forEach((m, mi) => {
-          const onTop = (pos[mi] || 0) >= m.height;
-          const n = collected[mi] || 0;
-          chips += `<span class="pp-chip${n > 0 ? ' has' : ''}${onTop ? ' top' : ''}" style="--c:${m.color}">${m.value}<b>×${n}</b></span>`;
-        });
-        const bonusTag = p.bonus && p.bonus.length ? `<span class="pp-bonus">✨${p.bonusPoints || 0}</span>` : '';
-        panel.innerHTML = `
-          <div class="pp-head">
-            ${playerCoinHtml(p, 'sm')}
-            <span class="pp-name">${escapeHtml(p.name)}</span>
-            ${bonusTag}<span class="pp-score">⭐ ${p.score || 0}</span>
-          </div>
-          <div class="pp-mtns">${chips}</div>`;
-        return panel;
-      }
-    } else {
-      // Standard mode: flat player panels
-      state.players.forEach((p, idx) => {
-        const panel = document.createElement('div');
-        panel.className = 'pp' + (idx === state.currentIndex ? ' active' : '') + (p.connected ? '' : ' off');
-        const pos = p.pos || [];
-        const collected = p.collected || [];
-        let chips = '';
-        state.mountains.forEach((m, mi) => {
-          const onTop = (pos[mi] || 0) >= m.height;
-          const n = collected[mi] || 0;
-          chips += `<span class="pp-chip${n > 0 ? ' has' : ''}${onTop ? ' top' : ''}" style="--c:${m.color}">${m.value}<b>×${n}</b></span>`;
-        });
-        const bonusTag = p.bonus && p.bonus.length ? `<span class="pp-bonus">✨${p.bonusPoints || 0}</span>` : '';
-        panel.innerHTML = `
-          <div class="pp-head">
-            ${playerCoinHtml(p, 'sm')}
-            <span class="pp-name">${escapeHtml(p.name)}</span>
-            ${bonusTag}<span class="pp-score">⭐ ${p.score || 0}</span>
-          </div>
-          <div class="pp-mtns">${chips}</div>`;
-        strip.appendChild(panel);
-      });
-    }
+    currentMode().renderStats(strip, { state, escapeHtml, playerCoinHtml });
   }
 
   function renderBonusRow() {
@@ -2430,104 +2252,6 @@
   }
 
   /**
-   * Winner slots in standard mode: 1 for 2-4 players, 2 for 5-6.
-   *
-   * @param {number} playerCount Number of players in the game.
-   * @returns {number}
-   */
-  function winnerSlotCount(playerCount) {
-    return playerCount >= 5 ? 2 : 1;
-  }
-
-  /**
-   * Rank prefix for a standard-mode scorecard row.
-   *
-   * @param {number} rankIndex Zero-based rank in sorted standings.
-   * @param {number} winnerSlots Number of winner slots for this game.
-   * @returns {string}
-   */
-  function scoreRankPrefix(rankIndex, winnerSlots) {
-    if (rankIndex === 0) return '🥇';
-    if (rankIndex === 1 && winnerSlots >= 2) return '🥈';
-    return String(rankIndex + 1);
-  }
-
-  /**
-   * Rank prefix HTML for a standard-mode scorecard row.
-   *
-   * @param {number} rankIndex Zero-based rank in sorted standings.
-   * @param {number} winnerSlots Number of winner slots for this game.
-   * @returns {string}
-   */
-  function scoreRankPrefixHtml(rankIndex, winnerSlots) {
-    const prefix = scoreRankPrefix(rankIndex, winnerSlots);
-    if (prefix === '🥇' || prefix === '🥈') return prefix;
-    return `<span class="sb-rank-num">${prefix}</span>`;
-  }
-
-  /**
-   * Rank prefix for a team-mode scorecard row (gold for 1st only).
-   *
-   * @param {number} rankIndex Zero-based rank in sorted team standings.
-   * @returns {string}
-   */
-  function teamRankPrefix(rankIndex) {
-    return rankIndex === 0 ? '🥇' : String(rankIndex + 1);
-  }
-
-  /**
-   * Rank prefix HTML for a team-mode scorecard row.
-   *
-   * @param {number} rankIndex Zero-based rank in sorted team standings.
-   * @returns {string}
-   */
-  function teamRankPrefixHtml(rankIndex) {
-    const prefix = teamRankPrefix(rankIndex);
-    if (prefix === '🥇') return prefix;
-    return `<span class="sb-rank-num">${prefix}</span>`;
-  }
-
-  /**
-   * Returns true when a player id is among the standard-mode winners.
-   *
-   * @param {string} playerId Player socket id.
-   * @returns {boolean}
-   */
-  function isStandardWinner(playerId) {
-    if (!state) return false;
-    const winnerIds = state.winnerPlayerIds && state.winnerPlayerIds.length
-      ? state.winnerPlayerIds
-      : (state.winnerId ? [state.winnerId] : []);
-    return winnerIds.includes(playerId);
-  }
-
-  /** Fixed catchphrases by zero-based place (standard mode, local player). */
-  const STANDARD_PLACE_PHRASES = [
-    'You are the real GOAT!',
-    'Almost claimed the summit',
-    'Solid climb - keep hoofing',
-    'The mountain remembers',
-    'Every goat starts at base',
-    "Next summit's yours",
-  ];
-
-  /**
-   * Build the standard-mode win overlay title (share / fallback).
-   *
-   * @returns {string}
-   */
-  function standardWinTitle() {
-    if (didCurrentPlayerWin()) return 'You Win! 🎉';
-    const slots = winnerSlotCount(state.players.length);
-    const sorted = [...state.players].sort((a, b) => b.score - a.score || b.tops - a.tops);
-    if (slots === 2 && sorted[1]) {
-      return `${sorted[0].name} and ${sorted[1].name} Win!`;
-    }
-    const winner = state.players.find((p) => p.id === state.winnerId);
-    return winner ? `${winner.name} Wins!` : 'Game Over!';
-  }
-
-  /**
    * Players sorted by score then tops (same order as the scoreboard).
    *
    * @returns {object[]}
@@ -2556,21 +2280,6 @@
   }
 
   /**
-   * Catchphrase for the local player's place in standard mode.
-   *
-   * @param {number} rankIndex Zero-based rank in sorted standings.
-   * @param {number} winnerSlots Number of winner slots for this game.
-   * @returns {string}
-   */
-  function standardCatchphrase(rankIndex, winnerSlots) {
-    if (rankIndex === 1 && winnerSlots >= 2) return 'Shared summit!';
-    if (rankIndex >= 0 && rankIndex < STANDARD_PLACE_PHRASES.length) {
-      return STANDARD_PLACE_PHRASES[rankIndex];
-    }
-    return STANDARD_PLACE_PHRASES[STANDARD_PLACE_PHRASES.length - 1];
-  }
-
-  /**
    * Reset place / outcome / trophy chrome on the win head.
    *
    * @returns {void}
@@ -2595,195 +2304,6 @@
     }
   }
 
-  /**
-   * Fill standard-mode place line, catchphrase, trophy, and outcome subline.
-   *
-   * @param {object|null} winner Top-ranked or designated winner player.
-   * @returns {void}
-   */
-  function applyStandardWinHead(winner) {
-    const placeEl = $('win-place');
-    const outcomeEl = $('win-outcome');
-    const titleEl = $('win-title');
-    const head = document.querySelector('#win-overlay .win-head');
-    const trophy = document.querySelector('#win-overlay .trophy');
-    const sorted = sortedPlayersByScore();
-    const rankIndex = sorted.findIndex((p) => p.id === myId);
-    const winnerSlots = winnerSlotCount(state.players.length);
-    const localWon = didCurrentPlayerWin();
-
-    if (rankIndex < 0) {
-      resetWinHeadChrome();
-      titleEl.textContent = winner ? standardWinTitle() : 'Game Over!';
-      return;
-    }
-
-    if (placeEl) {
-      placeEl.hidden = false;
-      placeEl.textContent = ordinalPlace(rankIndex + 1) + ' place';
-    }
-    titleEl.textContent = standardCatchphrase(rankIndex, winnerSlots);
-    if (trophy) {
-      trophy.textContent = localWon ? '🏆' : '';
-      trophy.hidden = !localWon;
-    }
-    if (head) head.classList.toggle('win-head-mid', !localWon);
-
-    if (outcomeEl) {
-      if (!localWon && winner) {
-        outcomeEl.hidden = false;
-        outcomeEl.textContent = winner.name + ' won with ' + winner.score + ' pts';
-      } else {
-        outcomeEl.hidden = true;
-        outcomeEl.textContent = '';
-      }
-    }
-  }
-
-  /** Fixed catchphrases by zero-based team place (team mode, local herd). */
-  const TEAM_PLACE_PHRASES = [
-    'The GOAT team won!',
-    'Almost owned the ridge',
-    'Base camp builds champions',
-  ];
-
-  /**
-   * Teams sorted by score then tops (same order as the team scoreboard).
-   *
-   * @returns {object[]}
-   */
-  function sortedTeamsByScore() {
-    if (!state || !state.teams) return [];
-    return [...state.teams].sort((a, b) => (b.score || 0) - (a.score || 0) || (b.tops || 0) - (a.tops || 0));
-  }
-
-  /**
-   * Zero-based rank of the local player's team in sorted standings.
-   *
-   * @param {object[]} sortedTeams Teams sorted by score.
-   * @returns {number}
-   */
-  function localTeamRankIndex(sortedTeams) {
-    return sortedTeams.findIndex((t) => t.members && t.members.includes(myId));
-  }
-
-  /**
-   * Catchphrase for the local player's team place.
-   *
-   * @param {number} rankIndex Zero-based team rank.
-   * @returns {string}
-   */
-  function teamCatchphrase(rankIndex) {
-    if (rankIndex >= 0 && rankIndex < TEAM_PLACE_PHRASES.length) {
-      return TEAM_PLACE_PHRASES[rankIndex];
-    }
-    return TEAM_PLACE_PHRASES[TEAM_PLACE_PHRASES.length - 1];
-  }
-
-  /**
-   * Fill team-mode place line, catchphrase, trophy, and outcome subline.
-   *
-   * @param {object} winTeam Winning team object.
-   * @param {object[]} sortedTeams Teams sorted by score.
-   * @returns {void}
-   */
-  function applyTeamWinHead(winTeam, sortedTeams) {
-    const placeEl = $('win-place');
-    const outcomeEl = $('win-outcome');
-    const titleEl = $('win-title');
-    const head = document.querySelector('#win-overlay .win-head');
-    const trophy = document.querySelector('#win-overlay .trophy');
-    const rankIndex = localTeamRankIndex(sortedTeams);
-    const localWon = didCurrentPlayerWin();
-
-    if (rankIndex < 0) {
-      resetWinHeadChrome();
-      titleEl.textContent = winTeam ? `Team ${winTeam.name} Wins!` : 'Game Over!';
-      return;
-    }
-
-    if (placeEl) {
-      placeEl.hidden = false;
-      placeEl.textContent = ordinalPlace(rankIndex + 1) + ' place';
-    }
-    titleEl.textContent = teamCatchphrase(rankIndex);
-    if (trophy) {
-      trophy.textContent = localWon ? '🏆' : '';
-      trophy.hidden = !localWon;
-    }
-    if (head) head.classList.toggle('win-head-mid', !localWon);
-
-    if (outcomeEl) {
-      if (!localWon && winTeam) {
-        outcomeEl.hidden = false;
-        outcomeEl.textContent = 'Team ' + winTeam.name + ' took the peak · ' + (winTeam.score || 0) + ' pts';
-      } else {
-        outcomeEl.hidden = true;
-        outcomeEl.textContent = '';
-      }
-    }
-  }
-
-  /**
-   * Build rivalry HTML for a 2-team scorecard.
-   *
-   * @param {object[]} sortedTeams Exactly two teams, sorted by score.
-   * @param {object} winTeam Winning team.
-   * @returns {string}
-   */
-  function teamRivalryHtml(sortedTeams, winTeam) {
-    const a = sortedTeams[0];
-    const b = sortedTeams[1];
-    const total = (a.score || 0) + (b.score || 0);
-    const pctA = total > 0 ? Math.round(((a.score || 0) / total) * 100) : 50;
-    const pctB = 100 - pctA;
-    const side = (t, i) => {
-      const isWin = t.id === winTeam.id;
-      const bg = colorWithAlpha(t.color, 0.14);
-      const border = colorWithAlpha(t.color, 0.45);
-      return `<div class="win-rival-side${isWin ? ' winner' : ''} win-extra" style="--i:${i};background:${bg};border-color:${border}">
-        <div class="win-rival-name" style="color:${escapeHtml(t.color)}">${escapeHtml(t.name)}</div>
-        <div class="win-rival-score">${t.score || 0}</div>
-      </div>`;
-    };
-    return `<div class="win-rival">
-      ${side(a, 0)}
-      <div class="win-rival-vs win-extra" style="--i:0">VS</div>
-      ${side(b, 1)}
-    </div>
-    <div class="win-bar-track win-extra" style="--i:1">
-      <div class="win-bar-seg" style="width:${pctA}%;background:${escapeHtml(a.color)}"></div>
-      <div class="win-bar-seg" style="width:${pctB}%;background:${escapeHtml(b.color)}"></div>
-    </div>`;
-  }
-
-  /**
-   * Build podium HTML for a 3-team scorecard.
-   *
-   * @param {object[]} sortedTeams At least three teams, sorted by score.
-   * @returns {string}
-   */
-  function teamPodiumHtml(sortedTeams) {
-    const first = sortedTeams[0];
-    const second = sortedTeams[1];
-    const third = sortedTeams[2];
-    const pod = (t, placeClass, placeLabel, i) => {
-      if (!t) return '';
-      const barAlpha = placeClass === 'first' ? 0.55 : 0.45;
-      const barBg = colorWithAlpha(t.color, barAlpha);
-      return `<div class="win-pod ${placeClass} win-extra" style="--i:${i}">
-        <div class="win-pod-place">${placeLabel}</div>
-        <div class="win-pod-name" style="color:${escapeHtml(t.color)}">${escapeHtml(t.name)}</div>
-        <div class="win-pod-height" style="background:${barBg}"><span class="win-pod-bar-score">${t.score || 0}</span></div>
-      </div>`;
-    };
-    return `<div class="win-podium">
-      ${pod(second, 'second', '2nd', 0)}
-      ${pod(first, 'first', '1st', 1)}
-      ${pod(third, 'third', '3rd', 2)}
-    </div>`;
-  }
-
   function hideWinOverlay() {
     cancelWinCountUp();
     pendingMatchStats = null;
@@ -2805,15 +2325,7 @@
    */
   function didPlayerWinForState(gameState, playerId) {
     if (!gameState || !gameState.finished || !playerId) return false;
-    if (gameState.teamMode && gameState.teams && gameState.winnerTeamId != null) {
-      const winTeam = gameState.teams.find((team) => team.id === gameState.winnerTeamId);
-      const playerTeam = gameState.teams.find((team) => team.members.includes(playerId));
-      return !!(winTeam && playerTeam && playerTeam.id === winTeam.id);
-    }
-    const winnerIds = gameState.winnerPlayerIds && gameState.winnerPlayerIds.length
-      ? gameState.winnerPlayerIds
-      : (gameState.winnerId ? [gameState.winnerId] : []);
-    return winnerIds.includes(playerId);
+    return GameModes.getModeForState(gameState).didPlayerWin(gameState, playerId);
   }
 
   /**
@@ -2855,104 +2367,23 @@
     if (!force && isScorecardDone(state.code)) return;
     scorecardHold = true;
 
-    let winner = state.players.find((p) => p.id === state.winnerId) || null;
-    if (!winner && state.winnerPlayerIds && state.winnerPlayerIds.length) {
-      winner = state.players.find((p) => p.id === state.winnerPlayerIds[0]) || null;
-    }
-    if (!winner) {
-      const ranked = [...state.players].sort((a, b) => b.score - a.score || b.tops - a.tops);
-      winner = ranked[0] || null;
-    }
-
-    if (state.teamMode && state.teams && state.winnerTeamId != null) {
-      // Team mode win screen: rivalry (2) or podium (3)
-      const winTeam = state.teams.find((t) => t.id === state.winnerTeamId);
-      if (!winTeam) {
-        resetWinHeadChrome();
-        $('win-title').textContent = 'Game Over!';
-        $('win-sub').innerHTML = '';
-        updateWinStatsBanner(didCurrentPlayerWin());
-        revealWinOverlay();
-        return;
-      }
-
-      const sortedTeams = sortedTeamsByScore();
-      applyTeamWinHead(winTeam, sortedTeams);
-
-      let teamViz = '';
-      let vizRows = 2;
-      if (sortedTeams.length === 2) {
-        teamViz = teamRivalryHtml(sortedTeams, winTeam);
-        vizRows = 2;
-      } else if (sortedTeams.length >= 3) {
-        teamViz = teamPodiumHtml(sortedTeams);
-        vizRows = 3;
-      }
-
-      let rowIdx = vizRows;
-      const labelIdx = rowIdx++;
-      const sorted = sortedPlayersByScore();
-      const playerRows = sorted.map((p) => {
-        const bonusTag = p.bonus && p.bonus.length ? ` <span class="sb-bonus">✨+${p.bonusPoints}</span>` : '';
-        const team = state.teams.find((t) => t.members.includes(p.id));
-        const teamBorder = team ? `border-color:${escapeHtml(team.color)}` : '';
-        const idx = rowIdx++;
-        return `<div class="score-row score-row-sm" style="--i:${idx};${teamBorder}">
-          <span class="sb-left">${playerCoinHtml(p, 'sm')} ${escapeHtml(p.name)}${p.isBot ? ' 🤖' : ''}${bonusTag}</span>
-          ${winScoreRightHtml(p.score, p.tops)}
-        </div>`;
-      }).join('');
-      const extraIdx = rowIdx;
-
-      $('win-sub').innerHTML = `${teamViz}
-        <div class="team-breakdown-label win-extra" style="--i:${labelIdx}">Individual Scores</div>
-        <div class="scoreboard scoreboard-sm">${playerRows}</div>
-        ${endReasonBadge(state.endReason, extraIdx)}`;
-      document.querySelector('#win-overlay .win-actions').style.setProperty('--rows', String(rowIdx));
-    } else {
-      // Standard mode win screen
-      if (winner) applyStandardWinHead(winner);
-      else {
-        resetWinHeadChrome();
-        $('win-title').textContent = 'Game Over!';
-      }
-      const sorted = sortedPlayersByScore();
-      const winnerSlots = winnerSlotCount(state.players.length);
-      const rows = sorted.map((p, i) => {
-        const prefix = scoreRankPrefixHtml(i, winnerSlots);
-        const isWinner = i < winnerSlots;
-        const bonusTag = p.bonus && p.bonus.length ? ` <span class="sb-bonus">✨+${p.bonusPoints}</span>` : '';
-        return `<div class="score-row${isWinner ? ' win' : ''}" style="--i:${i}">
-          <span class="sb-left">${prefix} ${escapeHtml(p.name)}${p.isBot ? ' 🤖' : ''}${bonusTag}</span>
-          ${winScoreRightHtml(p.score, p.tops)}
-        </div>`;
-      }).join('');
-
-      // Only show tie-break note if it actually mattered.
-      let extraIdx = sorted.length;
-      let tieNote = '';
-      if (winner) {
-        const topScore = winner.score;
-        const tied = state.players.filter((p) => p.score === topScore);
-        if (tied.length > 1) {
-          const topTops = winner.tops;
-          const tiedOnTops = tied.filter((p) => p.tops === topTops);
-          if (tiedOnTops.length > 1) {
-            tieNote = `<div class="tiebreak win-extra" style="--i:${extraIdx++}">🏔️ Tie broken by goat on the higher-numbered mountain.</div>`;
-          } else {
-            tieNote = `<div class="tiebreak win-extra" style="--i:${extraIdx++}">👑 Tie broken by most goats on mountain tops.</div>`;
-          }
-        }
-      }
-
-      $('win-sub').innerHTML = `<div class="scoreboard">${rows}</div>
-        ${tieNote}
-        ${endReasonBadge(state.endReason, extraIdx)}`;
-      document.querySelector('#win-overlay .win-actions').style.setProperty('--rows', String(sorted.length));
-    }
+    currentMode().fillWinOverlay({
+      state,
+      myId,
+      $,
+      escapeHtml,
+      playerCoinHtml,
+      winScoreRightHtml,
+      endReasonBadge,
+      resetWinHeadChrome,
+      ordinalPlace,
+      sortedPlayersByScore,
+      colorWithAlpha,
+    });
     updateWinStatsBanner(didCurrentPlayerWin());
     revealWinOverlay();
   }
+
 })();
 
 

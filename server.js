@@ -143,6 +143,10 @@ app.get('/api/me/stats', async (req, res) => {
       bestWinStreak: stats ? stats.bestWinStreak : 0,
       standard: stats ? stats.standard : emptyMode,
       team: stats ? stats.team : emptyMode,
+      modes: {
+        standard: stats ? stats.standard : emptyMode,
+        team: stats ? stats.team : emptyMode,
+      },
     });
   } catch (err) {
     console.warn(`${auth.LOG_PREFIX} /api/me/stats failed:`, err.message);
@@ -202,6 +206,7 @@ app.get('/api/admin/rooms', (req, res) => {
       started: room.started,
       finished: room.finished,
       teamMode: room.teamMode,
+      modeId: room.modeId || (room.teamMode ? 'standardTeam' : 'standard'),
       playerCount: room.players.length,
       players: room.players.map((p) => ({
         name: p.name,
@@ -344,26 +349,27 @@ app.get('/admin', (req, res) => {
         return;
       }
       list.innerHTML = games.map((g) => {
+        const isTeam = (g.modeId === 'standardTeam' || g.modeId === 'team') || (!g.modeId && !!g.teamMode);
         const badges = [
-          g.teamMode ? '<span class="badge-team">TEAMS</span>' : '',
+          isTeam ? '<span class="badge-team">TEAMS</span>' : '',
           g.abandoned ? '<span class="badge-abandoned">ABANDONED</span>' : '<span class="badge-finished">FINISHED</span>',
         ].join('');
         let winnerLabel, winnerIcon;
         if (g.abandoned) {
           winnerIcon = '🚪';
-          winnerLabel = g.teamMode && g.winnerTeam
+          winnerLabel = isTeam && g.winnerTeam
             ? 'Leader: Team ' + esc(g.winnerTeam)
             : (g.winner ? 'Leader: ' + esc(g.winner) : 'No progress');
         } else {
           winnerIcon = '🏆';
-          winnerLabel = g.teamMode && g.winnerTeam
+          winnerLabel = isTeam && g.winnerTeam
             ? 'Team ' + esc(g.winnerTeam) + (g.winner ? ' (' + esc(g.winner) + ')' : '')
             : esc(g.winner || 'Unknown');
         }
         let stats = '<table class="history-table"><thead><tr>' +
           '<th>Player</th><th>Score</th><th>Points</th><th>Bonus</th><th>Tops</th><th>Sets</th>' +
           '</tr></thead><tbody>' + renderPlayerRows(g.players || [], g.winner) + '</tbody></table>';
-        if (g.teamMode && g.teams && g.teams.length) {
+        if (isTeam && g.teams && g.teams.length) {
           stats += g.teams.map((t) =>
             '<div class="team-block">' +
               '<div class="team-block-title" style="color:' + esc(t.color) + '">Team ' + esc(t.name) +
@@ -401,7 +407,7 @@ app.get('/admin', (req, res) => {
           const badges = [
             r.isPublic ? '<span class="badge-public">PUBLIC</span>' : '<span class="badge-private">PRIVATE</span>',
             r.started ? (r.finished ? '<span class="badge-lobby">FINISHED</span>' : '<span class="badge-started">IN GAME</span>') : '<span class="badge-lobby">LOBBY</span>',
-            r.teamMode ? '<span class="badge-team">TEAMS</span>' : '',
+            ((r.modeId === 'standardTeam' || r.modeId === 'team') || (!r.modeId && r.teamMode)) ? '<span class="badge-team">TEAMS</span>' : '',
           ].join('');
           const players = r.players.map(p =>
             '<div class="player-row">' +
@@ -781,7 +787,7 @@ function publicState(room) {
     rolled: room.rolled,
     mountains: room.mountains, // {value, height, color, fullStack, chips}
     playerColors: PLAYER_COLORS,
-    modeId: room.modeId || (room.teamMode ? 'team' : 'standard'),
+    modeId: room.modeId || (room.teamMode ? 'standardTeam' : 'standard'),
     ...getModeForRoom(room).extraPublicState(room),
     players: room.players.map((p) => {
       const pTeam = getTeamOfPlayer(room, p.id);
@@ -939,6 +945,7 @@ function recordGameHistory(room, options = {}) {
     playerCount: room.players.length,
     endReason: abandoned ? 'abandoned' : (room.endReason || null),
     abandoned,
+    modeId: room.modeId || (room.teamMode ? 'standardTeam' : 'standard'),
     teamMode: room.teamMode || false,
     winner: null,
     winnerTeam: null,
@@ -1017,6 +1024,10 @@ async function recordMatchStatsForRoom(room) {
       bestWinStreak: stats.bestWinStreak,
       standard: stats.standard,
       team: stats.team,
+      modes: {
+        standard: stats.standard,
+        team: stats.team,
+      },
     });
   }
 }
@@ -1505,6 +1516,7 @@ io.on('connection', (socket) => {
           hostName: host ? host.name : 'Unknown',
           playerCount: connectedCount,
           maxPlayers: room.maxPlayers,
+          modeId: room.modeId || (room.teamMode ? 'standardTeam' : 'standard'),
           teamMode: room.teamMode || false,
         });
       }
@@ -1514,12 +1526,22 @@ io.on('connection', (socket) => {
 
   // ---- Team mode socket events (lobby only) ----
 
-  // Toggle team mode on/off (compat bridge to modeId)
+  // Set game mode by id (host, lobby only)
+  socket.on('setGameMode', ({ modeId }) => {
+    const room = findRoomBySocket(socket.id);
+    if (!room || room.hostId !== socket.id || room.started) return;
+    if (modeId !== 'standard' && modeId !== 'standardTeam' && modeId !== 'team') return;
+    const log = (msg) => pushLog(room, msg);
+    setRoomMode(room, modeId, log);
+    broadcast(room);
+  });
+
+  // Toggle team mode on/off (compat alias for setGameMode)
   socket.on('setTeamMode', ({ enabled }) => {
     const room = findRoomBySocket(socket.id);
     if (!room || room.hostId !== socket.id || room.started) return;
     const log = (msg) => pushLog(room, msg);
-    setRoomMode(room, enabled ? 'team' : 'standard', log);
+    setRoomMode(room, enabled ? 'standardTeam' : 'standard', log);
     broadcast(room);
   });
 

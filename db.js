@@ -101,6 +101,9 @@ function getPool() {
  * @returns {object}
  */
 function rowToEntry(row) {
+  const teamMode = !!row.team_mode;
+  let modeId = row.mode || (teamMode ? 'standardTeam' : 'standard');
+  if (modeId === 'team') modeId = 'standardTeam';
   return {
     code: row.code,
     endedAt: Number(row.ended_at),
@@ -109,7 +112,8 @@ function rowToEntry(row) {
     playerCount: row.player_count,
     endReason: row.end_reason,
     abandoned: row.abandoned,
-    teamMode: row.team_mode,
+    modeId,
+    teamMode,
     winner: row.winner,
     winnerTeam: row.winner_team,
     players: row.players,
@@ -160,6 +164,12 @@ async function init() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
+    await p.query('ALTER TABLE game_history ADD COLUMN IF NOT EXISTS mode VARCHAR(32)');
+    await p.query(`
+      UPDATE game_history
+      SET mode = CASE WHEN team_mode THEN 'standardTeam' ELSE 'standard' END
+      WHERE mode IS NULL OR mode = 'team'
+    `);
     await p.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS gaming_name VARCHAR(16)');
     await p.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS google_name VARCHAR(64)');
     await p.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS matches_played INT NOT NULL DEFAULT 0');
@@ -235,7 +245,7 @@ async function loadGameHistory(retentionMs) {
   const cutoff = Date.now() - retentionMs;
   const result = await p.query(
     `SELECT code, ended_at, started_at, duration_ms, player_count, end_reason,
-            abandoned, team_mode, winner, winner_team, players, teams
+            abandoned, team_mode, mode, winner, winner_team, players, teams
      FROM game_history
      WHERE ended_at >= $1
      ORDER BY ended_at DESC`,
@@ -257,8 +267,8 @@ async function saveGameHistory(entry) {
   await p.query(
     `INSERT INTO game_history (
       code, ended_at, started_at, duration_ms, player_count, end_reason,
-      abandoned, team_mode, winner, winner_team, players, teams
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+      abandoned, team_mode, mode, winner, winner_team, players, teams
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
     [
       entry.code,
       entry.endedAt,
@@ -268,6 +278,7 @@ async function saveGameHistory(entry) {
       entry.endReason,
       entry.abandoned,
       entry.teamMode,
+      entry.modeId || (entry.teamMode ? 'standardTeam' : 'standard'),
       entry.winner,
       entry.winnerTeam,
       JSON.stringify(entry.players),
@@ -367,22 +378,25 @@ async function saveGamingName(userId, gamingName) {
  * @returns {{ played: number, won: number, lost: number, winStreak: number, bestWinStreak: number, standard: { played: number, won: number, lost: number }, team: { played: number, won: number, lost: number } }}
  */
 function rowToMatchStats(row) {
+  const standard = {
+    played: Number(row.standard_matches_played),
+    won: Number(row.standard_matches_won),
+    lost: Number(row.standard_matches_lost),
+  };
+  const team = {
+    played: Number(row.team_matches_played),
+    won: Number(row.team_matches_won),
+    lost: Number(row.team_matches_lost),
+  };
   return {
     played: Number(row.matches_played),
     won: Number(row.matches_won),
     lost: Number(row.matches_lost),
     winStreak: Number(row.win_streak),
     bestWinStreak: Number(row.best_win_streak),
-    standard: {
-      played: Number(row.standard_matches_played),
-      won: Number(row.standard_matches_won),
-      lost: Number(row.standard_matches_lost),
-    },
-    team: {
-      played: Number(row.team_matches_played),
-      won: Number(row.team_matches_won),
-      lost: Number(row.team_matches_lost),
-    },
+    standard,
+    team,
+    modes: { standard, team },
   };
 }
 

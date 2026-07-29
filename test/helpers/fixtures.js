@@ -37,12 +37,12 @@ function makeRoom({ playerCount = 2, teamMode = false, modeId, mountains: custom
   for (let i = 0; i < playerCount; i++) {
     players.push(makePlayer({ id: `p${i}`, name: `Player ${i}` }));
   }
-  const resolvedModeId = modeId || (teamMode ? 'team' : 'standard');
+  const resolvedModeId = modeId || (teamMode ? 'standardTeam' : 'standard');
   const room = {
     players,
     mountains,
     bonusTokens: bonusTokens !== undefined ? bonusTokens : [15, 12, 9, 6],
-    teams: resolvedModeId === 'team' ? makeTeams(players, 2) : null,
+    teams: (resolvedModeId === 'standardTeam' || resolvedModeId === 'team') ? makeTeams(players, 2) : null,
     lastRound: false,
     endReason: null,
     winnerId: null,

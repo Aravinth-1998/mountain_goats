@@ -1,12 +1,26 @@
 const standard = require('./standard');
-const team = require('./team');
+const standardTeam = require('./standardTeam');
 
 const DEFAULT_MODE_ID = 'standard';
 
+/** Legacy id used before standardTeam rename. */
+const LEGACY_TEAM_MODE_ID = 'team';
+
 const MODES = {
   [standard.id]: standard,
-  [team.id]: team,
+  [standardTeam.id]: standardTeam,
 };
+
+/**
+ * Normalize mode ids (maps legacy "team" to "standardTeam").
+ *
+ * @param {string} modeId Raw mode id.
+ * @returns {string}
+ */
+function normalizeModeId(modeId) {
+  if (modeId === LEGACY_TEAM_MODE_ID) return standardTeam.id;
+  return modeId || DEFAULT_MODE_ID;
+}
 
 /**
  * Resolve a mode module by id. Unknown ids fall back to standard.
@@ -15,7 +29,7 @@ const MODES = {
  * @returns {object} Mode module.
  */
 function getMode(modeId) {
-  return MODES[modeId] || MODES[DEFAULT_MODE_ID];
+  return MODES[normalizeModeId(modeId)] || MODES[DEFAULT_MODE_ID];
 }
 
 /**
@@ -27,16 +41,26 @@ function getMode(modeId) {
 function getModeForRoom(room) {
   if (!room) return getMode(DEFAULT_MODE_ID);
   if (room.modeId) return getMode(room.modeId);
-  return getMode(room.teamMode ? 'team' : 'standard');
+  return getMode(room.teamMode ? standardTeam.id : 'standard');
 }
 
 /**
- * List registered modes.
+ * List registered modes (excludes legacy aliases).
  *
  * @returns {object[]}
  */
 function listModes() {
   return Object.values(MODES);
+}
+
+/**
+ * Whether a mode uses team helpers / teamMode derived flag.
+ *
+ * @param {object} mode Mode module.
+ * @returns {boolean}
+ */
+function modeUsesTeams(mode) {
+  return !!(mode && mode.usesTeams);
 }
 
 /**
@@ -53,7 +77,7 @@ function setRoomMode(room, modeId, log = () => {}) {
     prev.onClearMode(room, log);
   }
   room.modeId = next.id;
-  room.teamMode = next.id === 'team';
+  room.teamMode = modeUsesTeams(next);
   if (prev.id !== next.id) {
     next.onSetMode(room, log);
   }
@@ -69,19 +93,22 @@ function setRoomMode(room, modeId, log = () => {}) {
 function syncModeFields(room, modeId, teamMode) {
   let id = modeId;
   if (!id) {
-    id = teamMode ? 'team' : DEFAULT_MODE_ID;
+    id = teamMode ? standardTeam.id : DEFAULT_MODE_ID;
   }
   const mode = getMode(id);
   room.modeId = mode.id;
-  room.teamMode = mode.id === 'team';
+  room.teamMode = modeUsesTeams(mode);
 }
 
 module.exports = {
   DEFAULT_MODE_ID,
+  LEGACY_TEAM_MODE_ID,
   MODES,
+  normalizeModeId,
   getMode,
   getModeForRoom,
   listModes,
+  modeUsesTeams,
   setRoomMode,
   syncModeFields,
 };
