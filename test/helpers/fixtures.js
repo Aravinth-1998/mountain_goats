@@ -1,5 +1,6 @@
 const { MOUNTAIN_DEFS, TEAM_NAMES, TEAM_COLORS } = require('../../game/core/constants');
 const { buildMountains } = require('../../game/core/mountains');
+const { syncModeFields } = require('../../game/modes');
 
 function makePlayer({ id, name, collected, pos, bonus, authUserId, isBot } = {}) {
   return {
@@ -30,18 +31,18 @@ function makeTeams(players, numTeams = 2) {
   return teams;
 }
 
-function makeRoom({ playerCount = 2, teamMode = false, mountains: customMountains, bonusTokens } = {}) {
+function makeRoom({ playerCount = 2, teamMode = false, modeId, mountains: customMountains, bonusTokens } = {}) {
   const mountains = customMountains || buildMountains(playerCount);
   const players = [];
   for (let i = 0; i < playerCount; i++) {
     players.push(makePlayer({ id: `p${i}`, name: `Player ${i}` }));
   }
-  return {
+  const resolvedModeId = modeId || (teamMode ? 'team' : 'standard');
+  const room = {
     players,
     mountains,
     bonusTokens: bonusTokens !== undefined ? bonusTokens : [15, 12, 9, 6],
-    teamMode,
-    teams: teamMode ? makeTeams(players, 2) : null,
+    teams: resolvedModeId === 'team' ? makeTeams(players, 2) : null,
     lastRound: false,
     endReason: null,
     winnerId: null,
@@ -51,6 +52,8 @@ function makeRoom({ playerCount = 2, teamMode = false, mountains: customMountain
     diceUsed: [],
     adjustable: [],
   };
+  syncModeFields(room, resolvedModeId);
+  return room;
 }
 
 module.exports = {

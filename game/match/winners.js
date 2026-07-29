@@ -1,5 +1,4 @@
-const { scoreOf } = require('../scoring/scoring');
-const { rankedPlayers, rankedTeams, winnerSlotCount } = require('../scoring/ranking');
+const { getModeForRoom } = require('../modes');
 
 /**
  * Signed-in human players in a room.
@@ -12,35 +11,13 @@ function getSignedInParticipants(room) {
 }
 
 /**
- * Auth user ids for signed-in humans on the winning side.
+ * Auth user ids for signed-in humans on the winning side (mode-dispatched).
  *
  * @param {object} room Finished room with winner fields set.
  * @returns {Set<string>}
  */
 function getWinningAuthUserIds(room) {
-  const winnerIds = new Set();
-  if (room.teamMode && room.winnerTeamId != null && room.teams) {
-    const winTeam = room.teams.find((team) => team.id === room.winnerTeamId);
-    if (winTeam) {
-      winTeam.members.forEach((playerId) => {
-        const player = room.players.find((entry) => entry.id === playerId);
-        if (player && !player.isBot && player.authUserId) {
-          winnerIds.add(player.authUserId);
-        }
-      });
-    }
-  } else {
-    const winnerPlayerIds = room.winnerPlayerIds && room.winnerPlayerIds.length
-      ? room.winnerPlayerIds
-      : (room.winnerId ? [room.winnerId] : []);
-    winnerPlayerIds.forEach((playerId) => {
-      const player = room.players.find((entry) => entry.id === playerId);
-      if (player && !player.isBot && player.authUserId) {
-        winnerIds.add(player.authUserId);
-      }
-    });
-  }
-  return winnerIds;
+  return getModeForRoom(room).getWinningAuthUserIds(room);
 }
 
 /**
@@ -52,7 +29,8 @@ function getWinningAuthUserIds(room) {
 function buildMatchStatUpdates(room) {
   const winners = getWinningAuthUserIds(room);
   const seenUserIds = new Set();
-  const teamMode = !!room.teamMode;
+  const mode = getModeForRoom(room);
+  const teamMode = mode.statKey === 'team';
   const updates = [];
   getSignedInParticipants(room).forEach((player) => {
     if (seenUserIds.has(player.authUserId)) return;
@@ -67,30 +45,22 @@ function buildMatchStatUpdates(room) {
 }
 
 /**
- * Assign winner fields on a finished room from current scores.
+ * Assign winner fields on a finished room from current scores (mode-dispatched).
  *
  * @param {object} room Active room with final scores.
  */
 function resolveWinners(room) {
-  if (room.teamMode && room.teams) {
-    room.winnerPlayerIds = [];
-    const ranked = rankedTeams(room);
-    const winTeam = ranked[0] ? ranked[0].team : null;
-    room.winnerTeamId = winTeam ? winTeam.id : null;
-    if (winTeam) {
-      const members = winTeam.members
-        .map((pid) => room.players.find((p) => p.id === pid))
-        .filter(Boolean)
-        .sort((a, b) => scoreOf(room, b) - scoreOf(room, a));
-      room.winnerId = members[0] ? members[0].id : null;
-    }
-  } else {
-    const ranked = rankedPlayers(room);
-    const slots = winnerSlotCount(room);
-    room.winnerPlayerIds = ranked.slice(0, slots).map((entry) => entry.p.id);
-    room.winnerId = ranked[0] ? ranked[0].p.id : null;
-  }
-  room.finished = true;
+  getModeForRoom(room).resolveWinners(room);
+}
+
+/**
+ * Push end-of-game log lines for the active mode.
+ *
+ * @param {object} room Finished room.
+ * @param {function} log Log callback.
+ */
+function announceWinners(room, log) {
+  getModeForRoom(room).announceWinners(room, log);
 }
 
 module.exports = {
@@ -98,4 +68,5 @@ module.exports = {
   getWinningAuthUserIds,
   buildMatchStatUpdates,
   resolveWinners,
+  announceWinners,
 };

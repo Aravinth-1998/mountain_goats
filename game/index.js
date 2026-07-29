@@ -5,4 +5,5 @@ module.exports = {
   actions: require('./actions'),
   match: require('./match'),
   ai: require('./ai'),
+  modes: require('./modes'),
 };

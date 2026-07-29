@@ -37,6 +37,7 @@ const teamsPkg = require('./game/teams');
 const actions = require('./game/actions');
 const matchPkg = require('./game/match');
 const aiPkg = require('./game/ai');
+const modesPkg = require('./game/modes');
 
 const {
   MOUNTAIN_DEFS,
@@ -44,7 +45,6 @@ const {
   MAX_PLAYERS,
   PLAYER_COLORS,
   BOT_NAME_POOLS,
-  TEAM_PALETTES,
 } = core.constants;
 const { emptyMountainCount } = core.mountains;
 const { createPlaceholderMountains, createBonusTokens, resetForNewGame } = core.state;
@@ -55,7 +55,7 @@ const {
   topsOf,
   setsOf,
 } = scoringPkg.scoring;
-const { rankedPlayers, rankedTeams, winnerSlotCount } = scoringPkg.ranking;
+const { rankedPlayers, rankedTeams } = scoringPkg.ranking;
 const {
   getTeamOfPlayer,
   getTeamById,
@@ -65,22 +65,20 @@ const {
   teamHighestTopValue,
 } = teamsPkg.scoring;
 const {
-  getTeamPalette,
-  pickTeamColor,
   assignPlayerTeamColor,
   assignAllTeamColors,
   getAllowedColorsForPlayer,
-  getValidTeamConfigs,
   buildTeams,
 } = teamsPkg.lobby;
 const { applyOnesRule } = actions.dice;
 const { applyClimb } = actions.climb;
-const { buildMatchStatUpdates, resolveWinners } = matchPkg.winners;
+const { buildMatchStatUpdates, resolveWinners, announceWinners } = matchPkg.winners;
 const {
   botChooseGroup,
   botOptimizeAdjustableDice,
 } = aiPkg.botChoose;
 const { shouldBotPlay } = aiPkg.botPolicy;
+const { getModeForRoom, setRoomMode } = modesPkg;
 
 const app = express();
 const server = http.createServer(app);
@@ -576,7 +574,8 @@ function createRoom(options = {}) {
     turnDeadline: null,
     turnTimer: null,
     autoPlayTurn: false,
-    // Team mode (optional)
+    // Game mode (teamMode kept in sync for client/DB compat)
+    modeId: 'standard',
     teamMode: false,
     teams: null, // array of {id, name, color, members:[playerId...]}
     winnerTeamId: null,
@@ -782,7 +781,8 @@ function publicState(room) {
     rolled: room.rolled,
     mountains: room.mountains, // {value, height, color, fullStack, chips}
     playerColors: PLAYER_COLORS,
-    teamPalettes: room.teamMode ? TEAM_PALETTES : null,
+    modeId: room.modeId || (room.teamMode ? 'team' : 'standard'),
+    ...getModeForRoom(room).extraPublicState(room),
     players: room.players.map((p) => {
       const pTeam = getTeamOfPlayer(room, p.id);
       return {
@@ -1027,25 +1027,7 @@ async function endGame(room) {
   room.autoPlayTurn = false;
 
   resolveWinners(room);
-
-  if (room.teamMode && room.teams) {
-    const ranked = rankedTeams(room);
-    const winTeam = room.teams.find((t) => t.id === room.winnerTeamId);
-    if (winTeam && ranked[0]) {
-      pushLog(room, `Game over! Team ${winTeam.name} wins with ${ranked[0].score} points! 🏆`);
-    }
-  } else {
-    const ranked = rankedPlayers(room);
-    const slots = winnerSlotCount(room);
-    const winner = ranked[0] ? ranked[0].p : null;
-    if (winner) {
-      if (slots === 2 && ranked[1]) {
-        pushLog(room, `Game over! ${winner.name} and ${ranked[1].p.name} win! 🏆`);
-      } else {
-        pushLog(room, `Game over! ${winner.name} wins with ${ranked[0].score} points! 🏆`);
-      }
-    }
-  }
+  announceWinners(room, (msg) => pushLog(room, msg));
 
   try {
     await recordMatchStatsForRoom(room);
@@ -1398,12 +1380,7 @@ io.on('connection', (socket) => {
     }
     socket.join(room.code);
     const player = addPlayer(room, socket.id, name, false, socket.authUserId);
-    // Auto-assign to smallest team if team mode is active
-    if (room.teamMode && room.teams) {
-      const smallest = room.teams.reduce((a, b) => a.members.length <= b.members.length ? a : b);
-      smallest.members.push(player.id);
-      assignPlayerTeamColor(room, player.id, false);
-    }
+    getModeForRoom(room).onPlayerJoined(room, player);
     pushLog(room, `${name} joined.`);
     cb && cb({ ok: true, code: room.code, youId: player.id });
     broadcast(room);
@@ -1420,12 +1397,7 @@ io.on('connection', (socket) => {
     if (room.players.length >= room.maxPlayers) return;
     const bot = addBot(room);
     if (!bot) return;
-    // Auto-assign to smallest team if team mode is active
-    if (room.teamMode && room.teams) {
-      const smallest = room.teams.reduce((a, b) => a.members.length <= b.members.length ? a : b);
-      smallest.members.push(bot.id);
-      assignPlayerTeamColor(room, bot.id, false);
-    }
+    getModeForRoom(room).onPlayerJoined(room, bot);
     pushLog(room, `${bot.name} was added.`);
     broadcast(room);
   });
@@ -1542,29 +1514,12 @@ io.on('connection', (socket) => {
 
   // ---- Team mode socket events (lobby only) ----
 
-  // Toggle team mode on/off
+  // Toggle team mode on/off (compat bridge to modeId)
   socket.on('setTeamMode', ({ enabled }) => {
     const room = findRoomBySocket(socket.id);
     if (!room || room.hostId !== socket.id || room.started) return;
-    room.teamMode = !!enabled;
-    if (room.teamMode) {
-      // Auto-build teams with default config
-      const configs = getValidTeamConfigs(room.players.length);
-      if (configs.length > 0) {
-        room.teams = buildTeams(room, configs[0].teams);
-        assignAllTeamColors(room);
-        pushLog(room, `Team mode enabled! (${configs[0].teams} teams of ${configs[0].perTeam})`);
-      } else {
-        // No valid config for this player count — build 2 teams anyway
-        room.teams = buildTeams(room, 2);
-        assignAllTeamColors(room);
-        pushLog(room, `Team mode enabled! Teams may be uneven.`);
-      }
-    } else {
-      room.teams = null;
-      room.winnerTeamId = null;
-      pushLog(room, 'Team mode disabled.');
-    }
+    const log = (msg) => pushLog(room, msg);
+    setRoomMode(room, enabled ? 'team' : 'standard', log);
     broadcast(room);
   });
 
@@ -1634,94 +1589,23 @@ io.on('connection', (socket) => {
   socket.on('startGame', () => {
     const room = findRoomBySocket(socket.id);
     if (!room || room.hostId !== socket.id || room.started) return;
-    if (room.players.length < 2) return;
 
-    // Validate team mode: ensure every player is in a team and teams are non-empty
-    if (room.teamMode && room.teams) {
-      // Clean up: ensure all current player IDs are in teams
-      const allIds = new Set(room.players.map((p) => p.id));
-      // Remove stale IDs
-      room.teams.forEach((t) => {
-        t.members = t.members.filter((id) => allIds.has(id));
-      });
-      // Add any unassigned players to the smallest team
-      const assigned = new Set(room.teams.flatMap((t) => t.members));
-      room.players.forEach((p) => {
-        if (!assigned.has(p.id)) {
-          const smallest = room.teams.reduce((a, b) => a.members.length <= b.members.length ? a : b);
-          smallest.members.push(p.id);
-          assignPlayerTeamColor(room, p.id, false);
-        }
-      });
-      // Remove empty teams
-      room.teams = room.teams.filter((t) => t.members.length > 0);
-      if (room.teams.length < 2) {
-        room.teamMode = false;
-        room.teams = null;
-        pushLog(room, 'Team mode disabled (not enough teams).');
-      }
-      // Validate equal team sizes
-      if (room.teamMode && room.teams) {
-        const sizes = room.teams.map((t) => t.members.length);
-        if (sizes.some((s) => s !== sizes[0])) {
-          // Teams are unequal — block start
-          pushLog(room, 'Cannot start: teams must have equal number of players.');
-          broadcast(room);
-          return;
-        }
-      }
+    const log = (msg) => pushLog(room, msg);
+    getModeForRoom(room).syncLobbyForStart(room, log, setRoomMode);
+
+    const mode = getModeForRoom(room);
+    const startCheck = mode.canStart(room);
+    if (!startCheck.ok) {
+      if (startCheck.reason) pushLog(room, startCheck.reason);
+      broadcast(room);
+      return;
     }
 
-    if (room.teamMode && room.teams && room.teams.length >= 2) {
-      // TEAM MODE: interleave players so turns alternate between teams.
-      // 1. Shuffle team order randomly
-      const teamsCopy = [...room.teams];
-      for (let i = teamsCopy.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [teamsCopy[i], teamsCopy[j]] = [teamsCopy[j], teamsCopy[i]];
-      }
-      // 2. Shuffle members within each team
-      const teamMembers = teamsCopy.map((t) => {
-        const members = t.members
-          .map((pid) => room.players.find((p) => p.id === pid))
-          .filter(Boolean);
-        // Fisher-Yates shuffle
-        for (let i = members.length - 1; i > 0; i--) {
-          const j = Math.floor(Math.random() * (i + 1));
-          [members[i], members[j]] = [members[j], members[i]];
-        }
-        return members;
-      });
-      // 3. Round-robin interleave: take one player from each team in turn
-      const interleaved = [];
-      const maxLen = Math.max(...teamMembers.map((m) => m.length));
-      for (let slot = 0; slot < maxLen; slot++) {
-        for (let t = 0; t < teamMembers.length; t++) {
-          if (slot < teamMembers[t].length) {
-            interleaved.push(teamMembers[t][slot]);
-          }
-        }
-      }
-      // 4. Replace room.players with the interleaved order
-      room.players = interleaved;
-      // 5. Reorder room.teams to match the shuffled team order used for interleaving
-      room.teams = teamsCopy;
-    } else {
-      // Standard mode: shuffle player order so the host doesn't always go first.
-      for (let i = room.players.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [room.players[i], room.players[j]] = [room.players[j], room.players[i]];
-      }
-    }
+    mode.prepareStart(room);
     resetForNewGame(room);
     room.started = true;
     room.startedAt = Date.now();
-    if (room.teamMode && room.teams) {
-      const teamNames = room.teams.map((t) => `Team ${t.name}: ${t.members.map((id) => { const p = room.players.find((pl) => pl.id === id); return p ? p.name : '?'; }).join(', ')}`).join(' | ');
-      pushLog(room, `The climb begins! 🐐 [Teams: ${teamNames}]`);
-    } else {
-      pushLog(room, 'The climb begins! 🐐');
-    }
+    pushLog(room, getModeForRoom(room).startLogMessage(room));
     startWatchdog(room);
     armTurnTimer(room);
     broadcast(room);
