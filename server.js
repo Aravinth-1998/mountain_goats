@@ -78,7 +78,7 @@ const {
   botOptimizeAdjustableDice,
 } = aiPkg.botChoose;
 const { shouldBotPlay } = aiPkg.botPolicy;
-const { getModeForRoom, setRoomMode } = modesPkg;
+const { getModeForRoom, setRoomMode, hasMode, resolveModeIdFromState, getMode, modeUsesTeams } = modesPkg;
 
 const app = express();
 const server = http.createServer(app);
@@ -206,7 +206,7 @@ app.get('/api/admin/rooms', (req, res) => {
       started: room.started,
       finished: room.finished,
       teamMode: room.teamMode,
-      modeId: room.modeId || (room.teamMode ? 'standardTeam' : 'standard'),
+      modeId: resolveModeIdFromState(room),
       playerCount: room.players.length,
       players: room.players.map((p) => ({
         name: p.name,
@@ -349,7 +349,7 @@ app.get('/admin', (req, res) => {
         return;
       }
       list.innerHTML = games.map((g) => {
-        const isTeam = (g.modeId === 'standardTeam' || g.modeId === 'team') || (!g.modeId && !!g.teamMode);
+        const isTeam = modeUsesTeams(getMode(resolveModeIdFromState(g)));
         const badges = [
           isTeam ? '<span class="badge-team">TEAMS</span>' : '',
           g.abandoned ? '<span class="badge-abandoned">ABANDONED</span>' : '<span class="badge-finished">FINISHED</span>',
@@ -407,7 +407,7 @@ app.get('/admin', (req, res) => {
           const badges = [
             r.isPublic ? '<span class="badge-public">PUBLIC</span>' : '<span class="badge-private">PRIVATE</span>',
             r.started ? (r.finished ? '<span class="badge-lobby">FINISHED</span>' : '<span class="badge-started">IN GAME</span>') : '<span class="badge-lobby">LOBBY</span>',
-            ((r.modeId === 'standardTeam' || r.modeId === 'team') || (!r.modeId && r.teamMode)) ? '<span class="badge-team">TEAMS</span>' : '',
+            modeUsesTeams(getMode(resolveModeIdFromState(r))) ? '<span class="badge-team">TEAMS</span>' : '',
           ].join('');
           const players = r.players.map(p =>
             '<div class="player-row">' +
@@ -787,7 +787,7 @@ function publicState(room) {
     rolled: room.rolled,
     mountains: room.mountains, // {value, height, color, fullStack, chips}
     playerColors: PLAYER_COLORS,
-    modeId: room.modeId || (room.teamMode ? 'standardTeam' : 'standard'),
+    modeId: resolveModeIdFromState(room),
     ...getModeForRoom(room).extraPublicState(room),
     players: room.players.map((p) => {
       const pTeam = getTeamOfPlayer(room, p.id);
@@ -937,6 +937,8 @@ function findRoomBySocket(socketId) {
  */
 function recordGameHistory(room, options = {}) {
   const abandoned = !!options.abandoned;
+  const mode = getModeForRoom(room);
+  const usesTeams = modeUsesTeams(mode);
   const entry = {
     code: room.code,
     endedAt: Date.now(),
@@ -945,7 +947,7 @@ function recordGameHistory(room, options = {}) {
     playerCount: room.players.length,
     endReason: abandoned ? 'abandoned' : (room.endReason || null),
     abandoned,
-    modeId: room.modeId || (room.teamMode ? 'standardTeam' : 'standard'),
+    modeId: mode.id,
     teamMode: room.teamMode || false,
     winner: null,
     winnerTeam: null,
@@ -961,7 +963,7 @@ function recordGameHistory(room, options = {}) {
     })),
     teams: null,
   };
-  if (room.teamMode && room.teams) {
+  if (usesTeams && room.teams) {
     entry.teams = room.teams.map((t) => ({
       name: t.name,
       color: t.color,
@@ -984,7 +986,7 @@ function recordGameHistory(room, options = {}) {
   if (room.winnerTeamId != null && room.teams) {
     const wt = room.teams.find((t) => t.id === room.winnerTeamId);
     entry.winnerTeam = wt ? wt.name : null;
-  } else if (abandoned && room.teamMode && room.teams) {
+  } else if (abandoned && usesTeams && room.teams) {
     const ranked = rankedTeams(room);
     const wt = ranked.length ? ranked[0].team : null;
     entry.winnerTeam = wt ? wt.name : null;
@@ -1516,7 +1518,7 @@ io.on('connection', (socket) => {
           hostName: host ? host.name : 'Unknown',
           playerCount: connectedCount,
           maxPlayers: room.maxPlayers,
-          modeId: room.modeId || (room.teamMode ? 'standardTeam' : 'standard'),
+          modeId: resolveModeIdFromState(room),
           teamMode: room.teamMode || false,
         });
       }
@@ -1530,7 +1532,7 @@ io.on('connection', (socket) => {
   socket.on('setGameMode', ({ modeId }) => {
     const room = findRoomBySocket(socket.id);
     if (!room || room.hostId !== socket.id || room.started) return;
-    if (modeId !== 'standard' && modeId !== 'standardTeam' && modeId !== 'team') return;
+    if (!hasMode(modeId)) return;
     const log = (msg) => pushLog(room, msg);
     setRoomMode(room, modeId, log);
     broadcast(room);

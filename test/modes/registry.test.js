@@ -7,6 +7,9 @@ const {
   setRoomMode,
   syncModeFields,
   normalizeModeId,
+  hasMode,
+  resolveModeIdFromState,
+  modeUsesTeams,
   DEFAULT_MODE_ID,
 } = require('../../game/modes');
 const { makeRoom } = require('../helpers/fixtures');
@@ -23,6 +26,24 @@ test('getMode maps legacy team id to standardTeam', () => {
   assert.equal(normalizeModeId('team'), 'standardTeam');
   assert.equal(getMode('team').id, 'standardTeam');
   assert.equal(getMode('unknown').id, DEFAULT_MODE_ID);
+});
+
+test('hasMode accepts registered and legacy ids only', () => {
+  assert.equal(hasMode('standard'), true);
+  assert.equal(hasMode('standardTeam'), true);
+  assert.equal(hasMode('team'), true);
+  assert.equal(hasMode('nope'), false);
+  assert.equal(hasMode(''), false);
+  assert.equal(hasMode(null), false);
+});
+
+test('resolveModeIdFromState uses modeId, teamMode, and team alias', () => {
+  assert.equal(resolveModeIdFromState({ modeId: 'standardTeam' }), 'standardTeam');
+  assert.equal(resolveModeIdFromState({ modeId: 'team' }), 'standardTeam');
+  assert.equal(resolveModeIdFromState({ teamMode: true }), 'standardTeam');
+  assert.equal(resolveModeIdFromState({ modeId: 'standard', teamMode: true }), 'standard');
+  assert.equal(resolveModeIdFromState(null), DEFAULT_MODE_ID);
+  assert.equal(modeUsesTeams(getMode(resolveModeIdFromState({ modeId: 'standardTeam' }))), true);
 });
 
 test('listModes includes standard and standardTeam', () => {

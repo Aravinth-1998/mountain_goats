@@ -23,6 +23,29 @@ function normalizeModeId(modeId) {
 }
 
 /**
+ * Whether a mode id is registered (after legacy normalization).
+ *
+ * @param {string} modeId Raw mode id.
+ * @returns {boolean}
+ */
+function hasMode(modeId) {
+  if (modeId == null || modeId === '') return false;
+  return Object.prototype.hasOwnProperty.call(MODES, normalizeModeId(modeId));
+}
+
+/**
+ * Canonical mode id from a room or history-like state object.
+ *
+ * @param {object|null|undefined} state Object with optional modeId / teamMode.
+ * @returns {string}
+ */
+function resolveModeIdFromState(state) {
+  if (!state) return DEFAULT_MODE_ID;
+  if (state.modeId) return normalizeModeId(state.modeId);
+  return state.teamMode ? standardTeam.id : DEFAULT_MODE_ID;
+}
+
+/**
  * Resolve a mode module by id. Unknown ids fall back to standard.
  *
  * @param {string} modeId Mode identifier.
@@ -39,9 +62,7 @@ function getMode(modeId) {
  * @returns {object} Mode module.
  */
 function getModeForRoom(room) {
-  if (!room) return getMode(DEFAULT_MODE_ID);
-  if (room.modeId) return getMode(room.modeId);
-  return getMode(room.teamMode ? standardTeam.id : 'standard');
+  return getMode(resolveModeIdFromState(room));
 }
 
 /**
@@ -105,6 +126,8 @@ module.exports = {
   LEGACY_TEAM_MODE_ID,
   MODES,
   normalizeModeId,
+  hasMode,
+  resolveModeIdFromState,
   getMode,
   getModeForRoom,
   listModes,
