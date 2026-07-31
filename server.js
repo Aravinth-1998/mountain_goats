@@ -420,14 +420,14 @@ app.get('/admin', (req, res) => {
           const players = r.players.map(p =>
             '<div class="player-row">' +
               '<div class="dot ' + (p.connected ? 'online' : 'offline') + '"></div>' +
-              '<span class="player-name">' + p.name + '</span>' +
+              '<span class="player-name">' + esc(p.name) + '</span>' +
               '<span class="player-type">' + (p.isBot ? '🤖 Bot' : '👤 Human') + '</span>' +
               (r.started ? '<span style="color:#ffd166;font-size:12px;font-weight:700">⭐' + p.score + '</span>' : '') +
             '</div>'
           ).join('');
           return '<div class="room">' +
             '<div class="room-header">' +
-              '<div><span class="room-code">Room ' + r.code + '</span> · Host: ' + r.hostName + ' · ' + r.playerCount + '/' + r.maxPlayers + ' players</div>' +
+              '<div><span class="room-code">Room ' + esc(r.code) + '</span> · Host: ' + esc(r.hostName) + ' · ' + r.playerCount + '/' + r.maxPlayers + ' players</div>' +
               '<div class="room-badges">' + badges + '</div>' +
             '</div>' + players + '</div>';
         }).join('');
@@ -905,14 +905,9 @@ function advanceTurn(room) {
   room.dice = null;
   room.diceUsed = [];
   room.adjustable = [];
-  let next = room.currentIndex;
-  for (let i = 0; i < room.players.length; i++) {
-    next = (next + 1) % room.players.length;
-    if (room.players[next].connected || room.players[next].isBot) break;
-    // disconnected non-bot: still valid (bot will substitute)
-    break;
-  }
-  room.currentIndex = next;
+  // Every seat is a valid turn target — disconnected non-bots get a bot substitute
+  // downstream (see scheduleBot), so we simply advance by one.
+  room.currentIndex = (room.currentIndex + 1) % room.players.length;
 
   // Endgame: once triggered, finish when every connected player has equal turns.
   if (room.lastRound && !room.finished) {
@@ -1475,6 +1470,10 @@ io.on('connection', (socket) => {
     const idx = room.players.findIndex((p) => p.id === id);
     if (idx === -1) return;
     const [kicked] = room.players.splice(idx, 1);
+    if (kicked._lobbyCleanup) {
+      clearTimeout(kicked._lobbyCleanup);
+      kicked._lobbyCleanup = null;
+    }
     // Remove from team membership
     if (room.teams) {
       room.teams.forEach((t) => {
@@ -1676,6 +1675,7 @@ io.on('connection', (socket) => {
     value = parseInt(value, 10);
     if (!(value >= 1 && value <= 6)) return;
     room.dice[index] = value;
+    room.adjustable = room.adjustable.filter((i) => i !== index);
     broadcast(room);
   });
 
@@ -1759,6 +1759,10 @@ function handleDisconnect(socket, immediate = false) {
   if (!room.started) {
     if (immediate) {
       // Explicit leave: remove immediately.
+      if (player._lobbyCleanup) {
+        clearTimeout(player._lobbyCleanup);
+        player._lobbyCleanup = null;
+      }
       room.players = room.players.filter((p) => p.id !== socket.id);
       // Remove from team membership
       if (room.teams) {
@@ -1800,6 +1804,7 @@ function handleDisconnect(socket, immediate = false) {
         player._lobbyCleanup = null;
         if (!rooms[room.code]) return;
         if (player.connected || room.started) return; // reconnected or game started
+        if (!room.players.includes(player)) return; // already removed (kicked, etc.)
         room.players = room.players.filter((p) => p !== player);
         pushLog(room, `${player.name} timed out.`);
         if (room.hostId === player.id) {
