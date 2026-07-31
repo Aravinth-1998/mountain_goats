@@ -250,23 +250,17 @@ html.mg-rejoining #screen-loading {
 .goat.me { outline: 2px solid #fff; outline-offset: 1px; z-index: 2; border-radius: 4px; }
 .goat.turn {
   z-index: 3;
+  box-shadow:
+    0 0 0 2px rgba(255, 209, 102, 0.9),
+    0 0 10px rgba(255, 209, 102, 0.7),
+    0 2px 5px rgba(0, 0, 0, 0.45),
+    inset 0 0 0 1.5px rgba(255, 255, 255, 0.6);
   animation: goat-turn-glow 1.4s ease-in-out infinite;
+  will-change: transform;
 }
 @keyframes goat-turn-glow {
-  0%, 100% {
-    box-shadow:
-      0 0 0 1px rgba(255, 209, 102, 0.4),
-      0 0 5px rgba(255, 209, 102, 0.35),
-      0 2px 5px rgba(0, 0, 0, 0.45),
-      inset 0 0 0 1.5px rgba(255, 255, 255, 0.6);
-  }
-  50% {
-    box-shadow:
-      0 0 0 2px rgba(255, 209, 102, 0.95),
-      0 0 10px rgba(255, 209, 102, 0.75),
-      0 2px 5px rgba(0, 0, 0, 0.45),
-      inset 0 0 0 1.5px rgba(255, 255, 255, 0.6);
-  }
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.15); }
 }
 @media (prefers-reduced-motion: reduce) {
   .goat.turn {
@@ -341,15 +335,29 @@ html.mg-rejoining #screen-loading {
   outline-offset: 2px;
 }
 
+/* Freeze every infinite animation while the tab is backgrounded — saves paint/composite
+   work on mobile. JS toggles body.tab-hidden on visibilitychange. */
+body.tab-hidden *,
+body.tab-hidden *::before,
+body.tab-hidden *::after {
+  animation-play-state: paused !important;
+}
+
 /* Card */
 .card {
   background: var(--card);
   border: 1px solid var(--card-border);
   border-radius: var(--radius);
   padding: 20px;
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   box-shadow: var(--shadow);
+}
+@media (max-width: 768px) {
+  .card {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
 }
 .card h2 { margin: 0 0 4px; font-family: 'Fredoka', sans-serif; }
 .card h3 { margin: 0 0 10px; font-family: 'Fredoka', sans-serif; }
@@ -795,27 +803,19 @@ input.input-error:focus { border-color: var(--danger); background: rgba(255,93,1
 }
 .pp.active { box-shadow: 0 0 0 2px var(--gold), 0 8px 20px rgba(255,209,102,0.3); }
 .pp.active .swatch {
+  box-shadow:
+    0 0 0 3px rgba(255, 209, 102, 0.85),
+    0 0 12px rgba(255, 209, 102, 0.6),
+    0 2px 6px rgba(0, 0, 0, 0.45),
+    inset 0 2px 3px rgba(255, 255, 255, 0.45),
+    inset 0 -2px 3px rgba(0, 0, 0, 0.2),
+    inset 0 0 0 2px rgba(255, 255, 255, 0.35);
   animation: coin-turn-glow 1.4s ease-in-out infinite;
+  will-change: transform;
 }
 @keyframes coin-turn-glow {
-  0%, 100% {
-    box-shadow:
-      0 0 0 2px rgba(255, 209, 102, 0.35),
-      0 0 6px rgba(255, 209, 102, 0.25),
-      0 2px 6px rgba(0, 0, 0, 0.45),
-      inset 0 2px 3px rgba(255, 255, 255, 0.45),
-      inset 0 -2px 3px rgba(0, 0, 0, 0.2),
-      inset 0 0 0 2px rgba(255, 255, 255, 0.35);
-  }
-  50% {
-    box-shadow:
-      0 0 0 3px rgba(255, 209, 102, 0.9),
-      0 0 14px rgba(255, 209, 102, 0.7),
-      0 2px 6px rgba(0, 0, 0, 0.45),
-      inset 0 2px 3px rgba(255, 255, 255, 0.45),
-      inset 0 -2px 3px rgba(0, 0, 0, 0.2),
-      inset 0 0 0 2px rgba(255, 255, 255, 0.35);
-  }
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.08); }
 }
 @media (prefers-reduced-motion: reduce) {
   .pp.active .swatch {
@@ -943,9 +943,17 @@ input.input-error:focus { border-color: var(--danger); background: rgba(255,93,1
 .overlay {
   position: fixed; inset: 0; z-index: 50;
   display: none; align-items: flex-start; justify-content: center;
-  background: rgba(4,8,16,0.85); backdrop-filter: blur(6px);
+  background: rgba(4,8,16,0.9); backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
   padding: 20px;
   overflow-y: auto;
+}
+@media (max-width: 768px) {
+  .overlay {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background: rgba(4,8,16,0.95);
+  }
 }
 .overlay.show { display: flex; }
 #win-overlay.show {
@@ -2310,8 +2318,8 @@ input.input-error:focus { border-color: var(--danger); background: rgba(255,93,1
 }
 
 @keyframes tut-pulse {
-  0%, 100% { box-shadow: 0 0 0 3px var(--gold), 0 0 12px rgba(255, 209, 102, 0.35); }
-  50% { box-shadow: 0 0 0 5px var(--gold), 0 0 22px rgba(255, 209, 102, 0.55); }
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.03); }
 }
 
 .tut-panel.overlay {

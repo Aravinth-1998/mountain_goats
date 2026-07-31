@@ -21,6 +21,8 @@
   const socket = io({
     closeOnBeforeunload: true,
     auth: { token: '', presenceId },
+    transports: ['websocket'],
+    upgrade: false,
     reconnectionDelay: 500,
     reconnectionDelayMax: 5000,
     reconnectionAttempts: Infinity,
@@ -873,13 +875,36 @@
     });
   }
 
+  let publicRoomsWasActive = false;
   function startPublicRoomsRefresh() {
     stopPublicRoomsRefresh();
+    publicRoomsWasActive = true;
     publicRoomsTimer = setInterval(refreshPublicRooms, 4000);
   }
   function stopPublicRoomsRefresh() {
     if (publicRoomsTimer) { clearInterval(publicRoomsTimer); publicRoomsTimer = null; }
+    publicRoomsWasActive = false;
   }
+
+  // Pause background work (interval repaints, CSS animations, room polling) while
+  // the tab is hidden — the browser throttles timers but not enough on mobile
+  // to keep the device cool. Resume on return.
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      document.body.classList.add('tab-hidden');
+      if (publicRoomsTimer) { clearInterval(publicRoomsTimer); publicRoomsTimer = null; }
+      if (turnTimerLocalInterval) { clearInterval(turnTimerLocalInterval); turnTimerLocalInterval = null; }
+    } else {
+      document.body.classList.remove('tab-hidden');
+      if (publicRoomsWasActive && !publicRoomsTimer) {
+        try { refreshPublicRooms(); } catch (e) {}
+        publicRoomsTimer = setInterval(refreshPublicRooms, 4000);
+      }
+      if (state && state.started && !state.finished) {
+        try { syncTurnTimerDisplay(); } catch (e) {}
+      }
+    }
+  });
 
   // ===================== LOBBY ROOM SETTINGS =====================
   $('btn-private').addEventListener('click', () => {

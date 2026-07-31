@@ -338,8 +338,6 @@ app.get('/admin', (req, res) => {
           '<td>⭐ ' + (p.score || 0) + '</td>' +
           '<td>' + (p.points || 0) + '</td>' +
           '<td>' + (p.bonusPoints || 0) + '</td>' +
-          '<td>👑 ' + (p.tops || 0) + '</td>' +
-          '<td>' + (p.sets || 0) + '</td>' +
         '</tr>';
       }).join('');
     }
@@ -375,13 +373,13 @@ app.get('/admin', (req, res) => {
             : esc(g.winner || 'Unknown');
         }
         let stats = '<table class="history-table"><thead><tr>' +
-          '<th>Player</th><th>Score</th><th>Points</th><th>Bonus</th><th>Tops</th><th>Sets</th>' +
+          '<th>Player</th><th>Score</th><th>Points</th><th>Bonus</th>' +
           '</tr></thead><tbody>' + renderPlayerRows(g.players || [], g.winner) + '</tbody></table>';
         if (isTeam && g.teams && g.teams.length) {
           stats += g.teams.map((t) =>
             '<div class="team-block">' +
               '<div class="team-block-title" style="color:' + esc(t.color) + '">Team ' + esc(t.name) +
-                ' · ⭐ ' + (t.score || 0) + ' · 👑 ' + (t.tops || 0) +
+                ' · ⭐ ' + (t.score || 0) +
                 ' · ' + esc((t.members || []).join(', ')) +
               '</div>' +
             '</div>'

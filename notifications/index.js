@@ -15,7 +15,10 @@ const LOG_PREFIX = '[notifications]';
  * @returns {void}
  */
 function sendAlert(eventType, payload) {
-  if (!resend.isConfigured()) return;
+  if (!resend.isConfigured()) {
+    console.warn(`${LOG_PREFIX} Skipping ${eventType} alert: RESEND_API_KEY not set in env.`);
+    return;
+  }
 
   const message = buildAlert(eventType, payload);
   if (!message) {
@@ -23,9 +26,11 @@ function sendAlert(eventType, payload) {
     return;
   }
 
-  resend.sendEmail(message).catch((err) => {
-    console.warn(`${LOG_PREFIX} Failed to send ${eventType} alert:`, err.message);
-  });
+  resend.sendEmail(message)
+    .then(() => console.log(`${LOG_PREFIX} Sent ${eventType} alert.`))
+    .catch((err) => {
+      console.warn(`${LOG_PREFIX} Failed to send ${eventType} alert:`, err.message);
+    });
 }
 
 module.exports = {
