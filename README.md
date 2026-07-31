@@ -159,6 +159,6 @@ signed-in users rejoin with `mg_code` and their name from Supabase Auth metadata
 
 ## ⚙️ Tweakables (in `server.js`)
 - `WIN_TARGET` — mountains needed to win (default `3`).
-- `MAX_PLAYERS` — players per room (default `6`).
+- `MAX_PLAYERS` — players per room (default `10`).
 - `MOUNTAINS` — names and step counts of each mountain.
 

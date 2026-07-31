@@ -150,6 +150,8 @@
   let pendingMatchStats = null;
   let pendingSelfDiceRollAt = 0;
 
+  const MAX_PLAYERS = 10;
+
   const PLAYER_COLORS = [
     '#e63946', // red
     '#4f7cff', // blue
@@ -833,13 +835,13 @@
   });
   $('btn-maxp-down').addEventListener('click', () => {
     if (!state) return;
-    const cur = state.maxPlayers || 6;
+    const cur = state.maxPlayers || MAX_PLAYERS;
     if (cur > 2) socket.emit('setMaxPlayers', { maxPlayers: cur - 1 });
   });
   $('btn-maxp-up').addEventListener('click', () => {
     if (!state) return;
-    const cur = state.maxPlayers || 6;
-    if (cur < 6) socket.emit('setMaxPlayers', { maxPlayers: cur + 1 });
+    const cur = state.maxPlayers || MAX_PLAYERS;
+    if (cur < MAX_PLAYERS) socket.emit('setMaxPlayers', { maxPlayers: cur + 1 });
   });
 
   const TURN_TIME_OPTIONS = [0, 10, 15, 20, 30, 45, 60];
@@ -1845,9 +1847,9 @@
         const isPublic = state.isPublic || false;
         $('btn-private').classList.toggle('active', !isPublic);
         $('btn-public').classList.toggle('active', isPublic);
-        $('maxp-display').textContent = state.maxPlayers || 6;
-        $('btn-maxp-down').disabled = (state.maxPlayers || 6) <= Math.max(2, state.players.length);
-        $('btn-maxp-up').disabled = (state.maxPlayers || 6) >= 6;
+        $('maxp-display').textContent = state.maxPlayers || MAX_PLAYERS;
+        $('btn-maxp-down').disabled = (state.maxPlayers || MAX_PLAYERS) <= Math.max(2, state.players.length);
+        $('btn-maxp-up').disabled = (state.maxPlayers || MAX_PLAYERS) >= MAX_PLAYERS;
         const turnIdx = turnTimeOptionIndex();
         $('turn-timer-display').textContent = formatTurnTimeSec(TURN_TIME_OPTIONS[turnIdx]);
         $('btn-turn-timer-down').disabled = turnIdx <= 0;
@@ -1876,7 +1878,7 @@
     const addBtn = $('btn-addbot');
     startBtn.style.display = amHost ? 'block' : 'none';
     addBtn.style.display = amHost ? 'block' : 'none';
-    addBtn.disabled = state.players.length >= (state.maxPlayers || 6);
+    addBtn.disabled = state.players.length >= (state.maxPlayers || MAX_PLAYERS);
 
     const teamsUnequal = currentMode().teamsUnequal(state);
 

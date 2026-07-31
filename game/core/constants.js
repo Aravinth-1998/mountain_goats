@@ -8,7 +8,7 @@ const MOUNTAIN_DEFS = [
 ];
 const BONUS_DEFS = [15, 12, 9, 6];
 const NUM_DICE = 4;
-const MAX_PLAYERS = 6;
+const MAX_PLAYERS = 10;
 const PLAYER_COLORS = [
   '#e63946',
   '#4f7cff',
@@ -27,6 +27,10 @@ const BOT_NAME_POOLS = [
   ['Xenon', 'Xander'],
   ['Wolf', 'Wraith'],
   ['Vector', 'Viper'],
+  ['Umbra', 'Ursula'],
+  ['Titan', 'Talon'],
+  ['Storm', 'Specter'],
+  ['Raven', 'Rogue'],
 ];
 
 const TEAM_COLORS = ['#e63946', '#4f7cff', '#06d6a0'];
