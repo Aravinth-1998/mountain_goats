@@ -144,8 +144,8 @@
       teamMoveHint.hidden = !state.teams;
       if (state.teams) {
         teamMoveHint.textContent = amHost
-          ? 'Tap a player to change their team.'
-          : 'Tap your row to switch teams.';
+          ? 'Tap ⇄ to move players between teams.'
+          : 'Tap ⇄ on your row to change teams.';
       }
     }
   }

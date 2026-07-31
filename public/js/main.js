@@ -377,10 +377,11 @@
       const { row, html, title, amHost } = teamPickerRestore;
       row.innerHTML = html;
       row.classList.remove('team-picker-source', 'team-move-bar');
-      row.title = title || 'Tap to change team';
-      row.querySelectorAll('.kick-btn').forEach((btn) => btn.remove());
+      row.title = title || 'Change team';
+      row.querySelectorAll('.kick-btn, .team-switch-btn').forEach((btn) => btn.remove());
       const p = state && state.players.find((pl) => pl.id === row.dataset.playerId);
       if (p) {
+        appendTeamSwitchBtn(row, p, amHost);
         appendKickBtn(row, p, amHost);
         attachLobbySwatch(row, p);
       }
@@ -499,6 +500,46 @@
     x.title = p.isBot ? 'Remove bot' : 'Kick player';
     x.addEventListener('click', () => socket.emit('kickPlayer', { id: p.id }));
     end.appendChild(x);
+  }
+  /**
+   * Add a Switch control that opens the lobby team picker for a movable player.
+   *
+   * @param {HTMLElement} parent Team member row.
+   * @param {object} p Player.
+   * @param {boolean} amHost Whether local user is host.
+   * @returns {void}
+   */
+  function appendTeamSwitchBtn(parent, p, amHost) {
+    if (!canMoveTeamPlayer(p.id, amHost) || !state || !state.teams || !state.teams.length) return;
+    const end = parent.querySelector('.player-end');
+    if (!end || end.querySelector('.team-switch-btn')) return;
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'team-switch-btn';
+    btn.textContent = '⇄';
+    btn.title = 'Change team';
+    btn.setAttribute('aria-label', `Change team for ${p.name}`);
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const playerId = parent.dataset.playerId || p.id;
+      if (teamPickerEl && teamPickerEl.dataset.playerId === playerId) {
+        closeTeamPicker();
+        return;
+      }
+      const fromTeamId = parent.dataset.fromTeamId != null && parent.dataset.fromTeamId !== ''
+        ? Number(parent.dataset.fromTeamId)
+        : null;
+      openTeamPicker(parent, playerId, fromTeamId);
+    });
+    const kick = end.querySelector('.kick-btn');
+    if (kick) {
+      end.insertBefore(btn, kick);
+      return;
+    }
+    const icon = end.querySelector('.host-icon, .player-type-icon');
+    if (icon) end.insertBefore(btn, icon);
+    else end.appendChild(btn);
   }
 
   // Enforce 4-digit limit on room code inputs
@@ -1722,13 +1763,14 @@
     li.dataset.playerId = p.id;
     if (fromTeamId != null) li.dataset.fromTeamId = String(fromTeamId);
     li.innerHTML = lobbyPlayerRowHtml(p, lobbyPlayerBadgesHtml(p, extraBadge || ''));
+    appendTeamSwitchBtn(li, p, amHost);
     appendKickBtn(li, p, amHost);
     attachLobbySwatch(li, p);
 
     const movable = canMoveTeamPlayer(p.id, amHost) && state.teams && state.teams.length > 0;
     if (movable) {
       li.classList.add('team-movable');
-      li.title = 'Tap to change team';
+      li.title = 'Change team';
     }
     return li;
   }

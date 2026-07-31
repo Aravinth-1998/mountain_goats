@@ -572,6 +572,29 @@ input.input-error:focus { border-color: var(--danger); background: rgba(255,93,1
   background: rgba(255,93,108,0.12); color: var(--danger);
   font-size: 13px; font-weight: 800;
 }
+.team-switch-btn {
+  flex: 0 0 auto;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border-radius: 8px;
+  border: 1px solid rgba(143, 125, 255, 0.45);
+  cursor: pointer;
+  background: rgba(143, 125, 255, 0.2);
+  color: #c8bfff;
+  font-size: 14px;
+  font-weight: 800;
+  font-family: inherit;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.team-switch-btn:hover,
+.team-switch-btn:focus-visible {
+  background: rgba(143, 125, 255, 0.32);
+  outline: none;
+}
 .player-type-icon {
   flex: 0 0 auto;
   width: 26px; height: 26px; border-radius: 8px;
