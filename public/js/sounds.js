@@ -153,7 +153,7 @@
         playClip(CLIPS.ui_tap, selfVol);
         break;
       case 'dice_roll':
-        playClip(CLIPS.dice_roll, event.self ? selfVol : otherVol, event.self ? 100 : 0);
+        playClip(CLIPS.dice_roll, event.self ? selfVol : otherVol);
         break;
       case 'dice_adjust':
         if (event.self) playClip(CLIPS.dice_adjust, selfVol);

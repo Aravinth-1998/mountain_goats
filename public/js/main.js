@@ -148,6 +148,7 @@
   let teamPickerRestore = null;
   let winCountUpFrames = [];
   let pendingMatchStats = null;
+  let pendingSelfDiceRollAt = 0;
 
   const PLAYER_COLORS = [
     '#e63946', // red
@@ -1383,14 +1384,15 @@
 
   // ===================== GAME CONTROLS =====================
   $('btn-roll').addEventListener('click', () => {
+    pendingSelfDiceRollAt = Date.now();
     if (window.MGSounds) {
       window.MGSounds.unlock();
-      window.MGSounds.play({ type: 'ui_tap', self: true });
+      window.MGSounds.play({ type: 'dice_roll', self: true });
     }
-    if (window.MGHaptics) window.MGHaptics.trigger({ type: 'ui_tap', self: true });
+    if (window.MGHaptics) window.MGHaptics.trigger({ type: 'dice_roll', self: true });
     socket.emit('rollDice');
     $('dice-area').classList.add('rolling');
-    setTimeout(() => $('dice-area').classList.remove('rolling'), 500);
+    setTimeout(() => $('dice-area').classList.remove('rolling'), 720);
   });
   $('btn-endturn').addEventListener('click', () => {
     if (window.MGSounds) {
@@ -1479,7 +1481,12 @@
     const wasFinished = !!(state && state.finished);
     const prevCode = state && state.code;
     if (state && s && typeof deriveFeedbackEvents === 'function') {
-      const events = deriveFeedbackEvents(state, s, myId);
+      const events = deriveFeedbackEvents(state, s, myId).filter((event) => {
+        if (event.type === 'dice_roll' && event.self && Date.now() - pendingSelfDiceRollAt < 900) {
+          return false;
+        }
+        return true;
+      });
       const ctx = { didWin: s.finished ? didPlayerWinForState(s, myId) : false, myId };
       events.forEach((event) => {
         if (window.MGHaptics) window.MGHaptics.trigger(event, ctx);

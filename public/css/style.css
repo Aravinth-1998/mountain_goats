@@ -857,7 +857,7 @@ input.input-error:focus { border-color: var(--danger); background: rgba(255,93,1
   margin-bottom: 10px;
 }
 .dice-area { display: flex; justify-content: center; gap: 10px; margin-bottom: 0; }
-.dice-area.rolling .die { animation: shake .5s ease; }
+.dice-area.rolling .die { animation: shake .72s ease; }
 .turn-timer {
   min-width: 52px;
   min-height: 52px;

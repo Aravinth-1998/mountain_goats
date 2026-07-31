@@ -341,6 +341,12 @@ app.get('/admin', (req, res) => {
         '</tr>';
       }).join('');
     }
+    function isTeamEntry(entry) {
+      if (!entry) return false;
+      if (entry.teamMode) return true;
+      const modeId = entry.modeId || entry.mode;
+      return modeId === 'standardTeam' || modeId === 'team';
+    }
     function renderHistory(games) {
       const list = document.getElementById('history-list');
       document.getElementById('s-history').textContent = games.length;
@@ -349,7 +355,7 @@ app.get('/admin', (req, res) => {
         return;
       }
       list.innerHTML = games.map((g) => {
-        const isTeam = modeUsesTeams(getMode(resolveModeIdFromState(g)));
+        const isTeam = isTeamEntry(g);
         const badges = [
           isTeam ? '<span class="badge-team">TEAMS</span>' : '',
           g.abandoned ? '<span class="badge-abandoned">ABANDONED</span>' : '<span class="badge-finished">FINISHED</span>',
@@ -407,7 +413,7 @@ app.get('/admin', (req, res) => {
           const badges = [
             r.isPublic ? '<span class="badge-public">PUBLIC</span>' : '<span class="badge-private">PRIVATE</span>',
             r.started ? (r.finished ? '<span class="badge-lobby">FINISHED</span>' : '<span class="badge-started">IN GAME</span>') : '<span class="badge-lobby">LOBBY</span>',
-            modeUsesTeams(getMode(resolveModeIdFromState(r))) ? '<span class="badge-team">TEAMS</span>' : '',
+            isTeamEntry(r) ? '<span class="badge-team">TEAMS</span>' : '',
           ].join('');
           const players = r.players.map(p =>
             '<div class="player-row">' +
