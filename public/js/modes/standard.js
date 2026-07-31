@@ -15,13 +15,15 @@
   ];
 
   /**
-   * Winner slots in standard mode: 1 for 2-4 players, 2 for 5-6.
+   * Winner slots in standard mode: 1 for 2-4 players, 2 for 5-7, 3 for 8-10.
    *
    * @param {number} playerCount Number of players.
    * @returns {number}
    */
   function winnerSlotCount(playerCount) {
-    return playerCount >= 5 ? 2 : 1;
+    if (playerCount >= 8) return 3;
+    if (playerCount >= 5) return 2;
+    return 1;
   }
 
   /**
@@ -32,7 +34,18 @@
   function scoreRankPrefix(rankIndex, winnerSlots) {
     if (rankIndex === 0) return '🥇';
     if (rankIndex === 1 && winnerSlots >= 2) return '🥈';
+    if (rankIndex === 2 && winnerSlots >= 3) return '🥉';
     return String(rankIndex + 1);
+  }
+
+  /**
+   * @param {string[]} names Winner display names.
+   * @returns {string}
+   */
+  function formatWinnerNames(names) {
+    if (names.length <= 1) return names[0] || '';
+    if (names.length === 2) return `${names[0]} and ${names[1]}`;
+    return `${names.slice(0, -1).join(', ')}, and ${names[names.length - 1]}`;
   }
 
   /**
@@ -110,8 +123,8 @@
       .map((id) => state.players.find((p) => p.id === id))
       .filter(Boolean);
     let winnerLine = 'Game over!';
-    if (winners.length === 2) {
-      winnerLine = `${winners[0].name} and ${winners[1].name} win!`;
+    if (winners.length >= 2) {
+      winnerLine = `${formatWinnerNames(winners.map((p) => p.name))} win!`;
     } else if (winners.length === 1) {
       winnerLine = `${winners[0].name} wins!`;
     }
@@ -197,7 +210,7 @@
    */
   function scoreRankPrefixHtml(rankIndex, winnerSlots) {
     const prefix = scoreRankPrefix(rankIndex, winnerSlots);
-    if (prefix === '🥇' || prefix === '🥈') return prefix;
+    if (prefix === '🥇' || prefix === '🥈' || prefix === '🥉') return prefix;
     return `<span class="sb-rank-num">${prefix}</span>`;
   }
 
@@ -207,7 +220,9 @@
    * @returns {string}
    */
   function catchphrase(rankIndex, winnerSlots) {
+    if (rankIndex === 0) return PLACE_PHRASES[0];
     if (rankIndex === 1 && winnerSlots >= 2) return 'Shared summit!';
+    if (rankIndex === 2 && winnerSlots >= 3) return 'Podium finish!';
     if (rankIndex >= 0 && rankIndex < PLACE_PHRASES.length) return PLACE_PHRASES[rankIndex];
     return PLACE_PHRASES[PLACE_PHRASES.length - 1];
   }
@@ -246,8 +261,9 @@
     if (rankIndex < 0) {
       resetWinHeadChrome();
       if (localWon) titleEl.textContent = 'You Win! 🎉';
-      else if (winnerSlots === 2 && sorted[1]) {
-        titleEl.textContent = `${sorted[0].name} and ${sorted[1].name} Win!`;
+      else if (winnerSlots >= 2 && sorted.length >= winnerSlots) {
+        const names = sorted.slice(0, winnerSlots).map((p) => p.name);
+        titleEl.textContent = `${formatWinnerNames(names)} Win!`;
       } else {
         titleEl.textContent = winner ? `${winner.name} Wins!` : 'Game Over!';
       }

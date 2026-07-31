@@ -82,6 +82,22 @@ test('resolveWinners picks two winners in 5p standard mode', () => {
   assert.ok(room.winnerPlayerIds.includes('p1'));
 });
 
+test('resolveWinners picks three winners in 8p standard mode', () => {
+  const room = makeRoom({ playerCount: 8 });
+  room.players[0].collected = [4, 0, 0, 0, 0, 0];
+  room.players[1].collected = [3, 0, 0, 0, 0, 0];
+  room.players[2].collected = [2, 0, 0, 0, 0, 0];
+  room.players[3].collected = [1, 0, 0, 0, 0, 0];
+
+  resolveWinners(room);
+
+  assert.equal(room.winnerPlayerIds.length, 3);
+  assert.equal(room.winnerId, 'p0');
+  assert.ok(room.winnerPlayerIds.includes('p1'));
+  assert.ok(room.winnerPlayerIds.includes('p2'));
+  assert.equal(room.winnerPlayerIds.includes('p3'), false);
+});
+
 test('resolveWinners picks winning team in team mode', () => {
   const room = makeRoom({ playerCount: 4, teamMode: true });
   room.players[0].collected = [2, 0, 0, 0, 0, 0];

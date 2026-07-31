@@ -53,6 +53,25 @@ test('5-player standard game yields two winners', () => {
   assert.ok(room.winnerPlayerIds.includes('p1'));
 });
 
+test('8-player standard game yields three winners', () => {
+  const room = makeStartedRoom({ playerCount: 8 });
+  room.players[0].collected = [4, 0, 0, 0, 0, 0];
+  room.players[1].collected = [3, 0, 0, 0, 0, 0];
+  room.players[2].collected = [2, 0, 0, 0, 0, 0];
+  room.players[3].collected = [1, 0, 0, 0, 0, 0];
+  room.players[4].collected = [0, 1, 0, 0, 0, 0];
+  room.players[5].collected = [0, 0, 1, 0, 0, 0];
+  room.players[6].collected = [0, 0, 0, 1, 0, 0];
+  room.players[7].collected = [0, 0, 0, 0, 1, 0];
+
+  resolveWinners(room);
+
+  assert.equal(room.winnerPlayerIds.length, 3);
+  assert.equal(room.winnerId, 'p0');
+  assert.ok(room.winnerPlayerIds.includes('p1'));
+  assert.ok(room.winnerPlayerIds.includes('p2'));
+});
+
 test('team mode match stats for winning team', () => {
   const room = makeStartedRoom({ playerCount: 4, teamMode: true });
   room.players[0].authUserId = 'user-a';

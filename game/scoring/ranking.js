@@ -29,14 +29,17 @@ function rankedTeams(room) {
 }
 
 /**
- * Number of individual winners in standard mode (1 for 2-4 players, 2 for 5-6).
+ * Number of individual winners in standard mode:
+ * 1 for 2-4 players, 2 for 5-7, 3 for 8-10.
  *
  * @param {object} room Active or finished room.
  * @returns {number}
  */
 function winnerSlotCount(room) {
   const playerCount = room.players.filter((p) => p.connected).length || room.players.length;
-  return playerCount >= 5 ? 2 : 1;
+  if (playerCount >= 8) return 3;
+  if (playerCount >= 5) return 2;
+  return 1;
 }
 
 module.exports = {

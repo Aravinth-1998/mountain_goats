@@ -35,7 +35,10 @@ test('rankedPlayers breaks score and tops ties by higher mountain summit', () =>
   assert.equal(ranked[0].p.id, 'p1');
 });
 
-test('winnerSlotCount returns 1 for 4 players and 2 for 5 players', () => {
+test('winnerSlotCount returns 1, 2, or 3 by player count', () => {
   assert.equal(winnerSlotCount(makeRoom({ playerCount: 4 })), 1);
   assert.equal(winnerSlotCount(makeRoom({ playerCount: 5 })), 2);
+  assert.equal(winnerSlotCount(makeRoom({ playerCount: 7 })), 2);
+  assert.equal(winnerSlotCount(makeRoom({ playerCount: 8 })), 3);
+  assert.equal(winnerSlotCount(makeRoom({ playerCount: 10 })), 3);
 });

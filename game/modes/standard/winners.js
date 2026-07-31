@@ -34,6 +34,18 @@ function resolveWinners(room) {
 }
 
 /**
+ * Format winner names for the end-of-game log.
+ *
+ * @param {string[]} names Winner display names.
+ * @returns {string}
+ */
+function formatWinnerNames(names) {
+  if (names.length <= 1) return names[0] || '';
+  if (names.length === 2) return `${names[0]} and ${names[1]}`;
+  return `${names.slice(0, -1).join(', ')}, and ${names[names.length - 1]}`;
+}
+
+/**
  * Push end-of-game log lines for standard mode.
  *
  * @param {object} room Finished room.
@@ -42,13 +54,13 @@ function resolveWinners(room) {
 function announceWinners(room, log) {
   const ranked = rankedPlayers(room);
   const slots = winnerSlotCount(room);
-  const winner = ranked[0] ? ranked[0].p : null;
-  if (!winner) return;
-  if (slots === 2 && ranked[1]) {
-    log(`Game over! ${winner.name} and ${ranked[1].p.name} win! 🏆`);
-  } else {
-    log(`Game over! ${winner.name} wins with ${ranked[0].score} points! 🏆`);
+  const winners = ranked.slice(0, slots).map((entry) => entry.p).filter(Boolean);
+  if (!winners.length) return;
+  if (winners.length === 1) {
+    log(`Game over! ${winners[0].name} wins with ${ranked[0].score} points! 🏆`);
+    return;
   }
+  log(`Game over! ${formatWinnerNames(winners.map((p) => p.name))} win! 🏆`);
 }
 
 module.exports = {
