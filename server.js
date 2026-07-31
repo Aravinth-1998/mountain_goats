@@ -44,10 +44,12 @@ const {
   NUM_DICE,
   MAX_PLAYERS,
   PLAYER_COLORS,
+  TEAM_PALETTES,
   BOT_NAME_POOLS,
 } = core.constants;
 const { emptyMountainCount } = core.mountains;
 const { createPlaceholderMountains, createBonusTokens, resetForNewGame } = core.state;
+const { pickJoinColor } = require('./game/core/player-colors');
 const {
   pointsOf,
   bonusOf,
@@ -596,10 +598,18 @@ function createRoom(options = {}) {
   return room;
 }
 
+/**
+ * Add a player (human or bot) to a room with a balanced join color.
+ *
+ * @param {object} room Room state.
+ * @param {string} socketId Player id.
+ * @param {string} name Display name.
+ * @param {boolean} [isBot=false] Whether the player is a bot.
+ * @param {string|null} [authUserId=null] Signed-in user id.
+ * @returns {object}
+ */
 function addPlayer(room, socketId, name, isBot = false, authUserId = null) {
-  // Assign first unused color to ensure all players have unique colors
-  const usedColors = new Set(room.players.map((p) => p.color));
-  const color = PLAYER_COLORS.find((c) => !usedColors.has(c)) || PLAYER_COLORS[room.players.length % PLAYER_COLORS.length];
+  const color = pickJoinColor(room);
   const player = {
     id: socketId,
     name,
@@ -1424,7 +1434,8 @@ io.on('connection', (socket) => {
   socket.on('setPlayerColor', ({ color, playerId }, cb) => {
     const room = findRoomBySocket(socket.id);
     if (!room || room.started) return cb && cb({ error: 'Cannot change colour now.' });
-    if (!color || !PLAYER_COLORS.includes(color)) return cb && cb({ error: 'Invalid colour.' });
+    const knownColors = new Set([...PLAYER_COLORS, ...TEAM_PALETTES.flat()]);
+    if (!color || !knownColors.has(color)) return cb && cb({ error: 'Invalid colour.' });
     const targetId = playerId || socket.id;
     const target = room.players.find((p) => p.id === targetId);
     if (!target) return cb && cb({ error: 'Player not found.' });
@@ -1560,7 +1571,7 @@ io.on('connection', (socket) => {
     numTeams = parseInt(numTeams, 10);
     if (numTeams < 2 || numTeams > 3) return;
     room.teams = buildTeams(room, numTeams);
-    assignAllTeamColors(room);
+    assignAllTeamColors(room, true);
     const perTeam = Math.ceil(room.players.length / numTeams);
     pushLog(room, `Teams reconfigured: ${numTeams} teams of ~${perTeam}.`);
     broadcast(room);

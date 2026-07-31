@@ -105,11 +105,11 @@ function onSetMode(room, log = () => {}) {
   const configs = getValidTeamConfigs(room.players.length);
   if (configs.length > 0) {
     room.teams = buildTeams(room, configs[0].teams);
-    assignAllTeamColors(room);
+    assignAllTeamColors(room, true);
     log(`Team mode enabled! (${configs[0].teams} teams of ${configs[0].perTeam})`);
   } else {
     room.teams = buildTeams(room, 2);
-    assignAllTeamColors(room);
+    assignAllTeamColors(room, true);
     log('Team mode enabled! Teams may be uneven.');
   }
 }

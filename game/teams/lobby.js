@@ -15,9 +15,17 @@ function getTeamPalette(teamId) {
 function getUsedColors(room, excludePlayerId) {
   return new Set(
     room.players
-      .filter((p) => p.id !== excludePlayerId)
+      .filter((p) => p.id !== excludePlayerId && p.color)
       .map((p) => p.color)
   );
+}
+
+/**
+ * @param {string[]} choices Non-empty list.
+ * @returns {string}
+ */
+function pickRandom(choices) {
+  return choices[Math.floor(Math.random() * choices.length)];
 }
 
 function pickTeamColor(room, teamId, excludePlayerId, avoidColor) {
@@ -29,8 +37,10 @@ function pickTeamColor(room, teamId, excludePlayerId, avoidColor) {
     const preferred = candidates.filter((c) => c !== avoidColor);
     if (preferred.length) candidates = preferred;
   }
-  if (candidates.length) return candidates[0];
-  return palette.find((c) => c !== avoidColor) || palette[0];
+  if (candidates.length) return pickRandom(candidates);
+  const fallback = palette.filter((c) => c !== avoidColor);
+  if (fallback.length) return pickRandom(fallback);
+  return palette[0];
 }
 
 function assignPlayerTeamColor(room, playerId, forceNew) {
@@ -46,10 +56,25 @@ function assignPlayerTeamColor(room, playerId, forceNew) {
   player.color = pickTeamColor(room, team.id, playerId, forceNew ? player.color : null);
 }
 
-function assignAllTeamColors(room) {
+/**
+ * Assign team-palette colors to every member.
+ *
+ * @param {object} room Active room.
+ * @param {boolean} [forceNew=false] When true, clear then re-pick so Red/Blue(/Green) are fresh.
+ * @returns {void}
+ */
+function assignAllTeamColors(room, forceNew = false) {
   if (!room.teamMode || !room.teams) return;
+  if (forceNew) {
+    room.teams.forEach((team) => {
+      team.members.forEach((pid) => {
+        const player = room.players.find((p) => p.id === pid);
+        if (player) player.color = null;
+      });
+    });
+  }
   room.teams.forEach((team) => {
-    team.members.forEach((pid) => assignPlayerTeamColor(room, pid, false));
+    team.members.forEach((pid) => assignPlayerTeamColor(room, pid, forceNew));
   });
 }
 

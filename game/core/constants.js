@@ -9,17 +9,32 @@ const MOUNTAIN_DEFS = [
 const BONUS_DEFS = [15, 12, 9, 6];
 const NUM_DICE = 4;
 const MAX_PLAYERS = 10;
+// 5 red + 5 blue + 5 green + 5 other (no white/black/gold/silver).
 const PLAYER_COLORS = [
-  '#e63946',
-  '#4f7cff',
-  '#06d6a0',
-  '#ff6b9d',
-  '#1eb5db',
-  '#40916c',
+  // Red (dark -> light)
+  '#9d0208',
   '#c1121f',
+  '#e63946',
+  '#ff5c5c',
+  '#ff8fab',
+  // Blue (dark -> light)
   '#1e40af',
+  '#1d4ed8',
+  '#3b82f6',
+  '#4f7cff',
+  '#93c5fd',
+  // Green (dark -> light)
+  '#15803d',
+  '#40916c',
   '#22c55e',
-  '#e67e22',
+  '#06d6a0',
+  '#86efac',
+  // Other
+  '#a855f7', // purple
+  '#e67e22', // orange
+  '#ec4899', // magenta
+  '#92400e', // brown
+  '#7c3aed', // violet
 ];
 const BOT_NAME_POOLS = [
   ['Zorro', 'Zenith'],
@@ -36,11 +51,17 @@ const BOT_NAME_POOLS = [
 const TEAM_COLORS = ['#e63946', '#4f7cff', '#06d6a0'];
 const TEAM_NAMES = ['Red', 'Blue', 'Green'];
 const TEAM_PALETTE_INDICES = [
-  [0, 3, 6],
-  [1, 4, 7],
-  [2, 5, 8],
+  [0, 2, 4],
+  [5, 7, 9],
+  [10, 12, 14],
 ];
 const TEAM_PALETTES = TEAM_PALETTE_INDICES.map((indices) => indices.map((i) => PLAYER_COLORS[i]));
+const PLAYER_COLOR_GROUPS = [
+  PLAYER_COLORS.slice(0, 5),
+  PLAYER_COLORS.slice(5, 10),
+  PLAYER_COLORS.slice(10, 15),
+  PLAYER_COLORS.slice(15, 20),
+];
 const TEAM_CONFIGS = [
   { total: 4, teams: 2, perTeam: 2 },
   { total: 6, teams: 2, perTeam: 3 },
@@ -53,6 +74,7 @@ module.exports = {
   NUM_DICE,
   MAX_PLAYERS,
   PLAYER_COLORS,
+  PLAYER_COLOR_GROUPS,
   BOT_NAME_POOLS,
   TEAM_COLORS,
   TEAM_NAMES,

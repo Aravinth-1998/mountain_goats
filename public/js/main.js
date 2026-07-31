@@ -153,16 +153,30 @@
   const MAX_PLAYERS = 10;
 
   const PLAYER_COLORS = [
-    '#e63946', // red
-    '#4f7cff', // blue
-    '#06d6a0', // mint green
-    '#ff6b9d', // pink
-    '#1eb5db', // sky blue
-    '#40916c', // forest green
-    '#c1121f', // dark red
-    '#1e40af', // navy blue
-    '#22c55e', // grass green
+    // Red (dark -> light)
+    '#9d0208',
+    '#c1121f',
+    '#e63946',
+    '#ff5c5c',
+    '#ff8fab',
+    // Blue (dark -> light)
+    '#1e40af',
+    '#1d4ed8',
+    '#3b82f6',
+    '#4f7cff',
+    '#93c5fd',
+    // Green (dark -> light)
+    '#15803d',
+    '#40916c',
+    '#22c55e',
+    '#06d6a0',
+    '#86efac',
+    // Other
+    '#a855f7', // purple
     '#e67e22', // orange
+    '#ec4899', // magenta
+    '#92400e', // brown
+    '#7c3aed', // violet
   ];
 
   const screens = {

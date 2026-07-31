@@ -1,3 +1,5 @@
+const { reshuffleJoinColors } = require('../../core/player-colors');
+
 /**
  * Sync lobby state before start (standard has nothing to clean).
  *
@@ -43,6 +45,10 @@ function prepareStart(room) {
 function onSetMode(room, log = () => {}) {
   room.teams = null;
   room.winnerTeamId = null;
+  if (room.players && room.players.length) {
+    reshuffleJoinColors(room);
+    log('Standard mode — colours reshuffled.');
+  }
 }
 
 /**
