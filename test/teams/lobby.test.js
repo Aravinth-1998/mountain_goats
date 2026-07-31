@@ -47,6 +47,13 @@ test('getTeamPalette returns palette or null for invalid team id', () => {
   assert.equal(getTeamPalette(99), null);
 });
 
+test('each team palette has five colors', () => {
+  assert.equal(TEAM_PALETTES.length, 3);
+  TEAM_PALETTES.forEach((palette) => {
+    assert.equal(palette.length, 5);
+  });
+});
+
 test('getUsedColors excludes the given player', () => {
   const room = makeRoom({ playerCount: 2 });
   room.players[0].color = '#aaaaaa';

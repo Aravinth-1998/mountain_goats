@@ -50,17 +50,17 @@ const BOT_NAME_POOLS = [
 
 const TEAM_COLORS = ['#e63946', '#4f7cff', '#06d6a0'];
 const TEAM_NAMES = ['Red', 'Blue', 'Green'];
-const TEAM_PALETTE_INDICES = [
-  [0, 2, 4],
-  [5, 7, 9],
-  [10, 12, 14],
-];
-const TEAM_PALETTES = TEAM_PALETTE_INDICES.map((indices) => indices.map((i) => PLAYER_COLORS[i]));
 const PLAYER_COLOR_GROUPS = [
   PLAYER_COLORS.slice(0, 5),
   PLAYER_COLORS.slice(5, 10),
   PLAYER_COLORS.slice(10, 15),
   PLAYER_COLORS.slice(15, 20),
+];
+// Full 5 shades per team (Red / Blue / Green).
+const TEAM_PALETTES = [
+  PLAYER_COLOR_GROUPS[0],
+  PLAYER_COLOR_GROUPS[1],
+  PLAYER_COLOR_GROUPS[2],
 ];
 const TEAM_CONFIGS = [
   { total: 4, teams: 2, perTeam: 2 },
@@ -78,7 +78,6 @@ module.exports = {
   BOT_NAME_POOLS,
   TEAM_COLORS,
   TEAM_NAMES,
-  TEAM_PALETTE_INDICES,
   TEAM_PALETTES,
   TEAM_CONFIGS,
 };
