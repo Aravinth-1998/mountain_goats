@@ -75,6 +75,12 @@ const {
 const { applyOnesRule, adjustDie: applyAdjustDie } = actions.dice;
 const { advanceTurnState, isLastRoundComplete } = actions.turn;
 const { cancelLobbyCleanup, removePlayerFromLobby } = actions.lobby;
+const {
+  toInt,
+  toBool,
+  isDistinctIntArray,
+  safeHandler,
+} = require('./game/validation');
 const { applyClimb } = actions.climb;
 const { buildMatchStatUpdates, resolveWinners, announceWinners } = matchPkg.winners;
 const {
@@ -1291,7 +1297,7 @@ io.on('connection', (socket) => {
     scheduleBroadcastOnlineCount();
   });
 
-  socket.on('createRoom', async ({ name, isPublic, maxPlayers, accessToken }, cb) => {
+  socket.on('createRoom', safeHandler('createRoom', async ({ name, isPublic, maxPlayers, accessToken }, cb) => {
     const token = resolveSocketAccessToken(socket, accessToken);
     await ensureSocketAuthLight(socket, token);
     name = auth.resolvePlayerName(socket, name);
@@ -1307,9 +1313,9 @@ io.on('connection', (socket) => {
         console.warn(`${auth.LOG_PREFIX} createRoom enrichment failed:`, err.message);
       });
     }
-  });
+  }));
 
-  socket.on('joinRoom', async ({ name, code, accessToken }, cb) => {
+  socket.on('joinRoom', safeHandler('joinRoom', async ({ name, code, accessToken }, cb) => {
     const token = resolveSocketAccessToken(socket, accessToken);
     await ensureSocketAuthLight(socket, token);
     name = auth.resolvePlayerName(socket, name);
@@ -1398,9 +1404,9 @@ io.on('connection', (socket) => {
         console.warn(`${auth.LOG_PREFIX} joinRoom enrichment failed:`, err.message);
       });
     }
-  });
+  }));
 
-  socket.on('addBot', () => {
+  socket.on('addBot', safeHandler('addBot', () => {
     const room = findRoomBySocket(socket.id);
     if (!room || room.hostId !== socket.id || room.started) return;
     if (room.players.length >= room.maxPlayers) return;
@@ -1409,9 +1415,9 @@ io.on('connection', (socket) => {
     getModeForRoom(room).onPlayerJoined(room, bot);
     pushLog(room, `${bot.name} was added.`);
     broadcast(room);
-  });
+  }));
 
-  socket.on('setPlayerColor', ({ color, playerId }, cb) => {
+  socket.on('setPlayerColor', safeHandler('setPlayerColor', ({ color, playerId }, cb) => {
     const room = findRoomBySocket(socket.id);
     if (!room || room.started) return cb && cb({ error: 'Cannot change colour now.' });
     const knownColors = new Set([...PLAYER_COLORS, ...TEAM_PALETTES.flat()]);
@@ -1428,9 +1434,9 @@ io.on('connection', (socket) => {
     target.color = color;
     broadcast(room);
     cb && cb({ ok: true });
-  });
+  }));
 
-  socket.on('removeBot', ({ id }) => {
+  socket.on('removeBot', safeHandler('removeBot', ({ id }) => {
     const room = findRoomBySocket(socket.id);
     if (!room || room.hostId !== socket.id || room.started) return;
     const idx = room.players.findIndex((p) => p.id === id && p.isBot);
@@ -1445,10 +1451,10 @@ io.on('connection', (socket) => {
     pushLog(room, `${removed.name} was removed.`);
     if (room.currentIndex >= room.players.length) room.currentIndex = 0;
     broadcast(room);
-  });
+  }));
 
   // Host kicks any player (human or bot) from the lobby
-  socket.on('kickPlayer', ({ id }) => {
+  socket.on('kickPlayer', safeHandler('kickPlayer', ({ id }) => {
     const room = findRoomBySocket(socket.id);
     if (!room || room.hostId !== socket.id || room.started) return;
     if (id === socket.id) return; // can't kick yourself
@@ -1459,41 +1465,41 @@ io.on('connection', (socket) => {
     const hostPlayer = room.players.find((p) => p.id === room.hostId);
     io.to(id).emit('kicked', { hostName: hostPlayer ? hostPlayer.name : 'The host' });
     broadcast(room);
-  });
+  }));
 
   // ---- Room settings socket events (lobby only) ----
 
   // Toggle room visibility (public/private)
-  socket.on('setRoomVisibility', ({ isPublic }) => {
+  socket.on('setRoomVisibility', safeHandler('setRoomVisibility', ({ isPublic }) => {
     const room = findRoomBySocket(socket.id);
     if (!room || room.hostId !== socket.id || room.started) return;
-    room.isPublic = !!isPublic;
+    room.isPublic = toBool(isPublic);
     broadcast(room);
-  });
+  }));
 
   // Set max players for the room
-  socket.on('setMaxPlayers', ({ maxPlayers }) => {
+  socket.on('setMaxPlayers', safeHandler('setMaxPlayers', ({ maxPlayers }) => {
     const room = findRoomBySocket(socket.id);
     if (!room || room.hostId !== socket.id || room.started) return;
-    maxPlayers = parseInt(maxPlayers, 10);
-    if (maxPlayers < 2 || maxPlayers > MAX_PLAYERS) return;
-    if (maxPlayers < room.players.length) return; // can't set below current player count
-    room.maxPlayers = maxPlayers;
+    const value = toInt(maxPlayers, { min: 2, max: MAX_PLAYERS });
+    if (value === null) return;
+    if (value < room.players.length) return; // can't set below current player count
+    room.maxPlayers = value;
     broadcast(room);
-  });
+  }));
 
   // Set per-turn time limit (0 = no limit). Host-only, lobby only.
-  socket.on('setTurnTimer', ({ turnTimeSec }) => {
+  socket.on('setTurnTimer', safeHandler('setTurnTimer', ({ turnTimeSec }) => {
     const room = findRoomBySocket(socket.id);
     if (!room || room.hostId !== socket.id || room.started) return;
-    turnTimeSec = parseInt(turnTimeSec, 10);
-    if (!TURN_TIME_OPTIONS.has(turnTimeSec)) return;
-    room.turnTimeSec = turnTimeSec;
+    const value = toInt(turnTimeSec);
+    if (value === null || !TURN_TIME_OPTIONS.has(value)) return;
+    room.turnTimeSec = value;
     broadcast(room);
-  });
+  }));
 
   // Get list of public rooms (for the join screen)
-  socket.on('getPublicRooms', (cb) => {
+  socket.on('getPublicRooms', safeHandler('getPublicRooms', (_payload, cb) => {
     const publicRooms = [];
     for (const code in rooms) {
       const room = rooms[code];
@@ -1513,51 +1519,52 @@ io.on('connection', (socket) => {
       }
     }
     cb && cb(publicRooms);
-  });
+  }));
 
   // ---- Team mode socket events (lobby only) ----
 
   // Set game mode by id (host, lobby only)
-  socket.on('setGameMode', ({ modeId }) => {
+  socket.on('setGameMode', safeHandler('setGameMode', ({ modeId }) => {
     const room = findRoomBySocket(socket.id);
     if (!room || room.hostId !== socket.id || room.started) return;
     if (!hasMode(modeId)) return;
     const log = (msg) => pushLog(room, msg);
     setRoomMode(room, modeId, log);
     broadcast(room);
-  });
+  }));
 
   // Toggle team mode on/off (compat alias for setGameMode)
-  socket.on('setTeamMode', ({ enabled }) => {
+  socket.on('setTeamMode', safeHandler('setTeamMode', ({ enabled }) => {
     const room = findRoomBySocket(socket.id);
     if (!room || room.hostId !== socket.id || room.started) return;
     const log = (msg) => pushLog(room, msg);
-    setRoomMode(room, enabled ? 'standardTeam' : 'standard', log);
+    setRoomMode(room, toBool(enabled) ? 'standardTeam' : 'standard', log);
     broadcast(room);
-  });
+  }));
 
   // Change team configuration (number of teams)
-  socket.on('setTeamConfig', ({ numTeams }) => {
+  socket.on('setTeamConfig', safeHandler('setTeamConfig', ({ numTeams }) => {
     const room = findRoomBySocket(socket.id);
     if (!room || room.hostId !== socket.id || room.started || !room.teamMode) return;
-    numTeams = parseInt(numTeams, 10);
-    if (numTeams < 2 || numTeams > 3) return;
-    room.teams = buildTeams(room, numTeams);
+    const value = toInt(numTeams, { min: 2, max: 3 });
+    if (value === null) return;
+    room.teams = buildTeams(room, value);
     assignAllTeamColors(room, true);
-    const perTeam = Math.ceil(room.players.length / numTeams);
-    pushLog(room, `Teams reconfigured: ${numTeams} teams of ~${perTeam}.`);
+    const perTeam = Math.ceil(room.players.length / value);
+    pushLog(room, `Teams reconfigured: ${value} teams of ~${perTeam}.`);
     broadcast(room);
-  });
+  }));
 
   // Move a player to a different team (host only — can move anyone)
-  socket.on('swapTeam', ({ playerId, toTeamId }) => {
+  socket.on('swapTeam', safeHandler('swapTeam', ({ playerId, toTeamId }) => {
     const room = findRoomBySocket(socket.id);
     if (!room || room.hostId !== socket.id || room.started || !room.teamMode || !room.teams) return;
-    toTeamId = parseInt(toTeamId, 10);
+    toTeamId = toInt(toTeamId);
+    if (toTeamId === null) return;
     const targetTeam = getTeamById(room, toTeamId);
     if (!targetTeam) return;
     // Verify the player exists in the room
-    if (!room.players.some((p) => p.id === playerId)) return;
+    if (typeof playerId !== 'string' || !room.players.some((p) => p.id === playerId)) return;
     // Remove player from current team
     const currentTeam = getTeamOfPlayer(room, playerId);
     if (currentTeam) {
@@ -1569,16 +1576,17 @@ io.on('connection', (socket) => {
     }
     assignPlayerTeamColor(room, playerId, true);
     broadcast(room);
-  });
+  }));
 
   // Non-host player moves themselves to a different team
-  socket.on('selfSwapTeam', ({ toTeamId }) => {
+  socket.on('selfSwapTeam', safeHandler('selfSwapTeam', ({ toTeamId }) => {
     const room = findRoomBySocket(socket.id);
     if (!room || room.started || !room.teamMode || !room.teams) return;
     // Only allow moving yourself (not others)
     const playerId = socket.id;
     if (!room.players.some((p) => p.id === playerId)) return;
-    toTeamId = parseInt(toTeamId, 10);
+    toTeamId = toInt(toTeamId);
+    if (toTeamId === null) return;
     const targetTeam = getTeamById(room, toTeamId);
     if (!targetTeam) return;
     // Remove from current team
@@ -1597,9 +1605,9 @@ io.on('connection', (socket) => {
       pushLog(room, `${player.name} joined Team ${targetTeam.name}.`);
     }
     broadcast(room);
-  });
+  }));
 
-  socket.on('startGame', () => {
+  socket.on('startGame', safeHandler('startGame', () => {
     const room = findRoomBySocket(socket.id);
     if (!room || room.hostId !== socket.id || room.started) return;
 
@@ -1623,9 +1631,9 @@ io.on('connection', (socket) => {
     armTurnTimer(room);
     broadcast(room);
     scheduleBot(room);
-  });
+  }));
 
-  socket.on('rollDice', () => {
+  socket.on('rollDice', safeHandler('rollDice', () => {
     const room = findRoomBySocket(socket.id);
     if (!room || !room.started || room.finished || room.autoPlayTurn) return;
     const current = room.players[room.currentIndex];
@@ -1635,40 +1643,38 @@ io.on('connection', (socket) => {
     room.rolled = true;
     pushLog(room, `${current.name} rolled ${room.dice.join(', ')}.`);
     broadcast(room);
-  });
+  }));
 
   // Re-face an "extra" 1 die to any value (only before any dice are used).
-  socket.on('adjustDie', ({ index, value }) => {
+  socket.on('adjustDie', safeHandler('adjustDie', ({ index, value }) => {
     const room = findRoomBySocket(socket.id);
     if (!room || !room.started || room.finished || !room.rolled || room.autoPlayTurn) return;
     const current = room.players[room.currentIndex];
     if (!current || current.id !== socket.id) return;
     if (!applyAdjustDie(room, index, value)) return;
     broadcast(room);
-  });
+  }));
 
   // Apply a dice group (set of die indices) whose sum climbs the matching mountain.
-  socket.on('moveGroup', ({ indices, mountainIndex }) => {
+  socket.on('moveGroup', safeHandler('moveGroup', ({ indices, mountainIndex }) => {
     const room = findRoomBySocket(socket.id);
     if (!room || !room.started || room.finished || !room.rolled || room.autoPlayTurn) return;
     const current = room.players[room.currentIndex];
     if (!current || current.id !== socket.id) return;
-    if (!Array.isArray(indices) || indices.length === 0) return;
-
-    // validate indices: distinct, in range, not already used
-    const seen = new Set();
+    if (!isDistinctIntArray(indices, { min: 0, max: room.dice.length - 1, minLength: 1, maxLength: room.dice.length })) return;
+    // Every index must still be unused this turn.
     for (const idx of indices) {
-      if (typeof idx !== 'number' || idx < 0 || idx >= room.dice.length) return;
-      if (room.diceUsed[idx] || seen.has(idx)) return;
-      seen.add(idx);
+      if (room.diceUsed[idx]) return;
     }
-    const m = room.mountains[mountainIndex];
+    const mIdx = toInt(mountainIndex, { min: 0, max: room.mountains.length - 1 });
+    if (mIdx === null) return;
+    const m = room.mountains[mIdx];
     if (!m) return;
     const sum = indices.reduce((a, idx) => a + room.dice[idx], 0);
     if (sum !== m.value) return;
 
     const log = (msg) => pushLog(room, msg);
-    applyClimb(room, current, mountainIndex, log);
+    applyClimb(room, current, mIdx, log);
     indices.forEach((idx) => (room.diceUsed[idx] = true));
     room.adjustable = []; // lock re-facing once a move is made
 
@@ -1677,9 +1683,9 @@ io.on('connection', (socket) => {
     }
     broadcast(room);
     scheduleBot(room);
-  });
+  }));
 
-  socket.on('endTurn', () => {
+  socket.on('endTurn', safeHandler('endTurn', () => {
     const room = findRoomBySocket(socket.id);
     if (!room || !room.started || room.finished || room.autoPlayTurn) return;
     const current = room.players[room.currentIndex];
@@ -1687,9 +1693,9 @@ io.on('connection', (socket) => {
     advanceTurn(room);
     broadcast(room);
     scheduleBot(room);
-  });
+  }));
 
-  socket.on('playAgain', () => {
+  socket.on('playAgain', safeHandler('playAgain', () => {
     const room = findRoomBySocket(socket.id);
     if (!room || room.hostId !== socket.id) return;
     resetForNewGame(room);
@@ -1701,7 +1707,7 @@ io.on('connection', (socket) => {
     room.autoPlayTurn = false;
     pushLog(room, 'Back to lobby — start when ready! 🐐');
     broadcast(room);
-  });
+  }));
 
   socket.on('leaveRoom', () => handleDisconnect(socket, true));
   socket.on('disconnect', () => {
