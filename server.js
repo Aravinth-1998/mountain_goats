@@ -1565,15 +1565,12 @@ io.on('connection', (socket) => {
     if (!targetTeam) return;
     // Verify the player exists in the room
     if (typeof playerId !== 'string' || !room.players.some((p) => p.id === playerId)) return;
-    // Remove player from current team
-    const currentTeam = getTeamOfPlayer(room, playerId);
-    if (currentTeam) {
-      currentTeam.members = currentTeam.members.filter((id) => id !== playerId);
-    }
-    // Add to new team
-    if (!targetTeam.members.includes(playerId)) {
-      targetTeam.members.push(playerId);
-    }
+    // Purge the player from EVERY team before adding — guards against a stale
+    // cross-team duplicate silently inflating team sizes and breaking canStart.
+    room.teams.forEach((t) => {
+      t.members = t.members.filter((id) => id !== playerId);
+    });
+    targetTeam.members.push(playerId);
     assignPlayerTeamColor(room, playerId, true);
     broadcast(room);
   }));
@@ -1589,16 +1586,13 @@ io.on('connection', (socket) => {
     if (toTeamId === null) return;
     const targetTeam = getTeamById(room, toTeamId);
     if (!targetTeam) return;
-    // Remove from current team
     const currentTeam = getTeamOfPlayer(room, playerId);
     if (currentTeam && currentTeam.id === toTeamId) return; // already on this team
-    if (currentTeam) {
-      currentTeam.members = currentTeam.members.filter((id) => id !== playerId);
-    }
-    // Add to new team
-    if (!targetTeam.members.includes(playerId)) {
-      targetTeam.members.push(playerId);
-    }
+    // Purge the player from EVERY team before adding (see swapTeam for rationale).
+    room.teams.forEach((t) => {
+      t.members = t.members.filter((id) => id !== playerId);
+    });
+    targetTeam.members.push(playerId);
     assignPlayerTeamColor(room, playerId, true);
     const player = room.players.find((p) => p.id === playerId);
     if (player) {

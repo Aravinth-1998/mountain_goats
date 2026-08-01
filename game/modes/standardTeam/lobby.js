@@ -16,14 +16,24 @@ const { TEAM_PALETTES } = require('../../core/constants');
 function syncLobbyForStart(room, log = () => {}, setRoomMode) {
   if (!room.teams) return;
   const allIds = new Set(room.players.map((p) => p.id));
+  // Drop stale ids AND enforce that each player appears in at most one team.
+  // A duplicate — same id listed twice within a team, or in two teams —
+  // would silently inflate `members.length` and make `canStart` report
+  // teams as unequal even when the visible lobby shows an even split.
+  const claimed = new Set();
   room.teams.forEach((t) => {
-    t.members = t.members.filter((id) => allIds.has(id));
+    t.members = t.members.filter((id) => {
+      if (!allIds.has(id)) return false;
+      if (claimed.has(id)) return false;
+      claimed.add(id);
+      return true;
+    });
   });
-  const assigned = new Set(room.teams.flatMap((t) => t.members));
   room.players.forEach((p) => {
-    if (!assigned.has(p.id)) {
+    if (!claimed.has(p.id)) {
       const smallest = room.teams.reduce((a, b) => (a.members.length <= b.members.length ? a : b));
       smallest.members.push(p.id);
+      claimed.add(p.id);
       assignPlayerTeamColor(room, p.id, false);
     }
   });
