@@ -425,6 +425,12 @@ input.input-error:focus { border-color: var(--danger); background: rgba(255,93,1
 
 /* Topbar */
 .topbar { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.topbar-end {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
 #dice-area[hidden],
 #play-controls[hidden],
 #sel-sum[hidden],
@@ -1477,18 +1483,34 @@ input.input-error:focus { border-color: var(--danger); background: rgba(255,93,1
   justify-content: center;
   font-size: 20px;
   color: var(--text);
-  transition: background 0.15s, transform 0.15s;
+  transition: background 0.15s;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
   user-select: none;
 }
 .settings-menu > summary::-webkit-details-marker { display: none; }
+.settings-menu > summary svg {
+  transition: transform 0.15s;
+}
 .settings-menu > summary:hover {
   background: rgba(30, 42, 68, 0.85);
 }
 .settings-menu[open] > summary {
   background: rgba(30, 42, 68, 0.9);
+}
+.settings-menu[open] > summary svg {
   transform: rotate(30deg);
+}
+.settings-menu--topbar > summary {
+  width: 40px;
+  height: 38px;
+  border-radius: 12px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid var(--card-border);
+}
+.settings-menu--topbar > summary:hover,
+.settings-menu--topbar[open] > summary {
+  background: rgba(255,255,255,0.1);
 }
 .settings-popover {
   position: absolute;
@@ -1504,6 +1526,10 @@ input.input-error:focus { border-color: var(--danger); background: rgba(255,93,1
   flex-direction: column;
   gap: 4px;
   z-index: 41;
+}
+.settings-menu--topbar .settings-popover {
+  left: auto;
+  right: 0;
 }
 .settings-row {
   display: flex;
