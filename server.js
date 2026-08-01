@@ -72,7 +72,9 @@ const {
   getAllowedColorsForPlayer,
   buildTeams,
 } = teamsPkg.lobby;
-const { applyOnesRule } = actions.dice;
+const { applyOnesRule, adjustDie: applyAdjustDie } = actions.dice;
+const { advanceTurnState, isLastRoundComplete } = actions.turn;
+const { cancelLobbyCleanup, removePlayerFromLobby } = actions.lobby;
 const { applyClimb } = actions.climb;
 const { buildMatchStatUpdates, resolveWinners, announceWinners } = matchPkg.winners;
 const {
@@ -896,24 +898,9 @@ function advanceTurn(room) {
   clearTurnTimer(room);
   room.autoPlayTurn = false;
 
-  const finishing = room.players[room.currentIndex];
-  if (finishing) finishing.turns = (finishing.turns || 0) + 1;
+  advanceTurnState(room);
 
-  room.rolled = false;
-  room.dice = null;
-  room.diceUsed = [];
-  room.adjustable = [];
-  // Every seat is a valid turn target — disconnected non-bots get a bot substitute
-  // downstream (see scheduleBot), so we simply advance by one.
-  room.currentIndex = (room.currentIndex + 1) % room.players.length;
-
-  // Endgame: once triggered, finish when every connected player has equal turns.
-  if (room.lastRound && !room.finished) {
-    const counts = room.players.filter((p) => p.connected).map((p) => p.turns || 0);
-    if (counts.length && Math.max(...counts) === Math.min(...counts)) {
-      endGame(room);
-    }
-  }
+  if (isLastRoundComplete(room)) endGame(room);
 
   // Always schedule the next bot turn from inside advanceTurn —
   // this guarantees no turn is ever silently dropped regardless of call site.
@@ -1465,21 +1452,9 @@ io.on('connection', (socket) => {
     const room = findRoomBySocket(socket.id);
     if (!room || room.hostId !== socket.id || room.started) return;
     if (id === socket.id) return; // can't kick yourself
-    const idx = room.players.findIndex((p) => p.id === id);
-    if (idx === -1) return;
-    const [kicked] = room.players.splice(idx, 1);
-    if (kicked._lobbyCleanup) {
-      clearTimeout(kicked._lobbyCleanup);
-      kicked._lobbyCleanup = null;
-    }
-    // Remove from team membership
-    if (room.teams) {
-      room.teams.forEach((t) => {
-        t.members = t.members.filter((mid) => mid !== id);
-      });
-    }
+    const kicked = removePlayerFromLobby(room, id);
+    if (!kicked) return;
     pushLog(room, `${kicked.name} was kicked by the host.`);
-    if (room.currentIndex >= room.players.length) room.currentIndex = 0;
     // Notify the kicked player with the host's name
     const hostPlayer = room.players.find((p) => p.id === room.hostId);
     io.to(id).emit('kicked', { hostName: hostPlayer ? hostPlayer.name : 'The host' });
@@ -1668,12 +1643,7 @@ io.on('connection', (socket) => {
     if (!room || !room.started || room.finished || !room.rolled || room.autoPlayTurn) return;
     const current = room.players[room.currentIndex];
     if (!current || current.id !== socket.id) return;
-    if (room.diceUsed.some((u) => u)) return; // adjustments locked once you start moving
-    if (!room.adjustable.includes(index)) return;
-    value = parseInt(value, 10);
-    if (!(value >= 1 && value <= 6)) return;
-    room.dice[index] = value;
-    room.adjustable = room.adjustable.filter((i) => i !== index);
+    if (!applyAdjustDie(room, index, value)) return;
     broadcast(room);
   });
 
@@ -1757,22 +1727,8 @@ function handleDisconnect(socket, immediate = false) {
   if (!room.started) {
     if (immediate) {
       // Explicit leave: remove immediately.
-      if (player._lobbyCleanup) {
-        clearTimeout(player._lobbyCleanup);
-        player._lobbyCleanup = null;
-      }
-      room.players = room.players.filter((p) => p.id !== socket.id);
-      // Remove from team membership
-      if (room.teams) {
-        room.teams.forEach((t) => {
-          t.members = t.members.filter((mid) => mid !== socket.id);
-        });
-      }
+      removePlayerFromLobby(room, socket.id);
       pushLog(room, `${player.name} left.`);
-      if (room.hostId === socket.id) {
-        const nextHost = room.players.find((p) => !p.isBot && p.connected);
-        room.hostId = nextHost ? nextHost.id : null;
-      }
       if (!hasHuman(room)) {
         if (room.botTimer) clearTimeout(room.botTimer);
         if (room.watchdog) clearInterval(room.watchdog);
@@ -1780,7 +1736,6 @@ function handleDisconnect(socket, immediate = false) {
         delete rooms[room.code];
         return;
       }
-      if (room.currentIndex >= room.players.length) room.currentIndex = 0;
     } else {
       // Temporary disconnect (mobile app switch, network blip): keep the
       // player in the lobby for 30 seconds so they can reconnect seamlessly.
@@ -1802,13 +1757,8 @@ function handleDisconnect(socket, immediate = false) {
         player._lobbyCleanup = null;
         if (!rooms[room.code]) return;
         if (player.connected || room.started) return; // reconnected or game started
-        if (!room.players.includes(player)) return; // already removed (kicked, etc.)
-        room.players = room.players.filter((p) => p !== player);
+        if (!removePlayerFromLobby(room, player.id)) return; // already removed (kicked, etc.)
         pushLog(room, `${player.name} timed out.`);
-        if (room.hostId === player.id) {
-          const nextHost = room.players.find((p) => p.connected && !p.isBot);
-          room.hostId = nextHost ? nextHost.id : null;
-        }
         if (!hasHuman(room)) {
           if (room.botTimer) clearTimeout(room.botTimer);
           if (room.watchdog) clearInterval(room.watchdog);
@@ -1864,6 +1814,56 @@ function handleDisconnect(socket, immediate = false) {
   broadcast(room);
   scheduleBot(room, 1200); // slight extra delay so the disconnect message is visible
 }
+
+// ----------------------------------------------------------------------------
+// Process-level safety net
+// ----------------------------------------------------------------------------
+// Node's default behavior on an uncaught exception or unhandled promise rejection
+// is to crash the process. For a multiplayer game server that would drop every
+// active room. Log loudly and keep serving — the offending socket/HTTP request
+// still fails, but the other rooms continue. If problems compound, an operator
+// can still restart via SIGTERM.
+process.on('uncaughtException', (err) => {
+  console.error('[fatal] uncaughtException:', err && err.stack ? err.stack : err);
+});
+process.on('unhandledRejection', (reason) => {
+  console.error('[fatal] unhandledRejection:', reason && reason.stack ? reason.stack : reason);
+});
+
+// Startup-time server errors (EADDRINUSE, EACCES): print a targeted message
+// instead of a raw crash so the operator knows to free the port.
+server.on('error', (err) => {
+  if (err && err.code === 'EADDRINUSE') {
+    console.error(`[startup] Port ${PORT} is already in use. Stop the other server or set PORT to a free value.`);
+  } else if (err && err.code === 'EACCES') {
+    console.error(`[startup] Permission denied binding to port ${PORT}. Try a port >= 1024 or run with elevated privileges.`);
+  } else {
+    console.error('[startup] Server error:', err && err.stack ? err.stack : err);
+  }
+  process.exit(1);
+});
+
+// Graceful shutdown: stop accepting new connections, close open sockets so
+// clients see a clean disconnect (which triggers their reconnect logic), and
+// exit within a bounded window regardless of stuck sockets or DB handles.
+let shuttingDown = false;
+function shutdown(signal) {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  console.log(`[shutdown] ${signal} received, closing server...`);
+  const forceExit = setTimeout(() => {
+    console.warn('[shutdown] Timed out waiting for clean close; forcing exit.');
+    process.exit(1);
+  }, 8000);
+  forceExit.unref();
+  try { io.close(); } catch (_) { /* io may already be closing */ }
+  server.close((err) => {
+    if (err) console.error('[shutdown] server.close error:', err.message);
+    process.exit(err ? 1 : 0);
+  });
+}
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));
 
 loadGameHistory()
   .then(() => {
