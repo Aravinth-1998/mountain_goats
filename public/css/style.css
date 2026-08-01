@@ -2090,6 +2090,9 @@ input.input-error:focus { border-color: var(--danger); background: rgba(255,93,1
   transition: background .15s, color .15s;
   white-space: nowrap;
   text-align: center;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
 }
 .toggle-btn.active {
   background: rgba(79,124,255,0.22);
@@ -2118,6 +2121,9 @@ input.input-error:focus { border-color: var(--danger); background: rgba(255,93,1
   display: flex; align-items: center; justify-content: center;
   transition: background .12s;
   font-family: inherit;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
 }
 .count-btn:hover:not(:disabled) { background: rgba(255,255,255,0.1); }
 .count-btn:active:not(:disabled) { background: rgba(255,255,255,0.15); }
