@@ -2036,6 +2036,37 @@ input.input-error:focus { border-color: var(--danger); background: rgba(255,93,1
   font-size: 14px; font-weight: 600; color: var(--text);
 }
 
+.advanced-settings {
+  margin-top: 10px;
+  border-top: 1px solid rgba(255,255,255,0.06);
+  padding-top: 4px;
+}
+.advanced-settings > summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 10px 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  user-select: none;
+}
+.advanced-settings > summary::-webkit-details-marker { display: none; }
+.advanced-settings > summary::before {
+  content: '▸';
+  display: inline-block;
+  margin-right: 6px;
+  transition: transform 0.15s ease;
+}
+.advanced-settings[open] > summary::before {
+  transform: rotate(90deg);
+}
+.advanced-settings[open] > summary {
+  color: var(--text);
+}
+.advanced-settings .setting-row:first-of-type {
+  border-top: 1px solid rgba(255,255,255,0.06);
+}
+
 /* Toggle group (Private / Public) */
 .toggle-group {
   display: flex; gap: 0;
