@@ -1035,6 +1035,22 @@
     card.style.opacity = '1';
     card.style.transform = 'none';
 
+    // The live UI stacks a semi-transparent card (rgba(22,31,51,0.72)) over
+    // the overlay's dark backdrop over the body's gradient background — so
+    // what the user sees isn't the raw --card value. html2canvas captures
+    // the card alone over its own backgroundColor, which resolves the alpha
+    // against pure dark and washes out the color. Force an opaque card
+    // background in the clone that matches the perceived on-screen tone.
+    card.style.background = '#1c2743';
+    card.style.borderColor = 'rgba(255,255,255,0.10)';
+
+    // Win-row highlight uses rgba(255,209,102,0.08) — 8% gold over what's
+    // underneath. In the clone the "underneath" is the opaque card we just
+    // set, so blend the same intent as an opaque tone.
+    card.querySelectorAll('.score-row.win').forEach((el) => {
+      el.style.background = '#2a2f3f';
+    });
+
     const overlay = clonedDoc.getElementById('win-overlay');
     if (overlay) {
       overlay.style.animation = 'none';
@@ -1064,13 +1080,20 @@
       const actions = overlayCard.querySelector('.win-actions');
       if (actions) actions.style.display = 'none';
 
-      html2canvas(overlayCard, {
-        backgroundColor: '#0d1424',
+      // Wait for webfonts to be ready — html2canvas snapshots synchronously
+      // and if Fredoka/Inter haven't finished loading, the capture shows
+      // system fallback fonts instead of the fonts the user actually sees.
+      const fontsReady = (document.fonts && document.fonts.ready)
+        ? document.fonts.ready
+        : Promise.resolve();
+
+      fontsReady.then(() => html2canvas(overlayCard, {
+        backgroundColor: '#0b1220',
         scale: 2,
         useCORS: true,
         logging: false,
         onclone: (clonedDoc) => prepareWinCardClone(clonedDoc),
-      }).then((canvas) => {
+      })).then((canvas) => {
         if (actions) actions.style.display = '';
         canvas.toBlob((blob) => {
           if (!blob) {
