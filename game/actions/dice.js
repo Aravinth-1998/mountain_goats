@@ -11,8 +11,8 @@ function applyOnesRule(room) {
 /**
  * Re-face an "extra" 1 die to a new value. Returns whether the change was applied.
  * Rejects when the die is not in `room.adjustable`, when any die has already been used
- * for a climb, or when the target value is out of range. On success, the die is
- * consumed from `room.adjustable` so it cannot be re-faced again this turn.
+ * for a climb, or when the target value is out of range. The die stays adjustable so
+ * the player may change the face again until a climb starts or the turn ends.
  *
  * @param {object} room Active room with dice set.
  * @param {number} index Index of the die to re-face.
@@ -26,7 +26,6 @@ function adjustDie(room, index, value) {
   const face = Number.parseInt(value, 10);
   if (!(face >= 1 && face <= 6)) return false;
   room.dice[index] = face;
-  room.adjustable = room.adjustable.filter((i) => i !== index);
   return true;
 }
 

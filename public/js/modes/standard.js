@@ -113,7 +113,10 @@
     const slots = winnerSlotCount(state.players.length);
     const standings = sorted.map((p, i) => {
       const prefix = scoreRankPrefix(i, slots);
-      return `${prefix} ${p.name}: ${p.score}pts`;
+      if (p.bonusPoints > 0) {
+        return `${prefix} ${p.name}: ${p.bonusPoints} ✨ · ${p.score} ⭐`;
+      }
+      return `${prefix} ${p.name}: ${p.score} ⭐`;
     }).join('\n');
 
     const winnerIds = state.winnerPlayerIds && state.winnerPlayerIds.length
@@ -292,10 +295,9 @@
     const rows = sorted.map((p, i) => {
       const prefix = scoreRankPrefixHtml(i, winnerSlots);
       const isWinner = i < winnerSlots;
-      const bonusTag = p.bonus && p.bonus.length ? ` <span class="sb-bonus">✨+${p.bonusPoints}</span>` : '';
       return `<div class="score-row${isWinner ? ' win' : ''}" style="--i:${i}">
-          <span class="sb-left">${prefix} ${escapeHtml(p.name)}${p.isBot ? ' 🤖' : ''}${bonusTag}</span>
-          ${winScoreRightHtml(p.score, p.tops)}
+          <span class="sb-left">${prefix} ${escapeHtml(p.name)}${p.isBot ? ' 🤖' : ''}</span>
+          ${winScoreRightHtml(p.score, p.bonusPoints)}
         </div>`;
     }).join('');
 

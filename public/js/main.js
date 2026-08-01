@@ -139,6 +139,8 @@
   let lobbyWinsRefreshInFlight = false;
   const lobbyWinsRefreshAttempts = new Map();
   const selected = new Set(); // selected die indices for the current group
+  /** @type {number|null} Die index with an open re-face picker, or null. */
+  let refacePickerIndex = null;
   let selSig = '';
   let autoEndTimer = null; // timer for auto-ending turn when no groups possible
   let turnTimerLocalInterval = null;
@@ -160,7 +162,7 @@
     '#c1121f',
     '#e63946',
     '#ff5c5c',
-    '#ff8fab',
+    '#ff7a7a',
     // Blue (dark -> light)
     '#1e40af',
     '#1d4ed8',
@@ -313,8 +315,110 @@
     return `rgba(${r}, ${g}, ${b}, ${a})`;
   }
 
-  function playerCoinHtml(p, sizeClass) {
-    const cls = 'swatch' + (sizeClass ? ' ' + sizeClass : '') + (p.id === myId ? ' me' : '');
+  /**
+   * Parse #rgb/#rrggbb or rgb()/rgba() into components.
+   *
+   * @param {string} input CSS color string.
+   * @returns {{r: number, g: number, b: number, a: number}|null}
+   */
+  function parseCssRgb(input) {
+    if (!input) return null;
+    const s = String(input).trim().toLowerCase();
+    if (!s || s === 'transparent' || s === 'none') return null;
+    let m = s.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
+    if (m) {
+      let h = m[1];
+      if (h.length === 3) h = h.split('').map((c) => c + c).join('');
+      return {
+        r: parseInt(h.slice(0, 2), 16),
+        g: parseInt(h.slice(2, 4), 16),
+        b: parseInt(h.slice(4, 6), 16),
+        a: 1,
+      };
+    }
+    m = s.match(/^rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)(?:\s*,\s*([\d.]+))?\s*\)$/);
+    if (!m) return null;
+    return {
+      r: Number(m[1]),
+      g: Number(m[2]),
+      b: Number(m[3]),
+      a: m[4] != null ? Number(m[4]) : 1,
+    };
+  }
+
+  /**
+   * Blend a (possibly translucent) foreground onto an opaque hex background.
+   *
+   * @param {{r: number, g: number, b: number, a: number}} fg Foreground color.
+   * @param {string} bgHex Opaque background hex.
+   * @returns {string} #rrggbb
+   */
+  function blendOntoHex(fg, bgHex) {
+    const bg = parseCssRgb(bgHex);
+    if (!fg || !bg) return bgHex;
+    const a = Math.max(0, Math.min(1, fg.a));
+    if (a >= 0.999) {
+      return '#' + [fg.r, fg.g, fg.b].map((n) => (
+        Math.max(0, Math.min(255, Math.round(n))).toString(16).padStart(2, '0')
+      )).join('');
+    }
+    const mix = (c, b) => Math.max(0, Math.min(255, Math.round(c * a + b * (1 - a))));
+    return '#' + [mix(fg.r, bg.r), mix(fg.g, bg.g), mix(fg.b, bg.b)]
+      .map((n) => n.toString(16).padStart(2, '0'))
+      .join('');
+  }
+
+  /**
+   * Resolve a CSS background to an opaque hex over a base (html2canvas-safe).
+   *
+   * @param {string} cssBg Background color string.
+   * @param {string} baseHex Opaque base hex.
+   * @returns {string|null}
+   */
+  function flattenBgOver(cssBg, baseHex) {
+    const parsed = parseCssRgb(cssBg);
+    if (!parsed) return null;
+    return blendOntoHex(parsed, baseHex);
+  }
+
+  /**
+   * Read a swatch's solid fill. Prefers the inline style attribute hex so we
+   * do not depend on `element.style.background` shorthand (often unparsable).
+   *
+   * @param {Element} el Swatch element.
+   * @returns {string|null} #rrggbb or null.
+   */
+  function readSwatchSolidHex(el) {
+    if (!el) return null;
+    const attr = el.getAttribute('style') || '';
+    const attrMatch = attr.match(/background(?:-color)?\s*:\s*([^;]+)/i);
+    if (attrMatch) {
+      const raw = attrMatch[1].trim();
+      const hexMatch = raw.match(/#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})\b/);
+      if (hexMatch) {
+        return blendOntoHex(parseCssRgb(hexMatch[0]), '#000000');
+      }
+      const parsed = parseCssRgb(raw);
+      if (parsed) return blendOntoHex({ r: parsed.r, g: parsed.g, b: parsed.b, a: 1 }, '#000000');
+    }
+    const fromProp = parseCssRgb(el.style.backgroundColor);
+    if (fromProp) return blendOntoHex({ r: fromProp.r, g: fromProp.g, b: fromProp.b, a: 1 }, '#000000');
+    return null;
+  }
+
+  /**
+   * Build a player colour coin for lobby / stats / results.
+   *
+   * @param {object} p Player.
+   * @param {string} [sizeClass] Optional size class (e.g. "sm").
+   * @param {{markMe?: boolean}} [options] Pass markMe:false to keep a circle for the local player.
+   * @returns {string} HTML
+   */
+  function playerCoinHtml(p, sizeClass, options) {
+    const markMe = !(options && options.markMe === false);
+    const cls = 'swatch'
+      + (sizeClass ? ' ' + sizeClass : '')
+      + (markMe && p.id === myId ? ' me' : '');
     return `<span class="${cls}" style="background:${p.color}">${escapeHtml(p.name.charAt(0).toUpperCase())}</span>`;
   }
   function lobbyPlayerEndIconHtml(p) {
@@ -1010,6 +1114,8 @@
   /**
    * Prepare a cloned win card for html2canvas so entrance animations and
    * count-up zeros do not produce a blank or partial screenshot.
+   * Also bakes translucent colors to opaque hex — html2canvas often composites
+   * rgba against the wrong backdrop, which washes out team/player colours.
    *
    * @param {Document} clonedDoc Document clone passed to html2canvas onclone.
    * @returns {void}
@@ -1020,11 +1126,14 @@
       || clonedDoc.querySelector('.overlay-card');
     if (!card) return;
 
+    const SHARE_CARD_BG = '#1c2743';
+    const view = clonedDoc.defaultView;
+
     const actions = card.querySelector('.win-actions');
     if (actions) actions.style.display = 'none';
 
     const animated = card.querySelectorAll(
-      '.win-head, .trophy, .score-row, .win-extra, .overlay-card'
+      '.win-head, .trophy, .score-row, .win-extra, .overlay-card, .win-rival-side, .win-pod, .win-bar-track'
     );
     animated.forEach((el) => {
       el.style.animation = 'none';
@@ -1035,20 +1144,79 @@
     card.style.opacity = '1';
     card.style.transform = 'none';
 
-    // The live UI stacks a semi-transparent card (rgba(22,31,51,0.72)) over
-    // the overlay's dark backdrop over the body's gradient background — so
-    // what the user sees isn't the raw --card value. html2canvas captures
-    // the card alone over its own backgroundColor, which resolves the alpha
-    // against pure dark and washes out the color. Force an opaque card
-    // background in the clone that matches the perceived on-screen tone.
-    card.style.background = '#1c2743';
+    // Opaque card matching the perceived on-screen tone (live UI is translucent
+    // --card over the dark overlay/body gradient).
+    card.style.setProperty('background', SHARE_CARD_BG, 'important');
+    card.style.setProperty('background-color', SHARE_CARD_BG, 'important');
     card.style.borderColor = 'rgba(255,255,255,0.10)';
+    card.style.color = '#eaf0ff';
 
-    // Win-row highlight uses rgba(255,209,102,0.08) — 8% gold over what's
-    // underneath. In the clone the "underneath" is the opaque card we just
-    // set, so blend the same intent as an opaque tone.
+    /**
+     * @param {Element} el
+     * @returns {string}
+     */
+    function readBg(el) {
+      const inline = el.style.backgroundColor || el.style.background;
+      if (inline && inline !== 'none' && inline !== 'initial') return inline;
+      if (!view || !view.getComputedStyle) return '';
+      try {
+        return view.getComputedStyle(el).backgroundColor || '';
+      } catch (err) {
+        return '';
+      }
+    }
+
+    /**
+     * @param {Element} el
+     * @param {string} hex
+     * @returns {void}
+     */
+    function setOpaqueBg(el, hex) {
+      el.style.setProperty('background', hex, 'important');
+      el.style.setProperty('background-color', hex, 'important');
+    }
+
+    // Flatten translucent row / panel fills onto the opaque card.
+    card.querySelectorAll(
+      '.score-row, .end-reason, .sb-bonus, .win-rival-side, .win-pod-height, .win-bar-track, .win-bar-seg'
+    ).forEach((el) => {
+      const flat = flattenBgOver(readBg(el), SHARE_CARD_BG);
+      if (flat) setOpaqueBg(el, flat);
+    });
+
+    // Winner rows: gold tint matching .score-row.win (15% #ffd166 over card).
     card.querySelectorAll('.score-row.win').forEach((el) => {
-      el.style.background = '#2a2f3f';
+      setOpaqueBg(el, blendOntoHex({ r: 255, g: 209, b: 102, a: 0.15 }, SHARE_CARD_BG));
+      el.style.setProperty('color', '#ffd166', 'important');
+      el.style.setProperty('border-color', 'rgba(255, 209, 102, 0.4)', 'important');
+    });
+    card.querySelectorAll('.score-row:not(.win)').forEach((el) => {
+      setOpaqueBg(el, blendOntoHex({ r: 255, g: 255, b: 255, a: 0.05 }, SHARE_CARD_BG));
+    });
+    card.querySelectorAll('.score-row:not(.win) .sb-right').forEach((el) => {
+      el.style.setProperty('color', '#93a0bf', 'important');
+    });
+    card.querySelectorAll('.score-row.win .sb-right').forEach((el) => {
+      el.style.setProperty('color', '#ffd166', 'important');
+    });
+
+    // Player coins: rewrite style entirely. .me uses a square radius that
+    // html2canvas often paints as a second fill (circle + square = two shades).
+    card.querySelectorAll('.swatch').forEach((el) => {
+      const solid = readSwatchSolidHex(el) || flattenBgOver(readBg(el), SHARE_CARD_BG);
+      if (!solid) return;
+      el.classList.remove('me');
+      el.setAttribute(
+        'style',
+        [
+          `background:${solid}`,
+          `background-color:${solid}`,
+          'color:#08101f',
+          'border-radius:50%',
+          'border:1px solid rgba(255,255,255,0.22)',
+          'box-shadow:0 1px 3px rgba(0,0,0,0.45)',
+        ].join(';')
+      );
     });
 
     const overlay = clonedDoc.getElementById('win-overlay');
@@ -1058,7 +1226,7 @@
       overlay.style.transform = 'none';
     }
 
-    card.querySelectorAll('.sb-count-score, .sb-count-tops').forEach((el) => {
+    card.querySelectorAll('.sb-count-score').forEach((el) => {
       if (el.dataset.target != null && el.dataset.target !== '') {
         el.textContent = el.dataset.target;
       }
@@ -1069,9 +1237,8 @@
     if (!state) return;
     const share = currentMode().shareLines(state);
     const standings = share.standings;
-    const winnerLine = share.winnerLine;
 
-    const text = `🐐 Mountain Goats — ${winnerLine}\n\n${standings}\n\nPlay at: ${location.origin}`;
+    const text = `${standings}\n\nPlay at: ${location.origin}`;
 
     // Try to capture the overlay card as an image
     const overlayCard = document.querySelector('#win-overlay .overlay-card');
@@ -2111,10 +2278,36 @@
     const row = $('bonus-row');
     if (!row) return;
     const all = [15, 12, 9, 6];
-    const remaining = state.bonusTokens || [];
+    const remaining = new Set(state.bonusTokens || []);
     row.innerHTML = '<span class="bonus-label">Bonus</span>' + all
-      .map((v) => `<span class="bonus-tok${remaining.includes(v) ? '' : ' gone'}">✨${v}</span>`)
+      .map((v) => {
+        if (remaining.has(v)) {
+          return `<span class="bonus-tok">✨${v}</span>`;
+        }
+        const claimer = state.players.find((p) => (p.bonus || []).includes(v));
+        if (claimer && claimer.color) {
+          return `<span class="bonus-tok claimed" style="--c:${claimer.color}" title="${escapeHtml(claimer.name)}">✨${v}</span>`;
+        }
+        return `<span class="bonus-tok gone">✨${v}</span>`;
+      })
       .join('');
+  }
+
+  /**
+   * Column paint color: holder coin (or team color) when a goat is on the summit.
+   *
+   * @param {object} m Mountain public state.
+   * @param {number} mi Mountain index.
+   * @returns {string} CSS color.
+   */
+  function mountainColumnColor(m, mi) {
+    const holders = state.players.filter((pl) => (pl.pos || [])[mi] >= m.height);
+    if (!holders.length) return m.color;
+    if (GameModes.modeUsesTeams(currentMode()) && state.teams) {
+      const team = state.teams.find((t) => t.members.includes(holders[0].id));
+      if (team && team.color) return team.color;
+    }
+    return holders[0].color || m.color;
   }
 
   function renderBoard() {
@@ -2127,11 +2320,12 @@
       col.className = 'mcol';
       const isTarget = isMyTurn() && state.rolled && mi === tMi;
       if (isTarget) col.classList.add('target');
+      const paint = mountainColumnColor(m, mi);
 
       // tooltip-ish header: tokens remaining
       const head = document.createElement('div');
       head.className = 'mhead';
-      head.innerHTML = `<span class="mtok" style="--c:${m.color}">${m.value}</span>
+      head.innerHTML = `<span class="mtok" style="--c:${paint}">${m.value}</span>
         <span class="mleft">${m.chips > 0 ? '×' + m.chips : 'closed'}</span>`;
       col.appendChild(head);
 
@@ -2143,7 +2337,7 @@
         wrap.className = 'cell-wrap';
         const cell = document.createElement('div');
         cell.className = 'cell' + (p === m.height ? ' top' : '');
-        cell.style.setProperty('--c', m.color);
+        cell.style.setProperty('--c', paint);
         cell.innerHTML = `<span class="cnum">${m.value}</span>`;
         const here = state.players.filter((pl) => (pl.pos || [])[mi] === p);
         if (here.length) cell.appendChild(goatCluster(here));
@@ -2205,6 +2399,12 @@
       return;
     }
     const noneUsed = !state.diceUsed.some((u) => u);
+    if (
+      refacePickerIndex != null
+      && !(noneUsed && state.adjustable && state.adjustable.includes(refacePickerIndex))
+    ) {
+      refacePickerIndex = null;
+    }
     state.dice.forEach((v, i) => {
       const d = document.createElement('div');
       d.className = 'die'
@@ -2213,24 +2413,57 @@
       d.textContent = v;
       if (mine && !state.diceUsed[i]) {
         d.addEventListener('click', () => {
+          if (refacePickerIndex != null) {
+            refacePickerIndex = null;
+            renderGame();
+            return;
+          }
           if (selected.has(i)) selected.delete(i); else selected.add(i);
           renderGame();
         });
       }
-      // 1s re-face control
+      // Extra-1 re-face: open a 1-6 picker (server allows one adjust per die).
       if (mine && noneUsed && state.adjustable && state.adjustable.includes(i)) {
         const btn = document.createElement('button');
+        btn.type = 'button';
         btn.className = 'reface';
         btn.textContent = '↻';
         btn.title = 'Change this 1 to any face';
+        btn.setAttribute('aria-label', 'Choose a new face for this die');
+        btn.setAttribute('aria-expanded', refacePickerIndex === i ? 'true' : 'false');
         btn.addEventListener('click', (e) => {
           e.stopPropagation();
-          socket.emit('adjustDie', { index: i, value: (v % 6) + 1 });
+          refacePickerIndex = refacePickerIndex === i ? null : i;
+          renderGame();
         });
         d.appendChild(btn);
       }
       area.appendChild(d);
     });
+    if (refacePickerIndex != null) {
+      const index = refacePickerIndex;
+      const current = state.dice[index];
+      const picker = document.createElement('div');
+      picker.className = 'reface-picker';
+      picker.setAttribute('role', 'listbox');
+      picker.setAttribute('aria-label', 'Choose die face');
+      picker.addEventListener('click', (e) => e.stopPropagation());
+      for (let face = 1; face <= 6; face++) {
+        const opt = document.createElement('button');
+        opt.type = 'button';
+        opt.className = 'reface-face' + (face === current ? ' is-current' : '');
+        opt.textContent = String(face);
+        opt.setAttribute('role', 'option');
+        opt.setAttribute('aria-label', `Face ${face}`);
+        opt.addEventListener('click', (e) => {
+          e.stopPropagation();
+          refacePickerIndex = null;
+          socket.emit('adjustDie', { index, value: face });
+        });
+        picker.appendChild(opt);
+      }
+      area.appendChild(picker);
+    }
   }
 
   function renderControls() {
@@ -2299,10 +2532,22 @@
     </div>`;
   }
 
-  function winScoreRightHtml(score, tops) {
+  /**
+   * Right-side score for the win overlay.
+   * With bonus: "15 ✨ · 53 ⭐"; otherwise "53 ⭐".
+   *
+   * @param {number} score Total score.
+   * @param {number} [bonusPoints] Bonus token points claimed (omit or 0 to hide).
+   * @returns {string} HTML
+   */
+  function winScoreRightHtml(score, bonusPoints) {
     const s = score || 0;
-    const t = tops || 0;
-    return `<span class="sb-right"><span class="sb-count-score" data-target="${s}">0</span> pts · 👑<span class="sb-count-tops" data-target="${t}">0</span></span>`;
+    const b = bonusPoints || 0;
+    const scorePart = `<span class="sb-count-score" data-target="${s}">0</span> ⭐`;
+    if (b > 0) {
+      return `<span class="sb-right"><span class="sb-count-bonus" data-target="${b}">${b}</span> ✨ · ${scorePart}</span>`;
+    }
+    return `<span class="sb-right">${scorePart}</span>`;
   }
 
   function cancelWinCountUp() {
@@ -2336,7 +2581,7 @@
   function startWinScoreCountUp() {
     cancelWinCountUp();
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const els = document.querySelectorAll('#win-overlay .sb-count-score, #win-overlay .sb-count-tops');
+    const els = document.querySelectorAll('#win-overlay .sb-count-score');
     if (reduced) {
       els.forEach((el) => { el.textContent = el.dataset.target; });
       return;
@@ -2345,10 +2590,6 @@
     document.querySelectorAll('#win-overlay .score-row').forEach((row) => {
       const delay = 380 + winRowIndex(row) * 90;
       row.querySelectorAll('.sb-count-score').forEach((el) => {
-        el.textContent = '0';
-        animateWinCount(el, parseInt(el.dataset.target, 10) || 0, duration, delay);
-      });
-      row.querySelectorAll('.sb-count-tops').forEach((el) => {
         el.textContent = '0';
         animateWinCount(el, parseInt(el.dataset.target, 10) || 0, duration, delay);
       });

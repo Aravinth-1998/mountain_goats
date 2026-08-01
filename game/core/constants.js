@@ -1,10 +1,11 @@
+const MOUNTAIN_COLOR = '#aab8c9';
 const MOUNTAIN_DEFS = [
-  { value: 5, height: 4, fullStack: 12, color: '#4a8f3c' },
-  { value: 6, height: 4, fullStack: 11, color: '#c9772f' },
-  { value: 7, height: 3, fullStack: 10, color: '#9c4f3a' },
-  { value: 8, height: 3, fullStack: 9, color: '#6b7280' },
-  { value: 9, height: 2, fullStack: 8, color: '#3f7fa6' },
-  { value: 10, height: 2, fullStack: 7, color: '#aab8c9' },
+  { value: 5, height: 4, fullStack: 12, color: MOUNTAIN_COLOR },
+  { value: 6, height: 4, fullStack: 11, color: MOUNTAIN_COLOR },
+  { value: 7, height: 3, fullStack: 10, color: MOUNTAIN_COLOR },
+  { value: 8, height: 3, fullStack: 9, color: MOUNTAIN_COLOR },
+  { value: 9, height: 2, fullStack: 8, color: MOUNTAIN_COLOR },
+  { value: 10, height: 2, fullStack: 7, color: MOUNTAIN_COLOR },
 ];
 const BONUS_DEFS = [15, 12, 9, 6];
 const NUM_DICE = 4;
@@ -16,7 +17,7 @@ const PLAYER_COLORS = [
   '#c1121f',
   '#e63946',
   '#ff5c5c',
-  '#ff8fab',
+  '#ff7a7a',
   // Blue (dark -> light)
   '#1e40af',
   '#1d4ed8',

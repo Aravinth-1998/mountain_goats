@@ -34,14 +34,22 @@ test('adjustDie re-faces the target die to the requested value', () => {
   assert.equal(room.dice[0], 5);
 });
 
-test('adjustDie consumes the die so the same index cannot be re-faced twice', () => {
-  // Regression: prior version left `adjustable` untouched, letting players
-  // roll a permanent 6 by re-facing the same "extra 1" over and over.
+test('adjustDie allows re-facing the same die again before any climb', () => {
   const room = makeAdjustableRoom();
   assert.equal(adjustDie(room, 0, 6), true);
-  assert.equal(adjustDie(room, 0, 3), false, 'second adjustment of same index must be rejected');
-  assert.equal(room.dice[0], 6, 'die keeps its first adjusted value');
-  assert.deepEqual(room.adjustable, [1], 'only the still-adjustable index remains');
+  assert.equal(adjustDie(room, 0, 3), true, 'may change mind until a climb starts');
+  assert.equal(room.dice[0], 3);
+  assert.deepEqual(room.adjustable, [0, 1], 'adjustable slots stay open');
+});
+
+test('adjustDie after 1 to 2 still allows another face pick', () => {
+  const room = makeAdjustableRoom([1, 1, 3, 4]);
+  assert.deepEqual(room.adjustable, [0]);
+  assert.equal(adjustDie(room, 0, 2), true);
+  assert.equal(room.dice[0], 2);
+  assert.deepEqual(room.adjustable, [0]);
+  assert.equal(adjustDie(room, 0, 6), true);
+  assert.equal(room.dice[0], 6);
 });
 
 test('adjustDie rejects indices that are not in adjustable', () => {

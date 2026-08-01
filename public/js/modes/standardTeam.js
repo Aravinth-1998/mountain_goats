@@ -106,7 +106,7 @@
     );
     const standings = sortedTeams.map((t, i) => {
       const prefix = teamRankPrefix(i);
-      return `${prefix} Team ${t.name}: ${t.score || 0}pts`;
+      return `${prefix} Team ${t.name}: ${t.score || 0} ⭐`;
     }).join('\n');
 
     let winnerLine = 'Game over!';
@@ -375,13 +375,12 @@
     const labelIdx = rowIdx++;
     const sorted = sortedPlayersByScore();
     const playerRows = sorted.map((p) => {
-      const bonusTag = p.bonus && p.bonus.length ? ` <span class="sb-bonus">✨+${p.bonusPoints}</span>` : '';
       const team = state.teams.find((t) => t.members.includes(p.id));
       const teamBorder = team ? `border-color:${escapeHtml(team.color)}` : '';
       const idx = rowIdx++;
       return `<div class="score-row score-row-sm" style="--i:${idx};${teamBorder}">
-          <span class="sb-left">${playerCoinHtml(p, 'sm')} ${escapeHtml(p.name)}${p.isBot ? ' 🤖' : ''}${bonusTag}</span>
-          ${winScoreRightHtml(p.score, p.tops)}
+          <span class="sb-left">${playerCoinHtml(p, 'sm', { markMe: false })} ${escapeHtml(p.name)}${p.isBot ? ' 🤖' : ''}</span>
+          ${winScoreRightHtml(p.score, p.bonusPoints)}
         </div>`;
     }).join('');
     const extraIdx = rowIdx;

@@ -3,13 +3,14 @@
  * Fixed script for all users; advances only on required taps.
  */
 (function () {
+  const MOUNTAIN_COLOR = '#aab8c9';
   const MOUNTAINS = [
-    { value: 5, height: 4, chips: 10, color: '#4a8f3c' },
-    { value: 6, height: 4, chips: 9, color: '#c9772f' },
-    { value: 7, height: 3, chips: 8, color: '#9c4f3a' },
-    { value: 8, height: 3, chips: 7, color: '#6b7280' },
-    { value: 9, height: 2, chips: 6, color: '#3f7fa6' },
-    { value: 10, height: 2, chips: 5, color: '#aab8c9' },
+    { value: 5, height: 4, chips: 10, color: MOUNTAIN_COLOR },
+    { value: 6, height: 4, chips: 9, color: MOUNTAIN_COLOR },
+    { value: 7, height: 3, chips: 8, color: MOUNTAIN_COLOR },
+    { value: 8, height: 3, chips: 7, color: MOUNTAIN_COLOR },
+    { value: 9, height: 2, chips: 6, color: MOUNTAIN_COLOR },
+    { value: 10, height: 2, chips: 5, color: MOUNTAIN_COLOR },
   ];
 
   const MI_10 = 5;
@@ -22,6 +23,8 @@
   let autoEndInterval = null;
   /** @type {string|null} */
   let autoEndNext = null;
+  /** @type {number|null} Die index with an open re-face picker, or null. */
+  let refacePickerIndex = null;
 
   /** Inline Continue — board stays visible, highlights only (no fade) */
   const INLINE_CONTINUE = {
@@ -386,10 +389,20 @@
       return;
     }
     const all = [15, 12, 9, 6];
-    const remaining = state.bonusTokens || all.slice();
+    const remaining = new Set(state.bonusTokens || all.slice());
     row.hidden = false;
     row.innerHTML = '<span class="bonus-label">Bonus</span>' + all
-      .map((v) => `<span class="bonus-tok${remaining.includes(v) ? '' : ' gone'}${v === 15 && !remaining.includes(v) ? ' tut-bonus-just-claimed' : ''}">✨${v}</span>`)
+      .map((v) => {
+        if (remaining.has(v)) {
+          return `<span class="bonus-tok">✨${v}</span>`;
+        }
+        const claimer = state.players.find((p) => (p.bonus || []).includes(v));
+        const justClaimed = v === 15 ? ' tut-bonus-just-claimed' : '';
+        if (claimer && claimer.color) {
+          return `<span class="bonus-tok claimed${justClaimed}" style="--c:${claimer.color}">✨${v}</span>`;
+        }
+        return `<span class="bonus-tok gone${justClaimed}">✨${v}</span>`;
+      })
       .join('');
   }
 
@@ -415,10 +428,12 @@
         col.setAttribute('data-tut-target', key);
         if (!freePlay) col.setAttribute('data-tut-active', '1');
       }
+      const holders = state.players.filter((pl) => (pl.pos || [])[mi] >= m.height);
+      const paint = (holders[0] && holders[0].color) || m.color;
 
       const head = document.createElement('div');
       head.className = 'mhead';
-      head.innerHTML = `<span class="mtok" style="--c:${m.color}">${m.value}</span>
+      head.innerHTML = `<span class="mtok" style="--c:${paint}">${m.value}</span>
         <span class="mleft">${m.chips > 0 ? '×' + m.chips : 'closed'}</span>`;
       const myCollected = (you() && you().collected[mi]) || 0;
       if (myCollected > 0) {
@@ -433,7 +448,7 @@
         wrap.className = 'cell-wrap';
         const cell = document.createElement('div');
         cell.className = 'cell' + (p === m.height ? ' top' : '');
-        cell.style.setProperty('--c', m.color);
+        cell.style.setProperty('--c', paint);
         cell.innerHTML = `<span class="cnum">${m.value}</span>`;
         const here = state.players.filter((pl) => (pl.pos || [])[mi] === p);
         if (here.length) cell.appendChild(goatCluster(here));
@@ -473,6 +488,12 @@
     }
 
     const noneUsed = !state.diceUsed.some((u) => u);
+    if (
+      refacePickerIndex != null
+      && !(noneUsed && state.adjustable && state.adjustable.includes(refacePickerIndex))
+    ) {
+      refacePickerIndex = null;
+    }
 
     state.dice.forEach((v, i) => {
       const d = document.createElement('div');
@@ -504,15 +525,39 @@
         btn.textContent = '↻';
         btn.title = 'Change this die face';
         btn.setAttribute('data-tut-target', 'reface-' + i);
+        btn.setAttribute('aria-expanded', refacePickerIndex === i ? 'true' : 'false');
         btn.addEventListener('click', (e) => {
           e.stopPropagation();
-          onReface(i);
+          refacePickerIndex = refacePickerIndex === i ? null : i;
+          render();
         });
         d.appendChild(btn);
       }
 
       area.appendChild(d);
     });
+
+    if (refacePickerIndex != null && freePlay) {
+      const index = refacePickerIndex;
+      const current = state.dice[index];
+      const picker = document.createElement('div');
+      picker.className = 'reface-picker';
+      picker.setAttribute('role', 'listbox');
+      picker.setAttribute('aria-label', 'Choose die face');
+      picker.addEventListener('click', (e) => e.stopPropagation());
+      for (let face = 1; face <= 6; face++) {
+        const opt = document.createElement('button');
+        opt.type = 'button';
+        opt.className = 'reface-face' + (face === current ? ' is-current' : '');
+        opt.textContent = String(face);
+        opt.addEventListener('click', (e) => {
+          e.stopPropagation();
+          onReface(index, face);
+        });
+        picker.appendChild(opt);
+      }
+      area.appendChild(picker);
+    }
   }
 
   function renderInlineContinue() {
@@ -873,15 +918,22 @@
     state.banner = 'Rival claimed the summit!';
   }
 
-  function onReface(index) {
+  /**
+   * Re-face an extra 1 (may change again until a climb; matches live adjustDie).
+   *
+   * @param {number} index Die index.
+   * @param {number} face Target face 1-6.
+   * @returns {void}
+   */
+  function onReface(index, face) {
     if (stepId !== 'freeTurn') return;
     if (!state.adjustable || !state.adjustable.includes(index)) return;
     const noneUsed = !state.diceUsed.some((u) => u);
     if (!noneUsed) return;
-    const current = state.dice[index] || 1;
-    // Cycle 1→2→3→4→5→6→1…
-    const next = current >= 6 ? 1 : current + 1;
+    const next = Number(face);
+    if (!(next >= 1 && next <= 6)) return;
     state.dice[index] = next;
+    refacePickerIndex = null;
     state.banner = 'Re-faced to ' + next + '.';
     render();
   }

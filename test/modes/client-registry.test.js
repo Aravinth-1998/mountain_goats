@@ -81,6 +81,7 @@ test('client roomsListLabel and shareLines', () => {
   });
   assert.ok(stdShare.winnerLine.includes('A'));
   assert.ok(stdShare.standings.includes('A'));
+  assert.ok(stdShare.standings.includes(' ⭐'));
 
   const teamShare = GameModes.getMode('standardTeam').shareLines({
     teams: [
@@ -91,4 +92,5 @@ test('client roomsListLabel and shareLines', () => {
     players: [],
   });
   assert.ok(teamShare.winnerLine.includes('Red'));
+  assert.ok(teamShare.standings.includes(' ⭐'));
 });

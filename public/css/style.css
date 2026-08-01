@@ -857,9 +857,14 @@ input.input-error:focus { border-color: var(--danger); background: rgba(255,93,1
 .bonus-label { font-size: 11px; color: var(--muted); font-weight: 700; margin-right: 2px; }
 .bonus-tok {
   font-size: 12px; font-weight: 800; color: #08101f;
-  background: linear-gradient(135deg, var(--gold), #ffb703);
+  background: linear-gradient(135deg, #c5d0dc, #aab8c9);
   border-radius: 999px; padding: 3px 9px;
-  box-shadow: 0 2px 8px rgba(255,209,102,0.35);
+  box-shadow: 0 2px 8px rgba(170, 184, 201, 0.4);
+}
+.bonus-tok.claimed {
+  background: var(--c, #aab8c9);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35), inset 0 0 0 1px rgba(255, 255, 255, 0.35);
+  text-decoration: none;
 }
 .bonus-tok.gone { background: rgba(255,255,255,0.07); color: var(--muted); box-shadow: none; text-decoration: line-through; }
 
@@ -884,7 +889,13 @@ input.input-error:focus { border-color: var(--danger); background: rgba(255,93,1
   gap: 10px;
   margin-bottom: 10px;
 }
-.dice-area { display: flex; justify-content: center; gap: 10px; margin-bottom: 0; }
+.dice-area {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 0;
+}
 .dice-area.rolling .die { animation: shake .72s ease; }
 .turn-timer {
   min-width: 52px;
@@ -930,6 +941,43 @@ input.input-error:focus { border-color: var(--danger); background: rgba(255,93,1
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
   z-index: 5;
+}
+.reface-picker {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 4px;
+  padding: 5px;
+  background: #1c2743;
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 10px;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.5);
+  z-index: 8;
+}
+.reface-face {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.18);
+  background: #fff;
+  color: #0b1220;
+  font-weight: 800;
+  font-size: 16px;
+  font-family: inherit;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+  touch-action: manipulation;
+}
+.reface-face:hover,
+.reface-face:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 1px;
+}
+.reface-face.is-current {
+  box-shadow: inset 0 0 0 2px var(--primary);
 }
 .control-buttons { display: flex; gap: 10px; }
 .control-buttons .btn { flex: 1; }
