@@ -2074,9 +2074,12 @@ input.input-error:focus { border-color: var(--danger); background: rgba(255,93,1
   border: 1px solid var(--card-border);
   border-radius: 10px;
   overflow: hidden;
+  width: 180px;
+  flex-shrink: 0;
 }
 .toggle-btn {
-  padding: 7px 14px;
+  flex: 1 1 0;
+  padding: 7px 0;
   border: none;
   background: transparent;
   color: var(--muted);
@@ -2086,6 +2089,7 @@ input.input-error:focus { border-color: var(--danger); background: rgba(255,93,1
   cursor: pointer;
   transition: background .15s, color .15s;
   white-space: nowrap;
+  text-align: center;
 }
 .toggle-btn.active {
   background: rgba(79,124,255,0.22);
@@ -2102,9 +2106,12 @@ input.input-error:focus { border-color: var(--danger); background: rgba(255,93,1
   border: 1px solid var(--card-border);
   border-radius: 10px;
   overflow: hidden;
+  width: 130px;
+  flex-shrink: 0;
 }
 .count-btn {
-  width: 36px; height: 34px;
+  flex: 0 0 auto;
+  width: 40px; height: 34px;
   border: none; background: transparent;
   color: var(--text); font-size: 18px; font-weight: 700;
   cursor: pointer;
@@ -2116,14 +2123,12 @@ input.input-error:focus { border-color: var(--danger); background: rgba(255,93,1
 .count-btn:active:not(:disabled) { background: rgba(255,255,255,0.15); }
 .count-btn:disabled { opacity: 0.3; cursor: not-allowed; }
 .count-display {
-  width: 32px; text-align: center;
+  flex: 1 1 auto;
+  text-align: center;
   font-size: 16px; font-weight: 800; color: var(--gold);
   border-left: 1px solid rgba(255,255,255,0.08);
   border-right: 1px solid rgba(255,255,255,0.08);
   line-height: 34px;
-}
-#turn-timer-display {
-  width: 44px;
 }
 
 @media (min-width: 560px) {
