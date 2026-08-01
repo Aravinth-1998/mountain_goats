@@ -29,17 +29,24 @@ function advanceTurnState(room) {
 }
 
 /**
- * True when the last-round condition is met: every connected player has
- * taken the same number of turns. Used by `advanceTurnState` callers to
- * decide whether to call `endGame(room)` before scheduling the next turn.
+ * True when the last-round condition is met: every seat has taken the same
+ * number of turns. Used by `advanceTurnState` callers to decide whether to
+ * call `endGame(room)` before scheduling the next turn.
+ *
+ * Every player counts — connected or not. A disconnected player still has a
+ * bot playing for them, and their `turns` counter still increments each turn.
+ * Filtering the disconnected out would silently make `[6, 5, 5, 5]` look
+ * balanced (because the 6 belongs to the disconnected seat) and end the game
+ * one turn short for everyone else — the exact bug the game shipped with
+ * before this check was written by seat count rather than by connection.
  *
  * @param {object} room Active room state.
  * @returns {boolean}
  */
 function isLastRoundComplete(room) {
   if (!room.lastRound || room.finished) return false;
-  const counts = room.players.filter((p) => p.connected).map((p) => p.turns || 0);
-  if (!counts.length) return false;
+  if (!room.players || !room.players.length) return false;
+  const counts = room.players.map((p) => p.turns || 0);
   return Math.max(...counts) === Math.min(...counts);
 }
 
