@@ -44,10 +44,24 @@
       </span>
     </button>
 
-    <div id="feedback-bar" class="feedback-bar" aria-label="Sound and haptics">
-      <button type="button" class="feedback-toggle" data-sound-toggle aria-pressed="false" aria-label="Sound off">&#128266;</button>
-      <button type="button" class="feedback-toggle" data-haptics-toggle aria-pressed="false" aria-label="Haptics off">&#128243;</button>
-    </div>
+    <details id="settings-menu" class="settings-menu">
+      <summary class="settings-toggle" role="button" aria-label="Settings" aria-haspopup="menu">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+      </summary>
+      <div class="settings-popover" role="menu" aria-label="Sound and haptics">
+        <div class="settings-row">
+          <span class="settings-label">Sound</span>
+          <button type="button" class="feedback-toggle" data-sound-toggle aria-pressed="false" aria-label="Sound off">&#128266;</button>
+        </div>
+        <div class="settings-row">
+          <span class="settings-label">Haptics</span>
+          <button type="button" class="feedback-toggle" data-haptics-toggle aria-pressed="false" aria-label="Haptics off">&#128243;</button>
+        </div>
+      </div>
+    </details>
 
     <div id="profile-stats-backdrop" class="stats-backdrop" hidden aria-hidden="true"></div>
 
@@ -488,6 +502,17 @@
   <script src="/js/modes/standard.js"></script>
   <script src="/js/modes/standardTeam.js"></script>
   <script src="/js/main.js"></script>
+  <script>
+    (function () {
+      const menu = document.getElementById('settings-menu');
+      if (!menu) return;
+      document.addEventListener('click', (e) => {
+        if (!menu.open) return;
+        if (menu.contains(e.target)) return;
+        menu.open = false;
+      });
+    })();
+  </script>
 </body>
 </html>
 
