@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
   <noscript><link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" /></noscript>
-  <link rel="stylesheet" href="/css/style.css?v=20260802q" />
+  <link rel="stylesheet" href="/css/style.css?v=20260802s" />
   <script>
     try {
       if (localStorage.getItem('mg_code')) {
@@ -405,9 +405,19 @@
       </div>
       <div id="win-sub" class="muted"></div>
       <div class="win-actions">
-        <button type="button" id="btn-view-board" class="btn btn-ghost btn-block">View board</button>
         <button id="btn-home" class="btn btn-primary btn-block">Back to Lobby</button>
-        <button id="btn-win-share" class="btn btn-ghost btn-block">Share Result 🔗</button>
+        <div class="win-actions-secondary">
+          <button type="button" id="btn-view-board" class="btn btn-ghost">View board</button>
+          <button type="button" id="btn-win-share" class="icon-btn icon-btn--emoji win-share-btn" aria-label="Share result" title="Share">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="18" cy="5" r="3"/>
+              <circle cx="6" cy="12" r="3"/>
+              <circle cx="18" cy="19" r="3"/>
+              <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
+              <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+            </svg>
+          </button>
+        </div>
       </div>
     </div>
   </div>

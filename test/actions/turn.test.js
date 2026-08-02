@@ -80,6 +80,12 @@ test('isLastRoundComplete returns false when lastRound flag is off', () => {
   assert.equal(isLastRoundComplete(room), false);
 });
 
+test('isLastRoundComplete returns false when the roster is empty', () => {
+  const room = makeRoom({ lastRound: true, playerCount: 0 });
+  room.players = [];
+  assert.equal(isLastRoundComplete(room), false);
+});
+
 test('isLastRoundComplete returns false while turn counts differ', () => {
   const room = makeRoom({ lastRound: true });
   room.players[0].turns = 3;

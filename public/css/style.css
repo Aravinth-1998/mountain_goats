@@ -1212,6 +1212,28 @@ input.input-error:focus {
   font-size: 22px;
 }
 .win-actions { display: flex; flex-direction: column; gap: 10px; margin-top: 14px; }
+.win-actions-secondary {
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+}
+.win-actions-secondary #btn-view-board {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.win-actions-secondary .win-share-btn {
+  flex: 0 0 auto;
+  width: 48px;
+  height: auto;
+  min-height: 48px;
+  border-radius: 14px;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid var(--card-border);
+  color: var(--text);
+}
+.win-actions-secondary .win-share-btn:hover {
+  background: rgba(255,255,255,0.12);
+}
 #win-overlay.show .win-actions {
   animation: winHeadIn 0.35s ease-out both;
   animation-delay: calc(0.55s + var(--rows, 3) * 90ms);

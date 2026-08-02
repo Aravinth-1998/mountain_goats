@@ -1,6 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { buildMountains, emptyMountainCount } = require('../../game/core/mountains');
+const { MOUNTAIN_COLOR, MOUNTAIN_DEFS } = require('../../game/core/constants');
 const { makeRoom } = require('../helpers/fixtures');
 
 test('buildMountains removes 2 chips per mountain for 2 players', () => {
@@ -26,4 +27,16 @@ test('emptyMountainCount counts mountains with no chips', () => {
   room.mountains[0].chips = 0;
   room.mountains[2].chips = 0;
   assert.equal(emptyMountainCount(room), 2);
+});
+
+test('all mountain defs share the single silver MOUNTAIN_COLOR', () => {
+  assert.equal(MOUNTAIN_COLOR, '#aab8c9');
+  assert.equal(MOUNTAIN_DEFS.length, 6);
+  MOUNTAIN_DEFS.forEach((def) => {
+    assert.equal(def.color, MOUNTAIN_COLOR);
+  });
+  const mountains = buildMountains(4);
+  mountains.forEach((m) => {
+    assert.equal(m.color, MOUNTAIN_COLOR);
+  });
 });

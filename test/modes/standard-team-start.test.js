@@ -74,3 +74,21 @@ test('syncLobbyForStart auto-assigns an unassigned player to the smallest team',
   assert.deepEqual(room.teams.map((t) => t.members.length), [2, 2]);
   assert.ok(room.teams[1].members.includes('p3'), 'unassigned player joins the smallest team');
 });
+
+test('syncLobbyForStart downgrades to standard when fewer than 2 teams remain', () => {
+  const room = makeRoom({ playerCount: 4, teamMode: true });
+  assert.equal(room.modeId, 'standardTeam');
+  assert.equal(room.teamMode, true);
+  // Collapse to a single team roster (e.g. one side left the lobby).
+  room.teams = [room.teams[0]];
+  room.teams[0].members = room.players.map((p) => p.id);
+  let switchedTo = null;
+  syncLobbyForStart(room, () => {}, (r, modeId) => {
+    switchedTo = modeId;
+    r.modeId = modeId;
+    r.teamMode = modeId === 'standardTeam';
+  });
+  assert.equal(switchedTo, 'standard');
+  assert.equal(room.modeId, 'standard');
+  assert.equal(room.teamMode, false);
+});

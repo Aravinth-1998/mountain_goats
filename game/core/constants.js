@@ -70,6 +70,7 @@ const TEAM_CONFIGS = [
 ];
 
 module.exports = {
+  MOUNTAIN_COLOR,
   MOUNTAIN_DEFS,
   BONUS_DEFS,
   NUM_DICE,
