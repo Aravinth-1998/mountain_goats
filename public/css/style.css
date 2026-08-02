@@ -454,7 +454,7 @@ input.input-error:focus {
 .btn-block { display: block; width: 100%; }
 .spin { display: inline-block; animation: spinning .7s linear infinite; }
 @keyframes spinning { to { transform: rotate(360deg); } }
-.btn-primary { background: linear-gradient(135deg, var(--primary), var(--primary-2)); box-shadow: 0 10px 24px rgba(79,124,255,0.35); }
+.btn-primary { background: linear-gradient(135deg, var(--primary), var(--primary-2)); box-shadow: none; }
 .btn-ghost { background: rgba(255,255,255,0.08); border: 1px solid var(--card-border); }
 .btn-danger { background: linear-gradient(135deg, #ff5d6c, #c0392b); box-shadow: 0 8px 20px rgba(255,93,108,0.35); }
 .btn-join { background: linear-gradient(135deg, var(--green), #049e7a); box-shadow: 0 10px 24px rgba(6,214,160,0.3); }
