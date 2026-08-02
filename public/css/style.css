@@ -1117,6 +1117,10 @@ input.input-error:focus {
   -webkit-tap-highlight-color: transparent;
   z-index: 5;
 }
+.reface--observe {
+  cursor: default;
+  pointer-events: none;
+}
 .reface-picker {
   position: absolute;
   bottom: calc(100% + 8px);

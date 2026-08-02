@@ -2542,21 +2542,31 @@
           renderGame();
         });
       }
-      // Extra-1 re-face: open a 1-6 picker (server allows one adjust per die).
-      if (mine && noneUsed && state.adjustable && state.adjustable.includes(i)) {
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'reface';
-        btn.textContent = '↻';
-        btn.title = 'Change this 1 to any face';
-        btn.setAttribute('aria-label', 'Choose a new face for this die');
-        btn.setAttribute('aria-expanded', refacePickerIndex === i ? 'true' : 'false');
-        btn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          refacePickerIndex = refacePickerIndex === i ? null : i;
-          renderGame();
-        });
-        d.appendChild(btn);
+      // Extra-1 re-face: active player can open picker; others still see which dice are refaceable.
+      if (noneUsed && state.adjustable && state.adjustable.includes(i)) {
+        if (mine) {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'reface';
+          btn.textContent = '↻';
+          btn.title = 'Change this die to any face';
+          btn.setAttribute('aria-label', 'Choose a new face for this die');
+          btn.setAttribute('aria-expanded', refacePickerIndex === i ? 'true' : 'false');
+          btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            refacePickerIndex = refacePickerIndex === i ? null : i;
+            renderGame();
+          });
+          d.appendChild(btn);
+        } else {
+          const badge = document.createElement('span');
+          badge.className = 'reface reface--observe';
+          badge.textContent = '↻';
+          badge.title = 'This die can still be re-faced';
+          badge.setAttribute('aria-label', 'This die can still be re-faced');
+          badge.setAttribute('role', 'img');
+          d.appendChild(badge);
+        }
       }
       area.appendChild(d);
     });
