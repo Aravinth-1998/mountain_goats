@@ -939,6 +939,7 @@
 
   $('btn-play-tutorial').addEventListener('click', () => {
     if (!window.MGTutorial) return;
+    setHowtoOverlayOpen(false);
     window.MGTutorial.start({
       showScreen: show,
       goHome: () => show('home'),

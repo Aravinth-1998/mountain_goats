@@ -719,6 +719,10 @@ input.input-error:focus { border-color: var(--danger); background: rgba(255,93,1
   flex: 1 1 auto;
   -webkit-overflow-scrolling: touch;
 }
+#howto-overlay .howto-tutorial-btn {
+  flex-shrink: 0;
+  margin-top: 14px;
+}
 .rules-content.howto-rules.open {
   max-height: none;
   padding: 0;
