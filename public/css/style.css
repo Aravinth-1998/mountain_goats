@@ -62,9 +62,19 @@ body { background-color: var(--bg-0); }
   max-width: 520px;
   margin: 0 auto;
   padding: 22px 16px 40px;
-  min-height: 100vh;
+  min-height: 100vh; /* fallback */
+  min-height: 100dvh;
 }
 .screen.active { display: flex; }
+
+/* Home: fit the visible mobile viewport (svh) so short content does not force scroll */
+#screen-home.screen {
+  min-height: 100vh;
+  min-height: 100dvh;
+  min-height: 100svh;
+  padding-bottom: max(20px, env(safe-area-inset-bottom, 0px));
+  overflow-x: hidden;
+}
 
 /* Prevent text selection in the lobby */
 #screen-lobby {
@@ -317,6 +327,15 @@ html.mg-rejoining #screen-loading {
 
 /* Brand */
 .brand { text-align: center; margin-top: 6vh; }
+@media (max-height: 700px) {
+  #screen-home .brand { margin-top: 2.5vh; }
+  #screen-home.screen { gap: 12px; padding-top: 18px; }
+}
+@media (max-height: 560px) {
+  #screen-home .brand { margin-top: 0; }
+  #screen-home .goat-emoji { font-size: 52px; }
+  #screen-home .brand h1 { font-size: 34px; }
+}
 .goat-emoji {
   font-size: 64px;
   filter: drop-shadow(0 10px 22px rgba(0,0,0,0.5));
