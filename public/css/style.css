@@ -195,7 +195,38 @@ html.mg-rejoining #screen-loading {
   font-family: 'Fredoka', sans-serif; font-weight: 800; font-size: 13px;
   box-shadow: 0 2px 6px rgba(0,0,0,0.35), inset 0 0 0 1.5px rgba(255,255,255,0.4);
 }
+.mtok.empty {
+  /* Keep --c (summit coin color); dashed ring shows tokens are gone */
+  outline: 2px dashed rgba(255, 255, 255, 0.55);
+  outline-offset: 2px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.35), inset 0 0 0 1.5px rgba(255,255,255,0.35);
+}
 .mleft { font-size: 9px; font-weight: 800; color: var(--muted); line-height: 1; }
+.mcol.is-empty .mtok {
+  /* Protect coin-colored number from column dimming */
+  position: relative;
+  z-index: 1;
+  filter: none;
+  opacity: 1;
+}
+.mcol.is-empty .mleft {
+  color: #ffb4b4;
+  font-size: 8px;
+  letter-spacing: 0.04em;
+  font-weight: 800;
+  margin-top: 2px;
+}
+.mcol.is-empty .track {
+  opacity: 0.5;
+  filter: grayscale(0.45);
+}
+.mcol.is-empty .cell {
+  background: rgba(255,255,255,0.03);
+  border-color: rgba(255,255,255,0.08);
+}
+.mcol.is-empty .cell.top {
+  box-shadow: none;
+}
 
 /* Track — simple column, cells determine height */
 .track {

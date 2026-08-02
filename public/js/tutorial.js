@@ -420,6 +420,7 @@
     state.mountains.forEach((m, mi) => {
       const col = document.createElement('div');
       col.className = 'mcol';
+      if (m.chips <= 0) col.classList.add('is-empty');
       if (glowMountains) col.classList.add('tut-mountain-glow');
       if (glowTokens || (glowFirstToken && mi === MI_10)) col.classList.add('tut-token-glow');
       if (targetMi === mi) {
@@ -430,11 +431,12 @@
       }
       const holders = state.players.filter((pl) => (pl.pos || [])[mi] >= m.height);
       const paint = (holders[0] && holders[0].color) || m.color;
+      const trackPaint = m.chips > 0 ? paint : m.color;
 
       const head = document.createElement('div');
       head.className = 'mhead';
-      head.innerHTML = `<span class="mtok" style="--c:${paint}">${m.value}</span>
-        <span class="mleft">${m.chips > 0 ? '×' + m.chips : 'closed'}</span>`;
+      head.innerHTML = `<span class="mtok${m.chips > 0 ? '' : ' empty'}" style="--c:${paint}">${m.value}</span>
+        <span class="mleft">${m.chips > 0 ? '×' + m.chips : 'EMPTY'}</span>`;
       const myCollected = (you() && you().collected[mi]) || 0;
       if (myCollected > 0) {
         head.insertAdjacentHTML('beforeend', `<span class="tut-have-tok">✓${myCollected}</span>`);
@@ -448,7 +450,7 @@
         wrap.className = 'cell-wrap';
         const cell = document.createElement('div');
         cell.className = 'cell' + (p === m.height ? ' top' : '');
-        cell.style.setProperty('--c', paint);
+        cell.style.setProperty('--c', trackPaint);
         cell.innerHTML = `<span class="cnum">${m.value}</span>`;
         const here = state.players.filter((pl) => (pl.pos || [])[mi] === p);
         if (here.length) cell.appendChild(goatCluster(here));

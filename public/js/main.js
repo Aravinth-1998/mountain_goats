@@ -2401,13 +2401,15 @@
       col.className = 'mcol';
       const isTarget = isMyTurn() && state.rolled && mi === tMi;
       if (isTarget) col.classList.add('target');
+      if (m.chips <= 0) col.classList.add('is-empty');
       const paint = mountainColumnColor(m, mi);
+      const trackPaint = m.chips > 0 ? paint : m.color;
 
-      // tooltip-ish header: tokens remaining
+      // tooltip-ish header: tokens remaining (number keeps summit coin color)
       const head = document.createElement('div');
       head.className = 'mhead';
-      head.innerHTML = `<span class="mtok" style="--c:${paint}">${m.value}</span>
-        <span class="mleft">${m.chips > 0 ? '×' + m.chips : 'closed'}</span>`;
+      head.innerHTML = `<span class="mtok${m.chips > 0 ? '' : ' empty'}" style="--c:${paint}">${m.value}</span>
+        <span class="mleft">${m.chips > 0 ? '×' + m.chips : 'EMPTY'}</span>`;
       col.appendChild(head);
 
       // climbing track: top space (pos=height) down to bottom (pos=1)
@@ -2418,7 +2420,7 @@
         wrap.className = 'cell-wrap';
         const cell = document.createElement('div');
         cell.className = 'cell' + (p === m.height ? ' top' : '');
-        cell.style.setProperty('--c', paint);
+        cell.style.setProperty('--c', trackPaint);
         cell.innerHTML = `<span class="cnum">${m.value}</span>`;
         const here = state.players.filter((pl) => (pl.pos || [])[mi] === p);
         if (here.length) cell.appendChild(goatCluster(here));
