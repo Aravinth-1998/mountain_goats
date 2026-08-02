@@ -791,9 +791,21 @@ input.input-error:focus { border-color: var(--danger); background: rgba(255,93,1
 }
 .rules-pane[hidden] { display: none; }
 
-/* Home leaderboard */
-.leaderboard-content.open {
-  max-height: 660px;
+/* Home leaderboard popup */
+#leaderboard-overlay .leaderboard-card {
+  max-width: 400px;
+  width: 100%;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  padding: 18px 18px 16px;
+  overflow: visible;
+}
+.leaderboard-overlay-body {
+  flex: 0 0 auto;
+  overflow: visible;
+  max-height: none;
+  padding: 0;
 }
 .leaderboard-note {
   margin: 4px 0 10px;

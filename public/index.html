@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
   <noscript><link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" /></noscript>
-  <link rel="stylesheet" href="/css/style.css?v=20260802f" />
+  <link rel="stylesheet" href="/css/style.css?v=20260802h" />
   <script>
     try {
       if (localStorage.getItem('mg_code')) {
@@ -49,6 +49,15 @@
         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <circle cx="12" cy="12" r="3"/>
           <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+      </button>
+      <button type="button" id="btn-leaderboard" class="icon-btn icon-btn--emoji" aria-label="Leaderboard" title="Leaderboard" aria-haspopup="dialog" aria-controls="leaderboard-overlay" aria-expanded="false">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M8 21h8"/>
+          <path d="M12 17v4"/>
+          <path d="M7 4h10v5a5 5 0 0 1-10 0V4z"/>
+          <path d="M5 9a3 3 0 0 1-3-3V4h5"/>
+          <path d="M19 9a3 3 0 0 0 3-3V4h-5"/>
         </svg>
       </button>
       <button type="button" id="btn-howto" class="icon-btn icon-btn--emoji" aria-label="How to Play" title="How to Play" aria-haspopup="dialog" aria-controls="howto-overlay">?</button>
@@ -149,24 +158,6 @@
     </div>
 
     <p id="home-error" class="error-msg"></p>
-
-    <div class="card rules-toggle home-leaderboard">
-      <button type="button" class="rules-toggle-btn" data-target="home-leaderboard-content" aria-expanded="false" aria-controls="home-leaderboard-content">
-        Leaderboard <span class="toggle-arrow" aria-hidden="true">&#9662;</span>
-      </button>
-      <div id="home-leaderboard-content" class="rules-content leaderboard-content">
-        <p class="leaderboard-note muted">Signed-in players only</p>
-        <div id="leaderboard-header" class="leaderboard-header" aria-hidden="true">
-          <span class="leaderboard-rank">#</span>
-          <span class="leaderboard-avatar-spacer"></span>
-          <span class="leaderboard-name">Player</span>
-          <span class="leaderboard-wins">Wins</span>
-        </div>
-        <div id="leaderboard-list" class="leaderboard-list" role="list"></div>
-        <p id="leaderboard-empty" class="muted center leaderboard-empty" hidden>No ranked players yet.</p>
-        <p id="leaderboard-error" class="error-msg leaderboard-error" hidden></p>
-      </div>
-    </div>
   </section>
 
   <!-- TUTORIAL (client-only practice) -->
@@ -471,6 +462,28 @@
     </div>
   </div>
 
+  <!-- LEADERBOARD POPUP -->
+  <div id="leaderboard-overlay" class="overlay" role="dialog" aria-modal="true" aria-labelledby="leaderboard-title" hidden>
+    <div class="overlay-card leaderboard-card">
+      <div class="howto-header">
+        <h2 id="leaderboard-title">Leaderboard</h2>
+        <button type="button" id="btn-leaderboard-close" class="howto-close" aria-label="Close">&times;</button>
+      </div>
+      <div id="home-leaderboard-content" class="leaderboard-content leaderboard-overlay-body">
+        <p class="leaderboard-note muted">Signed-in players only</p>
+        <div id="leaderboard-header" class="leaderboard-header" aria-hidden="true">
+          <span class="leaderboard-rank">#</span>
+          <span class="leaderboard-avatar-spacer"></span>
+          <span class="leaderboard-name">Player</span>
+          <span class="leaderboard-wins">Wins</span>
+        </div>
+        <div id="leaderboard-list" class="leaderboard-list" role="list"></div>
+        <p id="leaderboard-empty" class="muted center leaderboard-empty" hidden>No ranked players yet.</p>
+        <p id="leaderboard-error" class="error-msg leaderboard-error" hidden></p>
+      </div>
+    </div>
+  </div>
+
   <!-- SETTINGS POPUP -->
   <div id="settings-overlay" class="overlay" role="dialog" aria-modal="true" aria-labelledby="settings-title" hidden>
     <div class="overlay-card settings-card">
@@ -523,7 +536,7 @@
   <script src="/js/modes/index.js"></script>
   <script src="/js/modes/standard.js?v=20260801f"></script>
   <script src="/js/modes/standardTeam.js?v=20260801f"></script>
-  <script src="/js/main.js?v=20260802f"></script>
+  <script src="/js/main.js?v=20260802g"></script>
 </body>
 </html>
 

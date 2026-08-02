@@ -269,8 +269,8 @@
       clearLocalTurnTimer();
     }
     if (name === 'home') {
-      const lb = document.getElementById('home-leaderboard-content');
-      if (lb && lb.classList.contains('open')) {
+      const lbOverlay = document.getElementById('leaderboard-overlay');
+      if (lbOverlay && lbOverlay.classList.contains('show')) {
         fetchLeaderboardIfNeeded();
       }
     }
@@ -658,7 +658,7 @@
   let leaderboardFetchedAt = 0;
   const LEADERBOARD_REFRESH_MS = 60000;
 
-  // ===================== HOW TO PLAY / LEADERBOARD TOGGLES =====================
+  // ===================== HOW TO PLAY / OVERLAYS =====================
   document.querySelectorAll('.rules-toggle-btn').forEach((btn) => {
     btn.addEventListener('click', () => {
       const targetId = btn.getAttribute('data-target');
@@ -667,9 +667,6 @@
       const isOpen = content.classList.toggle('open');
       btn.classList.toggle('open', isOpen);
       btn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
-      if (targetId === 'home-leaderboard-content' && isOpen) {
-        fetchLeaderboardIfNeeded();
-      }
     });
   });
 
@@ -693,6 +690,24 @@
     } else {
       overlay.setAttribute('hidden', '');
     }
+  }
+
+  /**
+   * Open or close the Leaderboard popup.
+   *
+   * @param {boolean} open Whether the popup should be visible.
+   * @returns {void}
+   */
+  function setLeaderboardOverlayOpen(open) {
+    const overlay = $('leaderboard-overlay');
+    if (!overlay) return;
+    const isOpen = !!open;
+    overlay.classList.toggle('show', isOpen);
+    if (isOpen) overlay.removeAttribute('hidden');
+    else overlay.setAttribute('hidden', '');
+    const btn = $('btn-leaderboard');
+    if (btn) btn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+    if (isOpen) fetchLeaderboardIfNeeded();
   }
 
   /**
@@ -727,6 +742,21 @@
     });
   }
 
+  const btnLeaderboard = $('btn-leaderboard');
+  if (btnLeaderboard) {
+    btnLeaderboard.addEventListener('click', () => setLeaderboardOverlayOpen(true));
+  }
+  const btnLeaderboardClose = $('btn-leaderboard-close');
+  if (btnLeaderboardClose) {
+    btnLeaderboardClose.addEventListener('click', () => setLeaderboardOverlayOpen(false));
+  }
+  const leaderboardOverlay = $('leaderboard-overlay');
+  if (leaderboardOverlay) {
+    leaderboardOverlay.addEventListener('click', (e) => {
+      if (e.target === leaderboardOverlay) setLeaderboardOverlayOpen(false);
+    });
+  }
+
   const btnSettingsClose = $('btn-settings-close');
   if (btnSettingsClose) {
     btnSettingsClose.addEventListener('click', () => setSettingsOverlayOpen(false));
@@ -746,6 +776,10 @@
     if (e.key !== 'Escape') return;
     if (settingsOverlay && settingsOverlay.classList.contains('show')) {
       setSettingsOverlayOpen(false);
+      return;
+    }
+    if (leaderboardOverlay && leaderboardOverlay.classList.contains('show')) {
+      setLeaderboardOverlayOpen(false);
       return;
     }
     if (howtoOverlay && howtoOverlay.classList.contains('show')) {
