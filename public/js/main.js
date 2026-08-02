@@ -683,8 +683,16 @@
     const overlay = $('howto-overlay');
     if (!overlay) return;
     overlay.classList.toggle('show', !!open);
-    if (open) overlay.removeAttribute('hidden');
-    else overlay.setAttribute('hidden', '');
+    if (open) {
+      overlay.removeAttribute('hidden');
+      const tutBtn = $('btn-play-tutorial');
+      if (tutBtn) {
+        const onHome = !!(screens.home && screens.home.classList.contains('active'));
+        tutBtn.hidden = !onHome;
+      }
+    } else {
+      overlay.setAttribute('hidden', '');
+    }
   }
 
   /**
