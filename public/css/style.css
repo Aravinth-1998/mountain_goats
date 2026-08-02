@@ -414,6 +414,24 @@ input.input-error:focus { border-color: var(--danger); background: rgba(255,93,1
   font-weight: 600;
   cursor: pointer;
 }
+.icon-btn--emoji {
+  width: 40px;
+  height: 38px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  line-height: 1;
+  flex-shrink: 0;
+  color: var(--text);
+}
+.icon-btn--emoji:hover {
+  background: rgba(255,255,255,0.1);
+}
+.icon-btn--emoji svg {
+  display: block;
+}
 
 .divider { display: flex; align-items: center; gap: 10px; color: var(--muted); margin: 18px 0; font-size: 13px; }
 .divider::before, .divider::after { content: ''; height: 1px; flex: 1; background: var(--card-border); }
@@ -654,6 +672,57 @@ input.input-error:focus { border-color: var(--danger); background: rgba(255,93,1
 }
 .rules-content ol { margin: 4px 0 0; padding-left: 18px; color: var(--muted); line-height: 1.7; font-size: 14px; }
 .rules-content b { color: var(--text); }
+
+/* How to Play popup */
+#howto-overlay .howto-card {
+  max-width: 400px;
+  width: 100%;
+  text-align: left;
+  max-height: min(86vh, 640px);
+  display: flex;
+  flex-direction: column;
+  padding: 18px 18px 16px;
+  overflow: hidden;
+}
+.howto-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 4px;
+  flex-shrink: 0;
+}
+.howto-header h2 {
+  margin: 0;
+  font-family: 'Fredoka', sans-serif;
+  font-size: 22px;
+}
+.howto-close {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  border: 1px solid var(--card-border);
+  background: rgba(255,255,255,0.06);
+  color: var(--text);
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.howto-close:hover {
+  background: rgba(255,255,255,0.1);
+}
+.rules-content.howto-rules {
+  max-height: none;
+  overflow-y: auto;
+  padding: 0;
+  flex: 1 1 auto;
+  -webkit-overflow-scrolling: touch;
+}
+.rules-content.howto-rules.open {
+  max-height: none;
+  padding: 0;
+}
 
 .rules-tabs {
   display: flex;
@@ -1506,23 +1575,33 @@ input.input-error:focus { border-color: var(--danger); background: rgba(255,93,1
 }
 
 /* Profile stats sidebar (home screen) */
-#screen-home #settings-menu {
+#screen-home .home-top-start {
   position: absolute;
   top: 16px;
   left: 16px;
   z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
-#screen-home #settings-menu[hidden] {
-  display: none !important;
+#screen-home .home-top-start .icon-btn--emoji {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(22, 31, 51, 0.72);
+  border: 1px solid rgba(255,255,255,0.10);
+  font-size: 18px;
+  font-weight: 700;
 }
-.settings-menu {
-  position: relative;
+#screen-home .home-top-start .icon-btn--emoji:hover {
+  background: rgba(30, 42, 68, 0.85);
 }
-.settings-menu > summary {
+.settings-toggle-btn {
   list-style: none;
   cursor: pointer;
   width: 40px;
   height: 40px;
+  padding: 0;
   border-radius: 50%;
   background: rgba(22, 31, 51, 0.72);
   border: 1px solid rgba(255,255,255,0.10);
@@ -1531,63 +1610,54 @@ input.input-error:focus { border-color: var(--danger); background: rgba(255,93,1
   justify-content: center;
   font-size: 20px;
   color: var(--text);
-  transition: background 0.15s;
+  transition: background 0.15s, transform 0.15s;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
   user-select: none;
 }
-.settings-menu > summary::-webkit-details-marker { display: none; }
-.settings-menu > summary svg {
+.settings-toggle-btn svg {
   transition: transform 0.15s;
+  display: block;
 }
-.settings-menu > summary:hover {
+.settings-toggle-btn:hover {
   background: rgba(30, 42, 68, 0.85);
 }
-.settings-menu[open] > summary {
-  background: rgba(30, 42, 68, 0.9);
-}
-.settings-menu[open] > summary svg {
+.settings-toggle-btn:hover svg,
+.settings-toggle-btn[aria-expanded="true"] svg {
   transform: rotate(30deg);
 }
-.settings-menu--topbar > summary {
+.settings-toggle-btn--topbar {
   width: 40px;
   height: 38px;
   border-radius: 12px;
   background: rgba(255,255,255,0.06);
   border: 1px solid var(--card-border);
 }
-.settings-menu--topbar > summary:hover,
-.settings-menu--topbar[open] > summary {
+.settings-toggle-btn--topbar:hover,
+.settings-toggle-btn--topbar[aria-expanded="true"] {
   background: rgba(255,255,255,0.1);
 }
-.settings-popover {
-  position: absolute;
-  top: calc(100% + 8px);
-  left: 0;
-  min-width: 180px;
-  padding: 10px;
-  background: #1c2743;
-  border: 1px solid rgba(255,255,255,0.10);
-  border-radius: 12px;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.45);
+#settings-overlay .settings-card {
+  max-width: 320px;
+  width: 100%;
+  text-align: left;
+  padding: 18px 18px 14px;
+}
+.settings-overlay-body {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  z-index: 41;
-}
-.settings-menu--topbar .settings-popover {
-  left: auto;
-  right: 0;
+  margin-top: 8px;
 }
 .settings-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 6px 4px;
+  padding: 10px 4px;
 }
 .settings-label {
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--text);
 }

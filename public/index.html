@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
   <noscript><link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" /></noscript>
-  <link rel="stylesheet" href="/css/style.css?v=20260801f" />
+  <link rel="stylesheet" href="/css/style.css?v=20260801m" />
   <script>
     try {
       if (localStorage.getItem('mg_code')) {
@@ -44,24 +44,15 @@
       </span>
     </button>
 
-    <details id="settings-menu" class="settings-menu">
-      <summary class="settings-toggle" role="button" aria-label="Settings" aria-haspopup="menu">
+    <div class="home-top-start">
+      <button type="button" id="btn-settings" class="settings-toggle-btn" aria-label="Settings" title="Settings" aria-haspopup="dialog" aria-controls="settings-overlay">
         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <circle cx="12" cy="12" r="3"/>
           <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
         </svg>
-      </summary>
-      <div class="settings-popover" role="menu" aria-label="Sound and haptics">
-        <div class="settings-row">
-          <span class="settings-label">Sound</span>
-          <button type="button" class="feedback-toggle" data-sound-toggle aria-pressed="false" aria-label="Sound off">&#128266;</button>
-        </div>
-        <div class="settings-row">
-          <span class="settings-label">Haptics</span>
-          <button type="button" class="feedback-toggle" data-haptics-toggle aria-pressed="false" aria-label="Haptics off">&#128243;</button>
-        </div>
-      </div>
-    </details>
+      </button>
+      <button type="button" id="btn-howto" class="icon-btn icon-btn--emoji" aria-label="How to Play" title="How to Play" aria-haspopup="dialog" aria-controls="howto-overlay">?</button>
+    </div>
 
     <div id="profile-stats-backdrop" class="stats-backdrop" hidden aria-hidden="true"></div>
 
@@ -161,7 +152,7 @@
 
     <div class="card rules-toggle home-leaderboard">
       <button type="button" class="rules-toggle-btn" data-target="home-leaderboard-content" aria-expanded="false" aria-controls="home-leaderboard-content">
-        🏆 Leaderboard <span class="toggle-arrow" aria-hidden="true">&#9662;</span>
+        Leaderboard <span class="toggle-arrow" aria-hidden="true">&#9662;</span>
       </button>
       <div id="home-leaderboard-content" class="rules-content leaderboard-content">
         <p class="leaderboard-note muted">Signed-in players only</p>
@@ -178,37 +169,7 @@
     </div>
 
     <div class="card rules-toggle">
-      <button class="rules-toggle-btn" data-target="home-rules-content">📖 How to Play <span class="toggle-arrow">▾</span></button>
-      <div id="home-rules-content" class="rules-content">
-        <div class="rules-tabs" role="tablist" aria-label="Rules mode">
-          <button type="button" class="rules-tab is-active" role="tab" aria-selected="true" data-rules-tab="standard">🐐 Standard</button>
-          <button type="button" class="rules-tab" role="tab" aria-selected="false" data-rules-tab="team">👥 Team</button>
-        </div>
-        <div class="rules-pane is-active" data-rules-pane="standard" role="tabpanel">
-          <ol>
-            <li>Six mountains <b>5–10</b>. You have a 🐐 at the foot of each. Heights: 5,6→4; 7,8→3; 9,10→2.</li>
-            <li>On your turn, <b>roll 4 dice</b> (multiple 1s: keep one, re‑face the rest).</li>
-            <li><b>Group</b> dice — each group whose <b>sum is 5–10</b> moves that mountain's goat up one space.</li>
-            <li>Reach a <b>top</b> to take a Point Token (and bump the goat there off). Already on top? A match harvests another token.</li>
-            <li>Collect from <b>all 6 mountains</b> (a set) to claim a <b>Bonus Token</b> ✨ (15/12/9/6).</li>
-            <li>End when all Bonus Tokens are gone or 3 mountains empty, then equal turns. <b>Most points wins. 🏆</b> Winners by table size: 2–4p → 1st, 5–7p → top 2, 8–10p → top 3.</li>
-          </ol>
-        </div>
-        <div class="rules-pane" data-rules-pane="team" role="tabpanel" hidden>
-          <ol>
-            <li>Teams of <b>2 or 3</b> players share a combined score. Supported: 4p→2 teams, 6p→2 or 3 teams.</li>
-            <li><b>Teammates can share summits</b> — no bumping between teammates.</li>
-            <li>Each player <b>collects their own tokens</b>, even if a teammate is already on that summit.</li>
-            <li>If an <b>opposing player</b> reaches a team-held summit, <b>all</b> teammate goats there are bumped back to base (<b>Team Wipeout</b>).</li>
-            <li>Turns <b>alternate between teams</b> (Red→Blue→Red→Blue…).</li>
-            <li>Team with the <b>highest combined score</b> wins. Same tie‑break rules apply at team level.</li>
-          </ol>
-        </div>
-      </div>
-    </div>
-
-    <div class="card rules-toggle">
-      <button type="button" id="btn-play-tutorial" class="rules-toggle-btn">🐐 Play Tutorial</button>
+      <button type="button" id="btn-play-tutorial" class="rules-toggle-btn">Play Tutorial</button>
     </div>
   </section>
 
@@ -306,38 +267,41 @@
   <!-- LOBBY -->
   <section id="screen-lobby" class="screen">
     <div class="topbar">
-      <button class="icon-btn" id="lobby-leave">‹ Leave</button>
       <div class="room-pill" id="lobby-pill" title="Tap to copy room code">Room <strong id="lobby-code">----</strong> 📋</div>
       <div class="topbar-end">
-        <details class="settings-menu settings-menu--topbar">
-          <summary class="settings-toggle" role="button" aria-label="Settings" aria-haspopup="menu">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <circle cx="12" cy="12" r="3"/>
-              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-            </svg>
-          </summary>
-          <div class="settings-popover" role="menu" aria-label="Sound and haptics">
-            <div class="settings-row">
-              <span class="settings-label">Sound</span>
-              <button type="button" class="feedback-toggle" data-sound-toggle aria-pressed="false" aria-label="Sound off">&#128266;</button>
-            </div>
-            <div class="settings-row">
-              <span class="settings-label">Haptics</span>
-              <button type="button" class="feedback-toggle" data-haptics-toggle aria-pressed="false" aria-label="Haptics off">&#128243;</button>
-            </div>
-          </div>
-        </details>
-        <button class="icon-btn" id="lobby-share">Share</button>
+        <button type="button" id="btn-settings-lobby" class="settings-toggle-btn settings-toggle-btn--topbar" aria-label="Settings" title="Settings" aria-haspopup="dialog" aria-controls="settings-overlay">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+          </svg>
+        </button>
+        <button type="button" id="btn-howto-lobby" class="icon-btn icon-btn--emoji" aria-label="How to Play" title="How to Play" aria-haspopup="dialog" aria-controls="howto-overlay">?</button>
+        <button type="button" class="icon-btn icon-btn--emoji" id="lobby-share" aria-label="Share" title="Share">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="18" cy="5" r="3"/>
+            <circle cx="6" cy="12" r="3"/>
+            <circle cx="18" cy="19" r="3"/>
+            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
+            <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+          </svg>
+        </button>
+        <button type="button" class="icon-btn icon-btn--emoji" id="lobby-leave" aria-label="Leave" title="Leave">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+            <polyline points="16 17 21 12 16 7"/>
+            <line x1="21" y1="12" x2="9" y2="12"/>
+          </svg>
+        </button>
       </div>
     </div>
 
     <div id="room-settings" class="card room-settings" style="display:none">
-      <h3 style="margin:0 0 10px;font-size:15px">⚙️ Room Settings</h3>
-      <div class="setting-row">
+      <h3 style="margin:0 0 10px;font-size:15px">Room Settings</h3>
+        <div class="setting-row">
         <label class="setting-label">Room Visibility</label>
-        <div class="toggle-group">
-          <button id="btn-private" class="toggle-btn active">🔒 Private</button>
-          <button id="btn-public" class="toggle-btn">🌐 Public</button>
+          <div class="toggle-group">
+          <button id="btn-private" class="toggle-btn active">Private</button>
+          <button id="btn-public" class="toggle-btn">Public</button>
         </div>
       </div>
       <div class="setting-row">
@@ -385,36 +349,6 @@
       <button id="btn-start" class="btn btn-primary btn-block">Start Game</button>
       <p id="lobby-hint" class="muted center">Waiting for players…</p>
     </div>
-
-    <div class="card rules-toggle">
-      <button class="rules-toggle-btn" data-target="lobby-rules-content">📖 How to Play <span class="toggle-arrow">▾</span></button>
-      <div id="lobby-rules-content" class="rules-content">
-        <div class="rules-tabs" role="tablist" aria-label="Rules mode">
-          <button type="button" class="rules-tab is-active" role="tab" aria-selected="true" data-rules-tab="standard">🐐 Standard</button>
-          <button type="button" class="rules-tab" role="tab" aria-selected="false" data-rules-tab="team">👥 Team</button>
-        </div>
-        <div class="rules-pane is-active" data-rules-pane="standard" role="tabpanel">
-          <ol>
-            <li>Six mountains <b>5–10</b>. You have a 🐐 at the foot of each. Heights: 5,6→4; 7,8→3; 9,10→2.</li>
-            <li>On your turn, <b>roll 4 dice</b> (multiple 1s: keep one, re‑face the rest).</li>
-            <li><b>Group</b> dice — each group whose <b>sum is 5–10</b> moves that mountain's goat up one space.</li>
-            <li>Reach a <b>top</b> to take a Point Token (and bump the goat there off). Already on top? A match harvests another token.</li>
-            <li>Collect from <b>all 6 mountains</b> (a set) to claim a <b>Bonus Token</b> ✨ (15/12/9/6).</li>
-            <li>End when all Bonus Tokens are gone or 3 mountains empty, then equal turns. <b>Most points wins. 🏆</b> Winners by table size: 2–4p → 1st, 5–7p → top 2, 8–10p → top 3.</li>
-          </ol>
-        </div>
-        <div class="rules-pane" data-rules-pane="team" role="tabpanel" hidden>
-          <ol>
-            <li>Teams of <b>2 or 3</b> players share a combined score. Supported: 4p→2 teams, 6p→2 or 3 teams.</li>
-            <li><b>Teammates can share summits</b> — no bumping between teammates.</li>
-            <li>Each player <b>collects their own tokens</b>, even if a teammate is already on that summit.</li>
-            <li>If an <b>opposing player</b> reaches a team-held summit, <b>all</b> teammate goats there are bumped back to base (<b>Team Wipeout</b>).</li>
-            <li>Turns <b>alternate between teams</b> (Red→Blue→Red→Blue…).</li>
-            <li>Team with the <b>highest combined score</b> wins. Same tie‑break rules apply at team level.</li>
-          </ol>
-        </div>
-      </div>
-    </div>
   </section>
 
   <!-- GAME -->
@@ -423,25 +357,20 @@
       <div class="room-pill">Room <strong id="game-code">----</strong></div>
       <div id="turn-banner" class="turn-banner">—</div>
       <div class="topbar-end">
-        <details class="settings-menu settings-menu--topbar">
-          <summary class="settings-toggle" role="button" aria-label="Settings" aria-haspopup="menu">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <circle cx="12" cy="12" r="3"/>
-              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-            </svg>
-          </summary>
-          <div class="settings-popover" role="menu" aria-label="Sound and haptics">
-            <div class="settings-row">
-              <span class="settings-label">Sound</span>
-              <button type="button" class="feedback-toggle" data-sound-toggle aria-pressed="false" aria-label="Sound off">&#128266;</button>
-            </div>
-            <div class="settings-row">
-              <span class="settings-label">Haptics</span>
-              <button type="button" class="feedback-toggle" data-haptics-toggle aria-pressed="false" aria-label="Haptics off">&#128243;</button>
-            </div>
-          </div>
-        </details>
-        <button type="button" class="icon-btn" id="game-leave">Leave</button>
+        <button type="button" id="btn-settings-game" class="settings-toggle-btn settings-toggle-btn--topbar" aria-label="Settings" title="Settings" aria-haspopup="dialog" aria-controls="settings-overlay">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+          </svg>
+        </button>
+        <button type="button" id="btn-howto-game" class="icon-btn icon-btn--emoji" aria-label="How to Play" title="How to Play" aria-haspopup="dialog" aria-controls="howto-overlay">?</button>
+        <button type="button" class="icon-btn icon-btn--emoji" id="game-leave" aria-label="Leave" title="Leave">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+            <polyline points="16 17 21 12 16 7"/>
+            <line x1="21" y1="12" x2="9" y2="12"/>
+          </svg>
+        </button>
       </div>
     </div>
 
@@ -509,6 +438,62 @@
     </div>
   </div>
 
+  <!-- HOW TO PLAY POPUP -->
+  <div id="howto-overlay" class="overlay" role="dialog" aria-modal="true" aria-labelledby="howto-title" hidden>
+    <div class="overlay-card howto-card">
+      <div class="howto-header">
+        <h2 id="howto-title">How to Play</h2>
+        <button type="button" id="btn-howto-close" class="howto-close" aria-label="Close">&times;</button>
+      </div>
+      <div id="howto-rules-content" class="rules-content howto-rules">
+        <div class="rules-tabs" role="tablist" aria-label="Rules mode">
+          <button type="button" class="rules-tab is-active" role="tab" aria-selected="true" data-rules-tab="standard">Standard</button>
+          <button type="button" class="rules-tab" role="tab" aria-selected="false" data-rules-tab="team">Team</button>
+        </div>
+        <div class="rules-pane is-active" data-rules-pane="standard" role="tabpanel">
+          <ol>
+            <li>Six mountains <b>5–10</b>. You have a 🐐 at the foot of each. Heights: 5,6→4; 7,8→3; 9,10→2.</li>
+            <li>On your turn, <b>roll 4 dice</b> (multiple 1s: keep one, re‑face the rest).</li>
+            <li><b>Group</b> dice — each group whose <b>sum is 5–10</b> moves that mountain's goat up one space.</li>
+            <li>Reach a <b>top</b> to take a Point Token (and bump the goat there off). Already on top? A match harvests another token.</li>
+            <li>Collect from <b>all 6 mountains</b> (a set) to claim a <b>Bonus Token</b> ✨ (15/12/9/6).</li>
+            <li>End when all Bonus Tokens are gone or 3 mountains empty, then equal turns. <b>Most points wins. 🏆</b> Winners by table size: 2–4p → 1st, 5–7p → top 2, 8–10p → top 3.</li>
+          </ol>
+        </div>
+        <div class="rules-pane" data-rules-pane="team" role="tabpanel" hidden>
+          <ol>
+            <li>Teams of <b>2 or 3</b> players share a combined score. Supported: 4p→2 teams, 6p→2 or 3 teams.</li>
+            <li><b>Teammates can share summits</b> — no bumping between teammates.</li>
+            <li>Each player <b>collects their own tokens</b>, even if a teammate is already on that summit.</li>
+            <li>If an <b>opposing player</b> reaches a team-held summit, <b>all</b> teammate goats there are bumped back to base (<b>Team Wipeout</b>).</li>
+            <li>Turns <b>alternate between teams</b> (Red→Blue→Red→Blue…).</li>
+            <li>Team with the <b>highest combined score</b> wins. Same tie‑break rules apply at team level.</li>
+          </ol>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SETTINGS POPUP -->
+  <div id="settings-overlay" class="overlay" role="dialog" aria-modal="true" aria-labelledby="settings-title" hidden>
+    <div class="overlay-card settings-card">
+      <div class="howto-header">
+        <h2 id="settings-title">Settings</h2>
+        <button type="button" id="btn-settings-close" class="howto-close" aria-label="Close">&times;</button>
+      </div>
+      <div class="settings-overlay-body">
+        <div class="settings-row">
+          <span class="settings-label">Sound</span>
+          <button type="button" class="feedback-toggle" data-sound-toggle aria-pressed="false" aria-label="Sound off">&#128266;</button>
+        </div>
+        <div class="settings-row">
+          <span class="settings-label">Haptics</span>
+          <button type="button" class="feedback-toggle" data-haptics-toggle aria-pressed="false" aria-label="Haptics off">&#128243;</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- LEAVE CONFIRM POPUP -->
   <div id="leave-overlay" class="overlay">
     <div class="overlay-card" style="max-width:320px">
@@ -541,16 +526,7 @@
   <script src="/js/modes/index.js"></script>
   <script src="/js/modes/standard.js?v=20260801f"></script>
   <script src="/js/modes/standardTeam.js?v=20260801f"></script>
-  <script src="/js/main.js?v=20260801g"></script>
-  <script>
-    (function () {
-      document.addEventListener('click', (e) => {
-        document.querySelectorAll('details.settings-menu[open]').forEach((menu) => {
-          if (!menu.contains(e.target)) menu.open = false;
-        });
-      });
-    })();
-  </script>
+  <script src="/js/main.js?v=20260801m"></script>
 </body>
 </html>
 

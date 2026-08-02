@@ -673,6 +673,78 @@
     });
   });
 
+  /**
+   * Open or close the How to Play popup.
+   *
+   * @param {boolean} open Whether the popup should be visible.
+   * @returns {void}
+   */
+  function setHowtoOverlayOpen(open) {
+    const overlay = $('howto-overlay');
+    if (!overlay) return;
+    overlay.classList.toggle('show', !!open);
+    if (open) overlay.removeAttribute('hidden');
+    else overlay.setAttribute('hidden', '');
+  }
+
+  /**
+   * Open or close the Settings popup.
+   *
+   * @param {boolean} open Whether the popup should be visible.
+   * @returns {void}
+   */
+  function setSettingsOverlayOpen(open) {
+    const overlay = $('settings-overlay');
+    if (!overlay) return;
+    const isOpen = !!open;
+    overlay.classList.toggle('show', isOpen);
+    if (isOpen) overlay.removeAttribute('hidden');
+    else overlay.setAttribute('hidden', '');
+    document.querySelectorAll('#btn-settings, #btn-settings-lobby, #btn-settings-game').forEach((btn) => {
+      btn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+    });
+  }
+
+  const btnHowtoClose = $('btn-howto-close');
+  if (btnHowtoClose) {
+    btnHowtoClose.addEventListener('click', () => setHowtoOverlayOpen(false));
+  }
+  document.querySelectorAll('#btn-howto, #btn-howto-lobby, #btn-howto-game').forEach((btn) => {
+    btn.addEventListener('click', () => setHowtoOverlayOpen(true));
+  });
+  const howtoOverlay = $('howto-overlay');
+  if (howtoOverlay) {
+    howtoOverlay.addEventListener('click', (e) => {
+      if (e.target === howtoOverlay) setHowtoOverlayOpen(false);
+    });
+  }
+
+  const btnSettingsClose = $('btn-settings-close');
+  if (btnSettingsClose) {
+    btnSettingsClose.addEventListener('click', () => setSettingsOverlayOpen(false));
+  }
+  document.querySelectorAll('#btn-settings, #btn-settings-lobby, #btn-settings-game').forEach((btn) => {
+    btn.setAttribute('aria-expanded', 'false');
+    btn.addEventListener('click', () => setSettingsOverlayOpen(true));
+  });
+  const settingsOverlay = $('settings-overlay');
+  if (settingsOverlay) {
+    settingsOverlay.addEventListener('click', (e) => {
+      if (e.target === settingsOverlay) setSettingsOverlayOpen(false);
+    });
+  }
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    if (settingsOverlay && settingsOverlay.classList.contains('show')) {
+      setSettingsOverlayOpen(false);
+      return;
+    }
+    if (howtoOverlay && howtoOverlay.classList.contains('show')) {
+      setHowtoOverlayOpen(false);
+    }
+  });
+
   document.querySelectorAll('.rules-content').forEach((panel) => {
     panel.addEventListener('click', (e) => {
       const tab = e.target.closest('.rules-tab');
@@ -2158,7 +2230,7 @@
       if (state.players.length < 2) {
         $('lobby-hint').textContent = 'Add a bot or wait for a friend to join.';
       } else if (teamsUnequal) {
-        $('lobby-hint').textContent = '⚠️ Teams must be equal to start!';
+        $('lobby-hint').textContent = 'Teams must be equal to start!';
         $('lobby-hint').style.color = 'var(--danger)';
       } else {
         $('lobby-hint').textContent = currentMode().lobbyReadyHint(state, amHost);
