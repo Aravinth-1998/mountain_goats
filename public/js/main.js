@@ -266,6 +266,7 @@
   function show(name) {
     Object.values(screens).forEach((s) => s.classList.remove('active'));
     screens[name].classList.add('active');
+    document.documentElement.classList.toggle('mg-on-home', name === 'home');
     if (name !== 'loading') {
       document.documentElement.classList.remove('mg-rejoining');
     }

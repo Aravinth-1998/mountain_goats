@@ -67,13 +67,29 @@ body { background-color: var(--bg-0); }
 }
 .screen.active { display: flex; }
 
-/* Home: fit the visible mobile viewport (svh) so short content does not force scroll */
+/* Home: pin to visible Safari viewport so top spacing cannot create page scroll */
 #screen-home.screen {
-  min-height: 100vh;
-  min-height: 100dvh;
-  min-height: 100svh;
+  box-sizing: border-box;
+  height: 100vh;
+  height: 100dvh;
+  height: 100svh;
+  max-height: 100vh;
+  max-height: 100dvh;
+  max-height: 100svh;
+  min-height: 0;
+  /* Clear absolute top icons (settings / leaderboard / ?) */
+  padding-top: 64px;
   padding-bottom: max(20px, env(safe-area-inset-bottom, 0px));
-  overflow-x: hidden;
+  overflow: hidden;
+}
+/* While home is showing, stop document rubber-band scroll (iOS Safari) */
+html.mg-on-home,
+html.mg-on-home body,
+html:has(#screen-home.active),
+html:has(#screen-home.active) body {
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
 }
 
 /* Prevent text selection in the lobby */
@@ -327,12 +343,10 @@ html.mg-rejoining #screen-loading {
 
 /* Brand */
 .brand { text-align: center; margin-top: 6vh; }
-@media (max-height: 700px) {
-  #screen-home .brand { margin-top: 2.5vh; }
-  #screen-home.screen { gap: 12px; padding-top: 18px; }
-}
+#screen-home .brand { margin-top: 4vh; }
 @media (max-height: 560px) {
-  #screen-home .brand { margin-top: 0; }
+  #screen-home.screen { gap: 12px; padding-top: 52px; }
+  #screen-home .brand { margin-top: 1.5vh; }
   #screen-home .goat-emoji { font-size: 52px; }
   #screen-home .brand h1 { font-size: 34px; }
 }
