@@ -311,7 +311,7 @@
    */
   function fillWinOverlay(ctx) {
     const {
-      state, myId, $, escapeHtml, playerCoinHtml, winScoreRightHtml, endReasonBadge,
+      state, myId, $, escapeHtml, playerCoinHtml, winScoreRightHtml,
       resetWinHeadChrome, ordinalPlace, sortedPlayersByScore, colorWithAlpha,
     } = ctx;
 
@@ -383,12 +383,10 @@
           ${winScoreRightHtml(p.score, p.bonusPoints)}
         </div>`;
     }).join('');
-    const extraIdx = rowIdx;
 
     $('win-sub').innerHTML = `${teamViz}
         <div class="team-breakdown-label win-extra" style="--i:${labelIdx}">Individual Scores</div>
-        <div class="scoreboard scoreboard-sm">${playerRows}</div>
-        ${endReasonBadge(state.endReason, extraIdx)}`;
+        <div class="scoreboard scoreboard-sm">${playerRows}</div>`;
     document.querySelector('#win-overlay .win-actions').style.setProperty('--rows', String(rowIdx));
   }
 

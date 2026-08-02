@@ -2635,22 +2635,6 @@
     }
   }
 
-  function endReasonBadge(reason, extraIndex) {
-    if (!reason) return '';
-    const style = extraIndex != null ? ` style="--i:${extraIndex}"` : '';
-    const cls = extraIndex != null ? 'end-reason win-extra' : 'end-reason';
-    if (reason === 'bonus') {
-      return `<div class="${cls}"${style}>
-        <span class="er-icon">✨</span>
-        <span>All 4 Bonus Tokens were claimed — the final round was triggered.</span>
-      </div>`;
-    }
-    return `<div class="${cls}"${style}>
-      <span class="er-icon">🏔️</span>
-      <span>3 mountains ran out of Point Tokens — the final round was triggered.</span>
-    </div>`;
-  }
-
   /**
    * Right-side score for the win overlay.
    * With bonus: "15 ✨ · 53 ⭐"; otherwise "53 ⭐".
@@ -3009,7 +2993,6 @@
       escapeHtml,
       playerCoinHtml,
       winScoreRightHtml,
-      endReasonBadge,
       resetWinHeadChrome,
       ordinalPlace,
       sortedPlayersByScore,

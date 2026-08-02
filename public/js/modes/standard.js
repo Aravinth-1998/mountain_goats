@@ -238,7 +238,7 @@
    */
   function fillWinOverlay(ctx) {
     const {
-      state, myId, $, escapeHtml, playerCoinHtml, winScoreRightHtml, endReasonBadge,
+      state, myId, $, escapeHtml, playerCoinHtml, winScoreRightHtml,
       resetWinHeadChrome, ordinalPlace, sortedPlayersByScore,
     } = ctx;
 
@@ -318,8 +318,7 @@
     }
 
     $('win-sub').innerHTML = `<div class="scoreboard">${rows}</div>
-        ${tieNote}
-        ${endReasonBadge(state.endReason, extraIdx)}`;
+        ${tieNote}`;
     document.querySelector('#win-overlay .win-actions').style.setProperty('--rows', String(sorted.length));
   }
 
