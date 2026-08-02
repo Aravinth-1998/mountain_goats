@@ -454,7 +454,7 @@ input.input-error:focus {
 .btn-block { display: block; width: 100%; }
 .spin { display: inline-block; animation: spinning .7s linear infinite; }
 @keyframes spinning { to { transform: rotate(360deg); } }
-.btn-primary { background: linear-gradient(135deg, var(--primary), var(--primary-2)); box-shadow: none; }
+.btn-primary { background: var(--primary); box-shadow: none; }
 .btn-ghost { background: rgba(255,255,255,0.08); border: 1px solid var(--card-border); }
 .btn-danger { background: linear-gradient(135deg, #ff5d6c, #c0392b); box-shadow: 0 8px 20px rgba(255,93,108,0.35); }
 .btn-join { background: linear-gradient(135deg, var(--green), #049e7a); box-shadow: 0 10px 24px rgba(6,214,160,0.3); }
@@ -1162,6 +1162,11 @@ input.input-error:focus {
 #win-overlay > .overlay-card {
   position: relative;
   z-index: 1;
+  max-width: 380px;
+  padding: 22px 18px 16px;
+  background: #161f33;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.45);
 }
 #win-overlay.show {
   animation: winOverlayIn 0.35s ease-out both;
@@ -1211,7 +1216,7 @@ input.input-error:focus {
   color: var(--text);
   font-size: 22px;
 }
-.win-actions { display: flex; flex-direction: column; gap: 10px; margin-top: 14px; }
+.win-actions { display: flex; flex-direction: column; gap: 10px; margin-top: 16px; }
 .win-actions-secondary {
   display: flex;
   align-items: stretch;
@@ -1234,20 +1239,25 @@ input.input-error:focus {
 .win-actions-secondary .win-share-btn:hover {
   background: rgba(255,255,255,0.12);
 }
+#win-overlay .win-actions .btn-primary {
+  background: var(--primary);
+  box-shadow: none;
+  filter: none;
+}
 #win-overlay.show .win-actions {
   animation: winHeadIn 0.35s ease-out both;
   animation-delay: calc(0.55s + var(--rows, 3) * 90ms);
   opacity: 0;
 }
-.trophy { font-size: 56px; line-height: 1; }
+.trophy { font-size: 48px; line-height: 1; margin-bottom: 2px; }
 .trophy[hidden] { display: none; }
 #win-overlay.show .trophy {
-  animation: winHeadIn 0.4s ease-out 0.2s both, bob 2.4s ease-in-out 0.65s infinite;
+  animation: winHeadIn 0.4s ease-out 0.2s both;
 }
-.overlay-card h2 { font-family: 'Fredoka', sans-serif; font-size: 26px; margin: 6px 0 4px; }
+.overlay-card h2 { font-family: 'Fredoka', sans-serif; font-size: 24px; margin: 4px 0 2px; }
 .win-stats-banner {
   margin: 0;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--gold);
   line-height: 1.4;
@@ -1256,7 +1266,7 @@ input.input-error:focus {
   font-weight: 800;
   font-variant-numeric: tabular-nums;
 }
-.scoreboard { display: flex; flex-direction: column; gap: 6px; margin: 12px 0 8px; text-align: left; }
+.scoreboard { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 0; text-align: left; }
 #win-overlay.show .score-row {
   animation: winRowIn 0.42s ease-out both;
   animation-delay: calc(0.38s + var(--i, 0) * 90ms);
@@ -1264,18 +1274,23 @@ input.input-error:focus {
 }
 .score-row {
   display: flex; justify-content: space-between; align-items: center; gap: 8px;
-  background: rgba(255,255,255,0.05); border: 1px solid var(--card-border);
-  border-radius: 10px; padding: 8px 12px; font-size: 14px; font-weight: 600;
+  background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 12px; padding: 9px 12px; font-size: 14px; font-weight: 600;
 }
 #win-overlay.show .score-row.win {
-  animation-name: winRowIn, winRowPulse;
-  animation-duration: 0.42s, 2.2s;
-  animation-timing-function: ease-out, ease-in-out;
-  animation-fill-mode: both, none;
-  animation-iteration-count: 1, infinite;
-  animation-delay: calc(0.38s + var(--i, 0) * 90ms), calc(1.05s + var(--i, 0) * 90ms);
+  animation-name: winRowIn;
+  animation-duration: 0.42s;
+  animation-timing-function: ease-out;
+  animation-fill-mode: both;
+  animation-iteration-count: 1;
+  animation-delay: calc(0.38s + var(--i, 0) * 90ms);
 }
-.score-row.win { background: rgba(255,209,102,0.15); border-color: rgba(255,209,102,0.4); color: var(--gold); }
+.score-row.win {
+  background: rgba(255,209,102,0.10);
+  border-color: rgba(255,209,102,0.32);
+  color: var(--gold);
+  box-shadow: none;
+}
 #win-overlay.show .win-extra {
   animation: winHeadIn 0.35s ease-out both;
   animation-delay: calc(0.45s + var(--i, 0) * 90ms);
@@ -1303,10 +1318,6 @@ input.input-error:focus {
   from { opacity: 0; transform: translateY(16px); }
   to { opacity: 1; transform: translateY(0); }
 }
-@keyframes winRowPulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 209, 102, 0); }
-  50% { box-shadow: 0 0 18px 2px rgba(255, 209, 102, 0.38); }
-}
 @media (prefers-reduced-motion: reduce) {
   #win-overlay.show,
   #win-overlay.show .overlay-card,
@@ -1318,9 +1329,6 @@ input.input-error:focus {
     animation: none !important;
     opacity: 1 !important;
     transform: none !important;
-  }
-  #win-overlay.show .trophy {
-    animation: bob 2.4s ease-in-out infinite !important;
   }
 }
 .sb-left { display: flex; align-items: center; gap: 6px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -1533,58 +1541,83 @@ input.input-error:focus {
 
 /* Win screen: team breakdown */
 .team-breakdown-label {
-  font-size: 12px; font-weight: 700; color: var(--muted);
-  margin: 12px 0 4px; text-align: center;
-  text-transform: uppercase; letter-spacing: 1px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+  margin: 14px 0 6px;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
 }
-.scoreboard-sm .score-row { padding: 5px 10px; font-size: 13px; }
-.score-row-sm { background: rgba(255,255,255,0.03); }
+.scoreboard-sm {
+  gap: 5px;
+}
+.scoreboard-sm .score-row {
+  padding: 8px 12px;
+  font-size: 13px;
+}
+.score-row-sm {
+  background: rgba(255, 255, 255, 0.03);
+  border-width: 1.5px;
+}
 .sb-members {
-  font-size: 11px; color: var(--muted); font-weight: 400;
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: 400;
 }
 
 /* Win screen: 2-team rivalry */
 #win-overlay .win-rival {
   display: grid;
-  grid-template-columns: 1fr auto 1fr;
-  gap: 8px;
-  align-items: center;
-  margin: 4px 0 10px;
+  grid-template-columns: 1fr 12px 1fr;
+  gap: 10px;
+  align-items: stretch;
+  margin: 8px 0 8px;
 }
 #win-overlay .win-rival-side {
   text-align: center;
-  padding: 12px 8px;
+  padding: 14px 10px 12px;
   border-radius: 14px;
-  border: 1px solid var(--card-border);
-  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.03);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
 }
 #win-overlay .win-rival-side.winner {
-  box-shadow: 0 0 0 1px rgba(255, 209, 102, 0.45);
+  box-shadow: none;
+  border-width: 2px;
+  background: rgba(255, 255, 255, 0.05);
 }
 #win-overlay .win-rival-name {
   font-family: 'Fredoka', sans-serif;
-  font-size: 16px;
-  margin: 0 0 4px;
+  font-size: 15px;
+  margin: 0;
   font-weight: 700;
 }
 #win-overlay .win-rival-score {
-  font-size: 28px;
+  font-size: 30px;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
   line-height: 1.1;
+  color: var(--text);
 }
 #win-overlay .win-rival-vs {
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 800;
-  color: var(--muted);
+  color: rgba(147, 160, 191, 0.55);
+  letter-spacing: 0.04em;
+  align-self: center;
+  text-align: center;
 }
 #win-overlay .win-bar-track {
-  height: 8px;
+  height: 6px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.08);
   overflow: hidden;
   display: flex;
-  margin: 0 0 4px;
+  margin: 0 0 2px;
 }
 #win-overlay .win-bar-seg {
   height: 100%;
@@ -1597,24 +1630,25 @@ input.input-error:focus {
   align-items: flex-end;
   justify-content: center;
   gap: 8px;
-  margin: 4px 0 8px;
-  min-height: 120px;
+  margin: 8px 0 6px;
+  min-height: 112px;
 }
 #win-overlay .win-pod {
   flex: 1;
   text-align: center;
   border-radius: 12px 12px 4px 4px;
   padding: 10px 6px 8px;
-  border: 1px solid var(--card-border);
-  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.03);
   display: flex;
   flex-direction: column;
   align-items: stretch;
 }
 #win-overlay .win-pod.first {
   order: 2;
-  background: rgba(255, 209, 102, 0.14);
-  border-color: rgba(255, 209, 102, 0.4);
+  background: rgba(255, 209, 102, 0.08);
+  border-color: rgba(255, 209, 102, 0.32);
+  border-width: 1.5px;
   padding-top: 14px;
 }
 #win-overlay .win-pod.second { order: 1; }
@@ -1623,6 +1657,8 @@ input.input-error:focus {
   font-size: 11px;
   font-weight: 800;
   color: var(--muted);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 #win-overlay .win-pod.first .win-pod-place { color: var(--gold); }
 #win-overlay .win-pod-name {

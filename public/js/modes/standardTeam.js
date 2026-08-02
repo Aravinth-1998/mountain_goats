@@ -260,8 +260,8 @@
     const pctB = 100 - pctA;
     const side = (t, i) => {
       const isWin = t.id === winTeam.id;
-      const bg = colorWithAlpha(t.color, 0.14);
-      const border = colorWithAlpha(t.color, 0.45);
+      const bg = colorWithAlpha(t.color, 0.12);
+      const border = colorWithAlpha(t.color, isWin ? 0.55 : 0.35);
       return `<div class="win-rival-side${isWin ? ' winner' : ''} win-extra" style="--i:${i};background:${bg};border-color:${border}">
         <div class="win-rival-name" style="color:${escapeHtml(t.color)}">${escapeHtml(t.name)}</div>
         <div class="win-rival-score">${t.score || 0}</div>
