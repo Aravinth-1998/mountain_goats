@@ -248,10 +248,14 @@
   function requirePlayName() {
     const name = getPlayName();
     if (!name) {
-      $('home-name').classList.add('input-error');
-      $('home-name-error').textContent = isSignedIn()
-        ? 'Please choose your GOAT name.'
-        : 'Please enter your name.';
+      const nameInput = $('home-name');
+      // Restart blink animation on each failed attempt.
+      nameInput.classList.remove('input-error');
+      void nameInput.offsetWidth;
+      nameInput.classList.add('input-error');
+      // Placeholder ("Enter your GOAT name") carries the empty-name cue in red.
+      $('home-name-error').textContent = '';
+      nameInput.focus();
       return null;
     }
     $('home-name').classList.remove('input-error');
@@ -935,14 +939,12 @@
   }
 
   // Clear error styling when user clicks or types in the name field
-  $('home-name').addEventListener('focus', () => {
+  function clearHomeNameError() {
     $('home-name').classList.remove('input-error');
     $('home-name-error').textContent = '';
-  });
-  $('home-name').addEventListener('input', () => {
-    $('home-name').classList.remove('input-error');
-    $('home-name-error').textContent = '';
-  });
+  }
+  $('home-name').addEventListener('pointerdown', clearHomeNameError);
+  $('home-name').addEventListener('input', clearHomeNameError);
 
   // ===================== HOME =====================
   $('btn-create').addEventListener('click', async () => {
@@ -2720,6 +2722,7 @@
     void overlay.offsetWidth;
     overlay.classList.add('show');
     startWinScoreCountUp();
+    startWinConfetti();
   }
 
   /**
@@ -2777,6 +2780,7 @@
 
   function hideWinOverlay() {
     cancelWinCountUp();
+    stopWinConfetti();
     pendingMatchStats = null;
     const banner = $('win-stats-banner');
     if (banner) {
@@ -2785,6 +2789,166 @@
     }
     resetWinHeadChrome();
     $('win-overlay').classList.remove('show');
+  }
+
+  // ===================== RESULTS CONFETTI =====================
+  const WIN_CONFETTI_COLORS = ['#ffd166', '#4f7cff', '#06d6a0', '#ff5d6c', '#c8bfff', '#ffffff'];
+  const WIN_CONFETTI_SPAWN_MS = 2200;
+  let winConfettiRaf = 0;
+  let winConfettiParticles = [];
+  let winConfettiSpawnAcc = 0;
+  let winConfettiElapsed = 0;
+
+  /**
+   * @returns {boolean}
+   */
+  function prefersReducedMotion() {
+    try {
+      return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+    } catch (err) {
+      return false;
+    }
+  }
+
+  /**
+   * Size the confetti canvas to the win overlay.
+   *
+   * @returns {HTMLCanvasElement|null}
+   */
+  function sizeWinConfettiCanvas() {
+    const canvas = $('win-confetti');
+    const overlay = $('win-overlay');
+    if (!canvas || !overlay) return null;
+    const rect = overlay.getBoundingClientRect();
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const w = Math.max(1, Math.floor(rect.width));
+    const h = Math.max(1, Math.floor(rect.height));
+    canvas.width = Math.floor(w * dpr);
+    canvas.height = Math.floor(h * dpr);
+    canvas.style.width = w + 'px';
+    canvas.style.height = h + 'px';
+    const ctx = canvas.getContext('2d');
+    if (ctx) ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    return canvas;
+  }
+
+  /**
+   * Spawn confetti pieces near the top of the overlay.
+   *
+   * @param {number} count How many pieces to add.
+   * @param {number} viewW Overlay width in CSS pixels.
+   * @returns {void}
+   */
+  function spawnWinConfetti(count, viewW) {
+    for (let i = 0; i < count; i += 1) {
+      winConfettiParticles.push({
+        x: Math.random() * viewW,
+        y: -12 - Math.random() * 40,
+        w: 5 + Math.random() * 5,
+        h: 7 + Math.random() * 7,
+        vx: -1.2 + Math.random() * 2.4,
+        vy: 1.6 + Math.random() * 2.4,
+        rot: Math.random() * Math.PI * 2,
+        vr: -0.18 + Math.random() * 0.36,
+        color: WIN_CONFETTI_COLORS[(Math.random() * WIN_CONFETTI_COLORS.length) | 0],
+      });
+    }
+  }
+
+  /**
+   * Start a short confetti burst that slows and then stops.
+   *
+   * @returns {void}
+   */
+  function startWinConfetti() {
+    stopWinConfetti();
+    if (prefersReducedMotion()) return;
+    const canvas = sizeWinConfettiCanvas();
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    winConfettiParticles = [];
+    winConfettiSpawnAcc = 0;
+    winConfettiElapsed = 0;
+    spawnWinConfetti(56, canvas.clientWidth || 360);
+
+    let last = performance.now();
+    /**
+     * @param {number} now
+     * @returns {void}
+     */
+    function frame(now) {
+      const overlay = $('win-overlay');
+      if (!overlay || !overlay.classList.contains('show')) {
+        stopWinConfetti();
+        return;
+      }
+      const dt = Math.min(0.05, (now - last) / 1000);
+      last = now;
+      winConfettiElapsed += dt * 1000;
+      const w = canvas.clientWidth || 1;
+      const h = canvas.clientHeight || 1;
+
+      // Spawn slows to a stop over WIN_CONFETTI_SPAWN_MS, then drift only.
+      if (winConfettiElapsed < WIN_CONFETTI_SPAWN_MS) {
+        const t = winConfettiElapsed / WIN_CONFETTI_SPAWN_MS;
+        const rate = (1 - t) * (1 - t);
+        winConfettiSpawnAcc += dt * rate;
+        if (winConfettiSpawnAcc >= 0.1) {
+          winConfettiSpawnAcc = 0;
+          const n = Math.max(1, Math.round(5 * rate));
+          spawnWinConfetti(n, w);
+        }
+      }
+
+      ctx.clearRect(0, 0, w, h);
+      for (let i = winConfettiParticles.length - 1; i >= 0; i -= 1) {
+        const p = winConfettiParticles[i];
+        p.vy += 16 * dt;
+        p.vx *= 0.995;
+        p.x += p.vx * 60 * dt;
+        p.y += p.vy * 60 * dt;
+        p.rot += p.vr * (0.85 + 0.15 * Math.max(0, 1 - winConfettiElapsed / (WIN_CONFETTI_SPAWN_MS + 1800)));
+        if (p.y > h + 30) {
+          winConfettiParticles.splice(i, 1);
+          continue;
+        }
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.rot);
+        ctx.fillStyle = p.color;
+        ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+        ctx.restore();
+      }
+
+      if (winConfettiElapsed >= WIN_CONFETTI_SPAWN_MS && winConfettiParticles.length === 0) {
+        stopWinConfetti();
+        return;
+      }
+      winConfettiRaf = requestAnimationFrame(frame);
+    }
+    winConfettiRaf = requestAnimationFrame(frame);
+  }
+
+  /**
+   * Stop results confetti and clear the canvas.
+   *
+   * @returns {void}
+   */
+  function stopWinConfetti() {
+    if (winConfettiRaf) {
+      cancelAnimationFrame(winConfettiRaf);
+      winConfettiRaf = 0;
+    }
+    winConfettiParticles = [];
+    winConfettiSpawnAcc = 0;
+    winConfettiElapsed = 0;
+    const canvas = $('win-confetti');
+    if (canvas) {
+      const ctx = canvas.getContext('2d');
+      if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
   }
 
   /**

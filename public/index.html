@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
   <noscript><link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" /></noscript>
-  <link rel="stylesheet" href="/css/style.css?v=20260802h" />
+  <link rel="stylesheet" href="/css/style.css?v=20260802q" />
   <script>
     try {
       if (localStorage.getItem('mg_code')) {
@@ -149,12 +149,13 @@
       <p id="online-count" class="online-count"></p>
     </div>
 
-    <input id="home-name" type="text" maxlength="16" placeholder="Enter your GOAT name" autocomplete="off" style="text-align:center" />
-    <p id="home-name-error" class="error-msg" style="margin-top:4px"></p>
-
-    <div class="card home-actions">
-      <button id="btn-create" class="btn btn-primary btn-block">Create Room</button>
-      <button id="btn-goto-join" class="btn btn-join btn-block">Join Room</button>
+    <div class="home-play-block">
+      <input id="home-name" class="home-key home-key--name" type="text" maxlength="16" placeholder="Enter your GOAT name" autocomplete="off" />
+      <p id="home-name-error" class="error-msg"></p>
+      <div class="home-actions">
+        <button id="btn-create" class="btn btn-primary btn-block home-key">Create Room</button>
+        <button id="btn-goto-join" class="btn btn-join btn-block home-key">Join Room</button>
+      </div>
     </div>
 
     <p id="home-error" class="error-msg"></p>
@@ -393,6 +394,7 @@
 
   <!-- WIN OVERLAY -->
   <div id="win-overlay" class="overlay">
+    <canvas id="win-confetti" class="win-confetti" aria-hidden="true"></canvas>
     <div class="overlay-card">
       <div class="win-head">
         <div class="trophy">🏆</div>
@@ -536,7 +538,7 @@
   <script src="/js/modes/index.js"></script>
   <script src="/js/modes/standard.js?v=20260801f"></script>
   <script src="/js/modes/standardTeam.js?v=20260801f"></script>
-  <script src="/js/main.js?v=20260802g"></script>
+  <script src="/js/main.js?v=20260802r"></script>
 </body>
 </html>
 
