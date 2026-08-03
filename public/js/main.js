@@ -132,6 +132,7 @@
     }
     await refreshLobbyPresence();
     tryRejoin();
+    applyInviteDeepLink();
   });
 
   let myId = null;
@@ -294,6 +295,95 @@
   }
   function escapeHtml(s) {
     return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+
+  /**
+   * Normalize a raw invite value to a 4-digit room code.
+   *
+   * @param {*} raw Query param or pasted value.
+   * @returns {string|null}
+   */
+  function normalizeInviteCode(raw) {
+    const digits = String(raw == null ? '' : raw).replace(/\D/g, '').slice(0, 4);
+    return digits.length === 4 ? digits : null;
+  }
+
+  /**
+   * Read invite code from `?code=` or `?join=` in the current URL.
+   *
+   * @returns {string|null}
+   */
+  function parseInviteCodeFromLocation() {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      return normalizeInviteCode(params.get('code') || params.get('join'));
+    } catch (err) {
+      return null;
+    }
+  }
+
+  /**
+   * Strip invite query params so refresh does not re-open Join.
+   *
+   * @returns {void}
+   */
+  function clearInviteQueryFromUrl() {
+    try {
+      const url = new URL(window.location.href);
+      if (!url.searchParams.has('code') && !url.searchParams.has('join')) return;
+      url.searchParams.delete('code');
+      url.searchParams.delete('join');
+      const qs = url.searchParams.toString();
+      window.history.replaceState({}, '', url.pathname + (qs ? `?${qs}` : '') + url.hash);
+    } catch (err) {
+      // ignore
+    }
+  }
+
+  /**
+   * Build a shareable deep-link that opens Join with the room code prefilled.
+   *
+   * @param {string} code Room code.
+   * @returns {string}
+   */
+  function buildInviteUrl(code) {
+    const url = new URL(window.location.origin + (window.location.pathname || '/'));
+    url.searchParams.set('code', String(code));
+    return url.href;
+  }
+
+  /** @type {boolean} */
+  let inviteDeepLinkHandled = false;
+
+  /**
+   * Prefill Join from an invite link and open that screen (unless rejoining a saved room).
+   *
+   * @returns {boolean} True when Join was opened from the invite.
+   */
+  function applyInviteDeepLink() {
+    if (inviteDeepLinkHandled) return false;
+    const code = parseInviteCodeFromLocation();
+    if (!code) return false;
+
+    const joinInput = $('join-code');
+    if (joinInput) joinInput.value = code;
+    clearInviteQueryFromUrl();
+    inviteDeepLinkHandled = true;
+
+    // Returning players reconnect via mg_code first; do not divert them to Join.
+    if (localStorage.getItem('mg_code')) return false;
+    if (state) return false;
+    if (screens.lobby.classList.contains('active') || screens.game.classList.contains('active')) {
+      return false;
+    }
+
+    show('join');
+    refreshPublicRooms();
+    startPublicRoomsRefresh();
+    if (joinInput) {
+      try { joinInput.focus(); } catch (err) { /* ignore */ }
+    }
+    return true;
   }
 
   /**
@@ -1108,6 +1198,9 @@
     publicRoomsWasActive = false;
   }
 
+  // Invite link: ?code=1234 (or ?join=1234) opens Join with the code prefilled.
+  applyInviteDeepLink();
+
   // Pause background work (interval repaints, CSS animations, room polling) while
   // the tab is hidden — the browser throttles timers but not enough on mobile
   // to keep the device cool. Resume on return.
@@ -1433,10 +1526,15 @@
 
   function shareRoom() {
     if (!state) return;
-    const text = `Join my Mountain Goats game! Room code: ${state.code} - ${location.origin}`;
-    if (navigator.share) navigator.share({ title: 'Mountain Goats', text }).catch(() => {});
-    else if (navigator.clipboard) navigator.clipboard.writeText(text).then(() => toast('Invite copied!'));
-    else toast('Room code: ' + state.code);
+    const inviteUrl = buildInviteUrl(state.code);
+    const text = `Join my Mountain Goats game!\nRoom code: ${state.code}\n${inviteUrl}`;
+    if (navigator.share) {
+      navigator.share({ title: 'Mountain Goats', text, url: inviteUrl }).catch(() => {});
+    } else if (navigator.clipboard) {
+      navigator.clipboard.writeText(inviteUrl).then(() => toast('Invite link copied!'));
+    } else {
+      toast('Room code: ' + state.code);
+    }
   }
   let leftRoom = false; // flag to ignore state broadcasts after leaving
   let rejoinInFlight = false;

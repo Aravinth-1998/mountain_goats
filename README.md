@@ -7,7 +7,8 @@ premium mobile‑first UI.
 ---
 
 ## ✨ Features
-- **Create / Join rooms** with a 4‑letter code from the home page.
+- **Create / Join rooms** with a 4‑digit code from the home page.
+- **Invite links** (`/?code=1234`) open Join with the code prefilled; lobby Share copies that URL.
 - **Sign in with Google** (optional) or **play as guest** with a typed name.
 - **Everyone's live stats** (mountains conquered + steps climbed) are visible to all players.
 - **Premium, mobile‑first UI** — glassmorphism cards, animated dice & goats, clear high‑contrast board.
