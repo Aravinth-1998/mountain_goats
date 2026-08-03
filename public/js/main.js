@@ -2588,6 +2588,7 @@
         opt.addEventListener('click', (e) => {
           e.stopPropagation();
           refacePickerIndex = null;
+          if (window.MGSounds) window.MGSounds.play({ type: 'dice_adjust', self: true });
           socket.emit('adjustDie', { index, value: face });
         });
         picker.appendChild(opt);

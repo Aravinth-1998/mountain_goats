@@ -1,5 +1,5 @@
 /**
- * Bundled MP3 sound effects for Mountain Goats.
+ * Bundled sound effects for Mountain Goats (WAV + OGG Kenney CC0 clips).
  */
 (function () {
   const STORAGE_KEY = 'mg_sound_enabled';
@@ -8,10 +8,10 @@
 
   const CLIPS = {
     ui_tap: '/audio/ui-tap.wav',
-    dice_roll: '/audio/dice-roll.wav',
-    dice_adjust: '/audio/dice-adjust.wav',
+    dice_roll: '/audio/dice-roll.ogg',
+    dice_adjust: '/audio/dice-adjust.ogg',
     summit: '/audio/summit.wav',
-    bump: '/audio/bump.wav',
+    bump: '/audio/bump.ogg',
     bonus: '/audio/bonus.wav',
     final_round: '/audio/final-round.wav',
     your_turn: '/audio/your-turn.wav',

@@ -1,21 +1,24 @@
 # Game sound effects
 
-Bundled WAV clips from [Kenney Interface Sounds](https://kenney.nl/assets/interface-sounds) (CC0 1.0). Packaged via [Calinou/kenney-interface-sounds](https://github.com/Calinou/kenney-interface-sounds).
+Clips are CC0 from Kenney:
 
-| File | Kenney source | Game event |
-|------|---------------|------------|
-| `ui-tap.wav` | `click_001.wav` | UI button tap |
-| `dice-roll.wav` | `scratch_003.wav` | Dice roll |
-| `dice-adjust.wav` | `tick_001.wav` | Re-face a die |
-| `summit.wav` | `pluck_001.wav` | Reach summit / harvest |
-| `bump.wav` | `drop_003.wav` | Goat bumped |
-| `bonus.wav` | `glass_004.wav` | Bonus token claimed |
-| `final-round.wav` | `bong_001.wav` | Final round bell |
-| `your-turn.wav` | `select_003.wav` | Turn passes to you |
-| `game-start.wav` | `open_003.wav` | Game starts |
-| `win.wav` | `confirmation_003.wav` | You win |
-| `lose.wav` | `error_005.wav` | You lose |
+- [Interface Sounds](https://kenney.nl/assets/interface-sounds) (via [Calinou/kenney-interface-sounds](https://github.com/Calinou/kenney-interface-sounds))
+- [Casino Audio](https://kenney.nl/assets/casino-audio) for dice / bump
 
-Full license text: `KENNEY-LICENSE.txt`
+| File | Source | Game event |
+|------|--------|------------|
+| `ui-tap.wav` | Interface `click_001` | UI button tap |
+| `dice-roll.ogg` | Casino `dice-shake-2` | Dice roll |
+| `dice-adjust.ogg` | Casino `die-throw-1` | Re-face a die |
+| `summit.wav` | Interface `confirmation_002` | Reach summit / harvest |
+| `bump.ogg` | Casino `chips-collide-2` | Goat bumped |
+| `bonus.wav` | Interface `glass_002` | Bonus token / full set |
+| `final-round.wav` | Interface `bong_001` | Final round bell |
+| `your-turn.wav` | Interface `pluck_002` | Turn passes to you |
+| `game-start.wav` | Interface `confirmation_001` | Game starts |
+| `win.wav` | Interface `confirmation_004` | You win |
+| `lose.wav` | Interface `error_004` | You lose |
+
+Licenses: `KENNEY-LICENSE.txt`, `KENNEY-CASINO-LICENSE.txt`
 
 Credit (optional): Kenney.nl
