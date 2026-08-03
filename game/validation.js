@@ -107,12 +107,20 @@ function isDistinctIntArray(value, opts) {
  * because its ack callback never fires. Wrapping here means we can invoke the
  * ack with an error and keep every other client oblivious to the failure.
  *
+ * Also normalizes Socket.IO's ack-only emit shape: `socket.emit(event, cb)`
+ * arrives as a single function argument (the ack), not `(payload, cb)`.
+ *
  * @param {string} event Event name (for logs).
  * @param {(payload: object, cb?: Function) => any} handler The event handler.
  * @returns {(rawPayload?: unknown, cb?: unknown) => void}
  */
 function safeHandler(event, handler) {
   return function wrapped(rawPayload, cb) {
+    // socket.emit('event', ackOnly) -> first arg is the function, second is absent
+    if (typeof rawPayload === 'function') {
+      cb = rawPayload;
+      rawPayload = {};
+    }
     const payload = safePayload(rawPayload);
     const ack = typeof cb === 'function' ? cb : null;
     try {

@@ -1045,7 +1045,7 @@
 
   // ===================== PUBLIC ROOMS =====================
   function refreshPublicRooms() {
-    socket.emit('getPublicRooms', (rooms) => {
+    socket.emit('getPublicRooms', {}, (rooms) => {
       const list = $('public-rooms-list');
       list.innerHTML = '';
       if (!rooms || rooms.length === 0) {

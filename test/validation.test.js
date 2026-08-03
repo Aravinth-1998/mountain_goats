@@ -119,6 +119,20 @@ test('safeHandler passes the ack through when the handler returns normally', () 
   assert.deepEqual(ackCalledWith, { ok: true, value: 7 });
 });
 
+test('safeHandler treats a lone function arg as the ack (Socket.IO ack-only emit)', () => {
+  // Regression: socket.emit('getPublicRooms', cb) arrives as wrapped(cb) with no
+  // payload. Without this, the public-rooms list never updates after toggling Public.
+  let ackCalledWith = null;
+  let seenPayload = null;
+  const wrapped = safeHandler('ok', (payload, ack) => {
+    seenPayload = payload;
+    ack(['room-a']);
+  });
+  wrapped((r) => { ackCalledWith = r; });
+  assert.deepEqual(seenPayload, {});
+  assert.deepEqual(ackCalledWith, ['room-a']);
+});
+
 test('safeHandler ignores a non-function ack instead of calling it', () => {
   let handlerAck = 'sentinel';
   const wrapped = safeHandler('ok', (_payload, ack) => { handlerAck = ack; });
