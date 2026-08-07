@@ -371,6 +371,10 @@ html.mg-rejoining #screen-loading {
   min-height: 18px;
   text-align: center;
 }
+.online-count.is-pending {
+  color: var(--muted);
+  font-weight: 500;
+}
 .feedback-toggle,
 .haptics-toggle {
   background: rgba(255,255,255,0.06);

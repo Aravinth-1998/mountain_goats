@@ -1953,7 +1953,9 @@
   // Online player count
   socket.on('onlineCount', (count) => {
     const el = $('online-count');
-    if (el) el.textContent = `\u{1F7E2} ${count} player${count !== 1 ? 's' : ''} online`;
+    if (!el) return;
+    el.classList.remove('is-pending');
+    el.textContent = `\u{1F7E2} ${count} player${count !== 1 ? 's' : ''} online`;
   });
 
   socket.on('match-stats', (stats) => {
