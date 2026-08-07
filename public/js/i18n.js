@@ -4,8 +4,8 @@
  */
 (function (root) {
   const STORAGE_KEY = 'mg_locale';
-  const SUPPORTED_LOCALES = ['en'];
-  const LOCALE_LABELS = { en: 'English' };
+  const SUPPORTED_LOCALES = ['en', 'fr', 'de'];
+  const LOCALE_LABELS = { en: 'English', fr: 'Francais', de: 'Deutsch' };
 
   /** @type {Record<string, object>} */
   const catalogs = {};

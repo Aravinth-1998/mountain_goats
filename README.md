@@ -162,11 +162,11 @@ signed-in users rejoin with `mg_code` and their name from Supabase Auth metadata
 ```
 
 ## 🌐 Languages (i18n)
-UI copy lives in JSON catalogs under `public/i18n/`. English ships by default (`en.json`).
+UI copy lives in JSON catalogs under `public/i18n/`. Available: **English** (`en`), **Francais** (`fr`), **Deutsch** (`de`).
 
-To add a language (example French):
-1. Copy `public/i18n/en.json` to `public/i18n/fr.json` and translate values (keep the same keys).
-2. In `public/js/i18n.js`, add `'fr'` to `SUPPORTED_LOCALES` and a label in `LOCALE_LABELS` (e.g. `fr: 'Francais'`).
+To add another language:
+1. Copy `public/i18n/en.json` to `public/i18n/{code}.json` and translate values (keep the same keys).
+2. In `public/js/i18n.js`, add the code to `SUPPORTED_LOCALES` and a label in `LOCALE_LABELS`.
 3. Players pick the language in **Settings**. Choice is stored in `localStorage.mg_locale`.
 
 Server callbacks may send `errorKey` (preferred) plus an English `error` for logs/old clients; the UI translates via `errorKey`.
