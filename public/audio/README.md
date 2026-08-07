@@ -8,7 +8,7 @@ Clips are CC0 from Kenney:
 | File | Source | Game event |
 |------|--------|------------|
 | `ui-tap.wav` | Interface `click_001` | UI button tap |
-| `dice-roll.ogg` | Casino `dice-shake-2` | Dice roll |
+| `dice-roll.ogg` | Casino `dice-shake-2` (trimmed to 0.72s) | Dice roll |
 | `dice-adjust.ogg` | Casino `die-throw-1` | Re-face a die |
 | `summit.wav` | Interface `confirmation_002` | Reach summit / harvest |
 | `bump.ogg` | Casino `chips-collide-2` | Goat bumped |
