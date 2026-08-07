@@ -24,6 +24,7 @@
 const path = require('path');
 const fs = require('fs');
 const STATS_UNAVAILABLE_MSG = 'Data is not currently available.';
+const STATS_UNAVAILABLE_KEY = 'errors.statsUnavailable';
 const http = require('http');
 const express = require('express');
 const { Server } = require('socket.io');
@@ -111,11 +112,11 @@ app.get('/api/public-config', (req, res) => {
 
 app.post('/api/me/sync', async (req, res) => {
   if (!auth.isAuthConfigured()) {
-    return res.status(503).json({ error: 'Auth not configured' });
+    return res.status(503).json({ errorKey: 'errors.authNotConfigured', error: 'Auth not configured' });
   }
   const authHeader = req.headers.authorization || '';
   const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
-  if (!token) return res.status(401).json({ error: 'Missing token' });
+  if (!token) return res.status(401).json({ errorKey: 'errors.missingToken', error: 'Missing token' });
   try {
     const profile = await auth.syncAuthUser(token, db);
     console.log(`${auth.LOG_PREFIX} synced user ${profile.userId}`);
@@ -126,22 +127,22 @@ app.post('/api/me/sync', async (req, res) => {
     });
   } catch (err) {
     console.warn(`${auth.LOG_PREFIX} /api/me/sync failed:`, err.message);
-    res.status(401).json({ error: err.message || 'Invalid token' });
+    res.status(401).json({ errorKey: 'errors.invalidToken', error: err.message || 'Invalid token' });
   }
 });
 
 app.get('/api/me/stats', async (req, res) => {
   if (!auth.isAuthConfigured()) {
-    return res.status(503).json({ error: 'Auth not configured' });
+    return res.status(503).json({ errorKey: 'errors.authNotConfigured', error: 'Auth not configured' });
   }
   const authHeader = req.headers.authorization || '';
   const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
-  if (!token) return res.status(401).json({ error: 'Missing token' });
+  if (!token) return res.status(401).json({ errorKey: 'errors.missingToken', error: 'Missing token' });
   try {
     const payload = await auth.verifyAccessToken(token);
     const userId = payload.sub;
     if (!(await db.ensureConnected())) {
-      return res.status(503).json({ error: STATS_UNAVAILABLE_MSG });
+      return res.status(503).json({ errorKey: STATS_UNAVAILABLE_KEY, error: STATS_UNAVAILABLE_MSG });
     }
     const stats = await db.getMatchStats(userId);
     const emptyMode = { played: 0, won: 0, lost: 0 };
@@ -160,19 +161,19 @@ app.get('/api/me/stats', async (req, res) => {
     });
   } catch (err) {
     console.warn(`${auth.LOG_PREFIX} /api/me/stats failed:`, err.message);
-    res.status(401).json({ error: err.message || 'Invalid token' });
+    res.status(401).json({ errorKey: 'errors.invalidToken', error: err.message || 'Invalid token' });
   }
 });
 
 app.get('/api/leaderboard', async (req, res) => {
   if (!(await db.ensureConnected())) {
-    return res.status(503).json({ error: STATS_UNAVAILABLE_MSG });
+    return res.status(503).json({ errorKey: STATS_UNAVAILABLE_KEY, error: STATS_UNAVAILABLE_MSG });
   }
   try {
     const viewerId = String(req.query.viewerId || '').trim();
     const rows = await db.getLeaderboard(10);
     if (!rows) {
-      return res.status(503).json({ error: STATS_UNAVAILABLE_MSG });
+      return res.status(503).json({ errorKey: STATS_UNAVAILABLE_KEY, error: STATS_UNAVAILABLE_MSG });
     }
     const entries = rows.map((row, index) => {
       const entry = {
@@ -191,7 +192,7 @@ app.get('/api/leaderboard', async (req, res) => {
     res.json({ entries });
   } catch (err) {
     console.warn('[leaderboard] GET /api/leaderboard failed:', err.message);
-    res.status(503).json({ error: STATS_UNAVAILABLE_MSG });
+    res.status(503).json({ errorKey: STATS_UNAVAILABLE_KEY, error: STATS_UNAVAILABLE_MSG });
   }
 });
 
@@ -1301,7 +1302,7 @@ io.on('connection', (socket) => {
     const token = resolveSocketAccessToken(socket, accessToken);
     await ensureSocketAuthLight(socket, token);
     name = auth.resolvePlayerName(socket, name);
-    if (!name) return cb && cb({ error: 'Please enter your name.' });
+    if (!name) return cb && cb({ errorKey: 'errors.nameRequired', error: 'Please enter your name.' });
     const room = createRoom({ isPublic, maxPlayers });
     socket.join(room.code);
     const player = addPlayer(room, socket.id, name, false, socket.authUserId);
@@ -1321,8 +1322,8 @@ io.on('connection', (socket) => {
     name = auth.resolvePlayerName(socket, name);
     code = String(code || '').trim().slice(0, 4);
     const room = rooms[code];
-    if (!room) return cb && cb({ error: 'Room not found.' });
-    if (!name) return cb && cb({ error: 'Please enter your name.' });
+    if (!room) return cb && cb({ errorKey: 'errors.roomNotFound', error: 'Room not found.' });
+    if (!name) return cb && cb({ errorKey: 'errors.nameRequired', error: 'Please enter your name.' });
 
     // Reconnect path:
     // Match by auth id (signed-in) or guest name. Handles page-refresh race.
@@ -1392,10 +1393,10 @@ io.on('connection', (socket) => {
       return;
     }
 
-    if (room.started) return cb && cb({ error: 'Game already started.' });
-    if (room.players.length >= room.maxPlayers) return cb && cb({ error: 'Room is full.' });
+    if (room.started) return cb && cb({ errorKey: 'errors.gameAlreadyStarted', error: 'Game already started.' });
+    if (room.players.length >= room.maxPlayers) return cb && cb({ errorKey: 'errors.roomFull', error: 'Room is full.' });
     if (isPlayerIdentityTaken(room, socket, name)) {
-      return cb && cb({ error: 'Name already taken in this room.' });
+      return cb && cb({ errorKey: 'errors.nameTaken', error: 'Name already taken in this room.' });
     }
     socket.join(room.code);
     const player = addPlayer(room, socket.id, name, false, socket.authUserId);
@@ -1423,17 +1424,17 @@ io.on('connection', (socket) => {
 
   socket.on('setPlayerColor', safeHandler('setPlayerColor', ({ color, playerId }, cb) => {
     const room = findRoomBySocket(socket.id);
-    if (!room || room.started) return cb && cb({ error: 'Cannot change colour now.' });
+    if (!room || room.started) return cb && cb({ errorKey: 'errors.colorLocked', error: 'Cannot change colour now.' });
     const knownColors = new Set([...PLAYER_COLORS, ...TEAM_PALETTES.flat()]);
-    if (!color || !knownColors.has(color)) return cb && cb({ error: 'Invalid colour.' });
+    if (!color || !knownColors.has(color)) return cb && cb({ errorKey: 'errors.colorInvalid', error: 'Invalid colour.' });
     const targetId = playerId || socket.id;
     const target = room.players.find((p) => p.id === targetId);
-    if (!target) return cb && cb({ error: 'Player not found.' });
-    if (targetId !== socket.id && room.hostId !== socket.id) return cb && cb({ error: 'Not allowed.' });
-    if (targetId === socket.id && target.isBot) return cb && cb({ error: 'Not allowed.' });
+    if (!target) return cb && cb({ errorKey: 'errors.playerNotFound', error: 'Player not found.' });
+    if (targetId !== socket.id && room.hostId !== socket.id) return cb && cb({ errorKey: 'errors.notAllowed', error: 'Not allowed.' });
+    if (targetId === socket.id && target.isBot) return cb && cb({ errorKey: 'errors.notAllowed', error: 'Not allowed.' });
     const allowed = getAllowedColorsForPlayer(room, targetId);
-    if (!allowed.includes(color)) return cb && cb({ error: 'Colour not available for this team.' });
-    if (room.players.some((p) => p.id !== targetId && p.color === color)) return cb && cb({ error: 'Colour already taken.' });
+    if (!allowed.includes(color)) return cb && cb({ errorKey: 'errors.colorTeam', error: 'Colour not available for this team.' });
+    if (room.players.some((p) => p.id !== targetId && p.color === color)) return cb && cb({ errorKey: 'errors.colorTaken', error: 'Colour already taken.' });
     if (target.color === color) return cb && cb({ ok: true });
     target.color = color;
     broadcast(room);

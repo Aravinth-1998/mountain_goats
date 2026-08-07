@@ -5,14 +5,16 @@
   const GameModes = root.GameModes;
   if (!GameModes) return;
 
-  const PLACE_PHRASES = [
-    'You are the real GOAT!',
-    'Almost claimed the summit',
-    'Solid climb - keep hoofing',
-    'The mountain remembers',
-    'Every goat starts at base',
-    "Next summit's yours",
-  ];
+  /**
+   * Translate a catalog key (falls back to the key).
+   *
+   * @param {string} key Dotted catalog key.
+   * @param {Record<string, string|number>} [vars] Interpolation values.
+   * @returns {string}
+   */
+  function t(key, vars) {
+    return root.t ? root.t(key, vars) : key;
+  }
 
   /**
    * Winner slots in standard mode: 1 for 2-4 players, 2 for 5-7, 3 for 8-10.
@@ -44,8 +46,8 @@
    */
   function formatWinnerNames(names) {
     if (names.length <= 1) return names[0] || '';
-    if (names.length === 2) return `${names[0]} and ${names[1]}`;
-    return `${names.slice(0, -1).join(', ')}, and ${names[names.length - 1]}`;
+    if (names.length === 2) return `${names[0]} ${t('win.and')} ${names[1]}`;
+    return `${names.slice(0, -1).join(', ')}${t('win.listAnd')}${names[names.length - 1]}`;
   }
 
   /**
@@ -66,7 +68,7 @@
    * @returns {string}
    */
   function roomsListLabel(room) {
-    return '🎯 Solo';
+    return t('mode.standardRoomsList');
   }
 
   /**
@@ -101,7 +103,7 @@
    * @returns {string}
    */
   function lobbyReadyHint(state, amHost) {
-    return 'Ready when you are!';
+    return t('lobby.hintReady');
   }
 
   /**
@@ -114,9 +116,18 @@
     const standings = sorted.map((p, i) => {
       const prefix = scoreRankPrefix(i, slots);
       if (p.bonusPoints > 0) {
-        return `${prefix} ${p.name}: ${p.bonusPoints} ✨ · ${p.score} ⭐`;
+        return t('share.standingBonus', {
+          prefix,
+          name: p.name,
+          bonus: `${p.bonusPoints} ✨`,
+          score: `${p.score} ⭐`,
+        });
       }
-      return `${prefix} ${p.name}: ${p.score} ⭐`;
+      return t('share.standing', {
+        prefix,
+        name: p.name,
+        score: `${p.score} ⭐`,
+      });
     }).join('\n');
 
     const winnerIds = state.winnerPlayerIds && state.winnerPlayerIds.length
@@ -125,11 +136,13 @@
     const winners = winnerIds
       .map((id) => state.players.find((p) => p.id === id))
       .filter(Boolean);
-    let winnerLine = 'Game over!';
+    let winnerLine = t('share.gameOver');
     if (winners.length >= 2) {
-      winnerLine = `${formatWinnerNames(winners.map((p) => p.name))} win!`;
+      winnerLine = t('share.namesWin', {
+        names: formatWinnerNames(winners.map((p) => p.name)),
+      });
     } else if (winners.length === 1) {
-      winnerLine = `${winners[0].name} wins!`;
+      winnerLine = t('share.nameWins', { name: winners[0].name });
     }
     return { standings, winnerLine };
   }
@@ -223,11 +236,11 @@
    * @returns {string}
    */
   function catchphrase(rankIndex, winnerSlots) {
-    if (rankIndex === 0) return PLACE_PHRASES[0];
-    if (rankIndex === 1 && winnerSlots >= 2) return 'Shared summit!';
-    if (rankIndex === 2 && winnerSlots >= 3) return 'Podium finish!';
-    if (rankIndex >= 0 && rankIndex < PLACE_PHRASES.length) return PLACE_PHRASES[rankIndex];
-    return PLACE_PHRASES[PLACE_PHRASES.length - 1];
+    if (rankIndex === 0) return t('win.phrase0');
+    if (rankIndex === 1 && winnerSlots >= 2) return t('win.sharedSummit');
+    if (rankIndex === 2 && winnerSlots >= 3) return t('win.podiumFinish');
+    if (rankIndex >= 0 && rankIndex <= 5) return t('win.phrase' + rankIndex);
+    return t('win.phrase5');
   }
 
   /**
@@ -263,17 +276,19 @@
 
     if (rankIndex < 0) {
       resetWinHeadChrome();
-      if (localWon) titleEl.textContent = 'You Win! 🎉';
+      if (localWon) titleEl.textContent = t('win.youWin') + ' 🎉';
       else if (winnerSlots >= 2 && sorted.length >= winnerSlots) {
         const names = sorted.slice(0, winnerSlots).map((p) => p.name);
-        titleEl.textContent = `${formatWinnerNames(names)} Win!`;
+        titleEl.textContent = t('win.namesWin', { names: formatWinnerNames(names) });
       } else {
-        titleEl.textContent = winner ? `${winner.name} Wins!` : 'Game Over!';
+        titleEl.textContent = winner
+          ? t('win.nameWins', { name: winner.name })
+          : t('win.gameOver');
       }
     } else {
       if (placeEl) {
         placeEl.hidden = false;
-        placeEl.textContent = ordinalPlace(rankIndex + 1) + ' place';
+        placeEl.textContent = t('win.place', { place: ordinalPlace(rankIndex + 1) });
       }
       titleEl.textContent = catchphrase(rankIndex, winnerSlots);
       if (trophy) {
@@ -284,7 +299,10 @@
       if (outcomeEl) {
         if (!localWon && winner) {
           outcomeEl.hidden = false;
-          outcomeEl.textContent = winner.name + ' won with ' + winner.score + ' pts';
+          outcomeEl.textContent = t('win.outcomePts', {
+            name: winner.name,
+            score: winner.score,
+          });
         } else {
           outcomeEl.hidden = true;
           outcomeEl.textContent = '';
@@ -310,9 +328,9 @@
         const topTops = winner.tops;
         const tiedOnTops = tied.filter((p) => p.tops === topTops);
         if (tiedOnTops.length > 1) {
-          tieNote = `<div class="tiebreak win-extra" style="--i:${extraIdx++}">🏔️ Tie broken by goat on the higher-numbered mountain.</div>`;
+          tieNote = `<div class="tiebreak win-extra" style="--i:${extraIdx++}">🏔️ ${t('win.tieHigherMountain')}</div>`;
         } else {
-          tieNote = `<div class="tiebreak win-extra" style="--i:${extraIdx++}">👑 Tie broken by most goats on mountain tops.</div>`;
+          tieNote = `<div class="tiebreak win-extra" style="--i:${extraIdx++}">👑 ${t('win.tieMostTops')}</div>`;
         }
       }
     }
@@ -324,7 +342,7 @@
 
   GameModes.register({
     id: 'standard',
-    label: 'Standard',
+    get label() { return t('mode.standard'); },
     usesTeams: false,
     roomsListLabel,
     didPlayerWin,

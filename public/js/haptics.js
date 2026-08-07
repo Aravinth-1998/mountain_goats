@@ -58,14 +58,27 @@
   }
 
   /**
+   * Localized haptics toggle label.
+   *
+   * @param {boolean} on Whether haptics are enabled.
+   * @returns {string}
+   */
+  function hapticsToggleLabel(on) {
+    const key = on ? 'settings.hapticsOn' : 'settings.hapticsOff';
+    return window.t ? window.t(key) : (on ? 'Haptics on' : 'Haptics off');
+  }
+
+  /**
    * @param {boolean} on
    * @returns {void}
    */
   function syncToggleButtons(on) {
+    const label = hapticsToggleLabel(on);
     document.querySelectorAll('[data-haptics-toggle]').forEach((button) => {
       button.setAttribute('aria-pressed', on ? 'true' : 'false');
       button.classList.toggle('is-off', !on);
-      button.title = on ? 'Haptics on' : 'Haptics off';
+      button.title = label;
+      button.setAttribute('aria-label', label);
     });
   }
 
@@ -166,6 +179,10 @@
         setEnabled(!enabled);
         if (enabled) trigger({ type: 'ui_tap', self: true });
       });
+    });
+
+    document.addEventListener('mg:localechange', () => {
+      syncToggleButtons(enabled);
     });
   }
 

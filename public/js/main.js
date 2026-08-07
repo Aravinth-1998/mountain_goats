@@ -28,6 +28,34 @@
     reconnectionAttempts: Infinity,
   });
 
+  if (window.MgI18n) await window.MgI18n.ready;
+
+  /** Translate catalog key or return key. */
+  const t = (k, v) => (window.t ? window.t(k, v) : k);
+  /** Plural helper when available. */
+  const tPlural = (k, count, v) => (window.tPlural ? window.tPlural(k, count, v) : k);
+  /**
+   * Map server error payloads to translated strings.
+   * @param {{errorKey?: string, error?: string}|null|undefined} res
+   * @param {string} [fallbackKey]
+   * @returns {string}
+   */
+  const formatServerError = (res, fallbackKey) => (
+    window.MgI18n
+      ? window.MgI18n.formatServerError(res, fallbackKey)
+      : ((res && res.error) || t(fallbackKey || 'errors.generic'))
+  );
+
+  /** @type {number|null} */
+  let lastOnlineCount = null;
+
+  {
+    const onlineEl = document.getElementById('online-count');
+    if (onlineEl && onlineEl.classList.contains('is-pending')) {
+      onlineEl.textContent = t('home.connecting');
+    }
+  }
+
   function disconnectSocketOnUnload() {
     socket.io.reconnection(false);
     socket.disconnect();
@@ -518,10 +546,10 @@
   }
   function lobbyPlayerEndIconHtml(p) {
     if (p.id === state.hostId) {
-      return `<span class="host-icon" title="Host">👑</span>`;
+      return `<span class="host-icon" title="${escapeHtml(t('lobby.hostTitle'))}">👑</span>`;
     }
     if (p.isBot) {
-      return `<span class="player-type-icon bot" title="Bot">🤖</span>`;
+      return `<span class="player-type-icon bot" title="${escapeHtml(t('lobby.botTitle'))}">🤖</span>`;
     }
     return '';
   }
@@ -531,7 +559,7 @@
   function lobbySwatchHtml(p) {
     const clickable = canPickLobbyColor(p) ? ' swatch-clickable' : '';
     const title = clickable
-      ? (p.id === myId ? 'Change colour' : `Change ${p.name}'s colour`)
+      ? (p.id === myId ? t('lobby.changeColourSelf') : t('lobby.changeColourOther', { name: p.name }))
       : '';
     const pen = clickable
       ? '<span class="swatch-edit" aria-hidden="true">&#9999;&#65039;</span>'
@@ -540,7 +568,7 @@
   }
   function lobbyWinsBadgeHtml(p) {
     if (typeof p.totalWins === 'number' && p.totalWins > 0) {
-      return `<span class="badge wins" title="${p.totalWins} overall win${p.totalWins === 1 ? '' : 's'}">&#127942; ${p.totalWins}</span>`;
+      return `<span class="badge wins" title="${escapeHtml(tPlural('lobby.winsTitle', p.totalWins, { n: p.totalWins }))}">&#127942; ${p.totalWins}</span>`;
     }
     return '';
   }
@@ -578,7 +606,7 @@
       const { row, html, title, amHost } = teamPickerRestore;
       row.innerHTML = html;
       row.classList.remove('team-picker-source', 'team-move-bar');
-      row.title = title || 'Change team';
+      row.title = title || t('lobby.changeTeam');
       row.querySelectorAll('.kick-btn, .team-switch-btn').forEach((btn) => btn.remove());
       const p = state && state.players.find((pl) => pl.id === row.dataset.playerId);
       if (p) {
@@ -610,7 +638,7 @@
     closeColorPicker();
     socket.emit('setPlayerColor', { color, playerId }, (res) => {
       colorApplyLock = false;
-      if (res && res.error) toast(res.error);
+      if (res && res.error) toast(formatServerError(res));
     });
   }
   function openColorPicker(anchor, p) {
@@ -698,7 +726,7 @@
     const x = document.createElement('button');
     x.className = 'kick-btn';
     x.textContent = '✕';
-    x.title = p.isBot ? 'Remove bot' : 'Kick player';
+    x.title = p.isBot ? t('lobby.removeBot') : t('lobby.kickPlayer');
     x.addEventListener('click', () => socket.emit('kickPlayer', { id: p.id }));
     end.appendChild(x);
   }
@@ -718,8 +746,8 @@
     btn.type = 'button';
     btn.className = 'team-switch-btn';
     btn.textContent = '⇄';
-    btn.title = 'Change team';
-    btn.setAttribute('aria-label', `Change team for ${p.name}`);
+    btn.title = t('lobby.changeTeam');
+    btn.setAttribute('aria-label', t('lobby.changeTeamFor', { name: p.name }));
     btn.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
@@ -753,6 +781,38 @@
   let leaderboardFetchedAt = 0;
   const LEADERBOARD_REFRESH_MS = 60000;
 
+  // ===================== SETTINGS LOCALE =====================
+  (function wireSettingsLocale() {
+    const sel = $('settings-locale');
+    if (!sel || !window.MgI18n) return;
+    sel.innerHTML = '';
+    window.MgI18n.getSupportedLocales().forEach((code) => {
+      const opt = document.createElement('option');
+      opt.value = code;
+      opt.textContent = window.MgI18n.getLocaleLabel(code);
+      sel.appendChild(opt);
+    });
+    sel.value = window.MgI18n.getLocale();
+    sel.addEventListener('change', () => {
+      window.MgI18n.setLocale(sel.value);
+    });
+  })();
+
+  document.addEventListener('mg:localechange', () => {
+    if (lastOnlineCount != null) updateOnlineCountDisplay(lastOnlineCount);
+    else {
+      const el = $('online-count');
+      if (el && el.classList.contains('is-pending')) el.textContent = t('home.connecting');
+    }
+    const sel = $('settings-locale');
+    if (sel && window.MgI18n) sel.value = window.MgI18n.getLocale();
+    if (state) {
+      try {
+        if ($('screen-lobby') && $('screen-lobby').classList.contains('active')) renderLobby();
+        if ($('screen-game') && $('screen-game').classList.contains('active')) renderGame();
+      } catch (e) { /* ignore refresh glitches */ }
+    }
+  });
   // ===================== HOW TO PLAY / OVERLAYS =====================
   document.querySelectorAll('.rules-toggle-btn').forEach((btn) => {
     btn.addEventListener('click', () => {
@@ -908,7 +968,7 @@
    * @returns {string}
    */
   function leaderboardAvatarFallback(name) {
-    const encoded = encodeURIComponent(name || 'Player');
+    const encoded = encodeURIComponent(name || t('common.player'));
     return `https://ui-avatars.com/api/?name=${encoded}&background=4f7cff&color=fff&size=56`;
   }
 
@@ -958,7 +1018,7 @@
 
       const name = document.createElement('span');
       name.className = 'leaderboard-name';
-      name.textContent = entry.name || 'Player';
+      name.textContent = entry.name || t('leaderboard.playerFallback');
 
       const wins = document.createElement('span');
       wins.className = 'leaderboard-wins';
@@ -994,11 +1054,11 @@
     errorEl.textContent = '';
     if (headerEl) headerEl.hidden = true;
     list.innerHTML = '';
-    const loader = window.MGUi && window.MGUi.createInlineLoader('Loading leaderboard...');
+    const loader = window.MGUi && window.MGUi.createInlineLoader(t('leaderboard.loading'));
     if (loader) {
       list.appendChild(loader);
     } else {
-      list.innerHTML = '<p class="leaderboard-loading">Loading leaderboard...</p>';
+      list.innerHTML = '<p class="leaderboard-loading">' + t('leaderboard.loading') + '</p>';
     }
 
     let url = '/api/leaderboard';
@@ -1015,7 +1075,9 @@
       if (!res.ok) {
         list.innerHTML = '';
         if (headerEl) headerEl.hidden = false;
-        errorEl.textContent = data.error || 'Data is not currently available.';
+        errorEl.textContent = (data && (data.errorKey || data.error))
+          ? formatServerError(data, 'leaderboard.unavailable')
+          : t('leaderboard.unavailable');
         errorEl.hidden = false;
         return;
       }
@@ -1024,7 +1086,7 @@
     } catch (err) {
       list.innerHTML = '';
       if (headerEl) headerEl.hidden = false;
-      errorEl.textContent = 'Data is not currently available.';
+      errorEl.textContent = t('leaderboard.unavailable');
       errorEl.hidden = false;
     }
   }
@@ -1047,7 +1109,7 @@
       const payload = await buildRoomPayload({ name });
       socket.emit('createRoom', payload, (res) => {
         clearHomeLoading();
-        if (res.error) return ($('home-error').textContent = res.error);
+        if (res.error) return ($('home-error').textContent = formatServerError(res));
         leftRoom = false;
         scorecardHold = false;
         waitingForLobbyAfterDismiss = false;
@@ -1057,7 +1119,7 @@
       });
     } catch (err) {
       clearHomeLoading();
-      $('home-error').textContent = 'Could not create room. Please try again.';
+      $('home-error').textContent = t('errors.createFailed');
       console.error('[main] createRoom failed:', err);
     }
   });
@@ -1091,17 +1153,17 @@
   $('btn-join').addEventListener('click', async () => {
     const name = getPlayName();
     const code = String($('join-code').value || '').trim().slice(0, 4);
-    if (!name) return ($('join-error').textContent = 'Please enter your name on the home screen.');
-    if (!code || code.length < 4) return ($('join-error').textContent = 'Please enter the 4-digit room code.');
+    if (!name) return ($('join-error').textContent = t('errors.joinNeedName'));
+    if (!code || code.length < 4) return ($('join-error').textContent = t('errors.joinNeedCode'));
     $('join-error').textContent = '';
     $('btn-join').disabled = true;
-    $('btn-join').innerHTML = '<span class="spin">⏳</span> Joining…';
+    $('btn-join').innerHTML = '<span class="spin">⏳</span> ' + t('join.joining');
     try {
       const payload = await buildRoomPayload({ name, code });
       socket.emit('joinRoom', payload, (res) => {
         $('btn-join').disabled = false;
-        $('btn-join').textContent = 'Join Room';
-        if (res.error) return ($('join-error').textContent = res.error);
+        $('btn-join').textContent = t('join.joinRoom');
+        if (res.error) return ($('join-error').textContent = formatServerError(res));
         leftRoom = false;
         scorecardHold = false;
         waitingForLobbyAfterDismiss = false;
@@ -1111,8 +1173,8 @@
       });
     } catch (err) {
       $('btn-join').disabled = false;
-      $('btn-join').textContent = 'Join Room';
-      $('join-error').textContent = 'Could not join room. Please try again.';
+      $('btn-join').textContent = t('join.joinRoom');
+      $('join-error').textContent = t('errors.joinFailed');
       console.error('[main] joinRoom failed:', err);
     }
   });
@@ -1123,14 +1185,14 @@
     $('btn-create').disabled = true;
     $('btn-goto-join').disabled = true;
     $('home-error').textContent = '';
-    if (which === 'create') $('btn-create').innerHTML = '<span class="spin">⏳</span> Creating…';
+    if (which === 'create') $('btn-create').innerHTML = '<span class="spin">⏳</span> ' + t('home.creating');
   }
   function clearHomeLoading() {
     const actions = document.querySelector('.home-actions');
     if (actions) actions.classList.remove('is-loading');
     $('btn-create').disabled = false;
     $('btn-goto-join').disabled = false;
-    $('btn-create').textContent = 'Create Room';
+    $('btn-create').textContent = t('home.createRoom');
   }
 
   // ===================== PUBLIC ROOMS =====================
@@ -1139,7 +1201,7 @@
       const list = $('public-rooms-list');
       list.innerHTML = '';
       if (!rooms || rooms.length === 0) {
-        list.innerHTML = '<p class="muted center">No public rooms available right now.</p>';
+        list.innerHTML = '<p class="muted center">' + t('join.noPublicRooms') + '</p>';
         return;
       }
       rooms.forEach((r) => {
@@ -1149,15 +1211,15 @@
         card.innerHTML = `
           <div class="pr-info">
             <span class="pr-host">🐐 ${escapeHtml(r.hostName)}</span>
-            <span class="pr-meta">${r.playerCount}/${r.maxPlayers} players · ${GameModes.getModeForState(r).roomsListLabel(r)}</span>
+            <span class="pr-meta">${t('join.playersMeta', { n: r.playerCount, max: r.maxPlayers, mode: GameModes.getModeForState(r).roomsListLabel(r) })}</span>
           </div>
-          <button class="btn btn-join btn-sm pr-join" ${full ? 'disabled' : ''} data-code="${r.code}">${full ? 'Full' : 'Join'}</button>
+          <button class="btn btn-join btn-sm pr-join" ${full ? 'disabled' : ''} data-code="${r.code}">${full ? t('join.full') : t('join.join')}</button>
         `;
         const joinBtn = card.querySelector('.pr-join');
         if (!full) {
           joinBtn.addEventListener('click', async () => {
             const name = getPlayName();
-            if (!name) return ($('join-error').textContent = 'Please enter your name on the home screen.');
+            if (!name) return ($('join-error').textContent = t('errors.joinNeedName'));
             $('join-error').textContent = '';
             joinBtn.disabled = true;
             joinBtn.innerHTML = '<span class="spin">⏳</span>';
@@ -1165,8 +1227,8 @@
               const payload = await buildRoomPayload({ name, code: r.code });
               socket.emit('joinRoom', payload, (res) => {
                 joinBtn.disabled = false;
-                joinBtn.textContent = 'Join';
-                if (res.error) return ($('join-error').textContent = res.error);
+                joinBtn.textContent = t('join.join');
+                if (res.error) return ($('join-error').textContent = formatServerError(res));
                 leftRoom = false;
                 scorecardHold = false;
                 waitingForLobbyAfterDismiss = false;
@@ -1176,8 +1238,8 @@
               });
             } catch (err) {
               joinBtn.disabled = false;
-              joinBtn.textContent = 'Join';
-              $('join-error').textContent = 'Could not join room. Please try again.';
+              joinBtn.textContent = t('join.join');
+              $('join-error').textContent = t('errors.joinFailed');
               console.error('[main] public joinRoom failed:', err);
             }
           });
@@ -1305,9 +1367,9 @@
 
   function askLeave(inGame) {
     const heading = document.querySelector('#leave-overlay h2');
-    if (heading) heading.textContent = inGame ? 'Leave the game?' : 'Leave the lobby?';
+    if (heading) heading.textContent = inGame ? t('leave.gameTitle') : t('leave.lobbyTitle');
     $('leave-msg').textContent = inGame
-      ? 'Your goats will stay put, but your turn will be skipped.'
+      ? t('leave.gameBody')
       : '';
     $('leave-overlay').classList.add('show');
   }
@@ -1316,9 +1378,9 @@
     if (!state) return;
     const code = state.code;
     if (navigator.clipboard) {
-      navigator.clipboard.writeText(code).then(() => toast(`Room code ${code} copied!`));
+      navigator.clipboard.writeText(code).then(() => toast(t('toast.roomCodeCopied', { code })));
     } else {
-      toast('Room code: ' + code);
+      toast(t('toast.roomCode', { code }));
     }
   }
 
@@ -1449,7 +1511,7 @@
     const share = currentMode().shareLines(state);
     const standings = share.standings;
 
-    const text = `${standings}\n\nPlay at: ${location.origin}`;
+    const text = `${standings}\n\n${t('share.playAt', { origin: location.origin })}`;
 
     // Try to capture the overlay card as an image
     const overlayCard = document.querySelector('#win-overlay .overlay-card');
@@ -1482,7 +1544,7 @@
           const file = new File([blob], 'mountain-goats-result.png', { type: 'image/png' });
           if (navigator.canShare && navigator.canShare({ files: [file] })) {
             navigator.share({
-              title: 'Mountain Goats Result',
+              title: t('share.resultTitle'),
               text: text,
               files: [file],
             }).catch(() => shareTextOnly(text));
@@ -1506,9 +1568,9 @@
 
   function shareTextOnly(text) {
     if (navigator.share) {
-      navigator.share({ title: 'Mountain Goats Result', text }).catch(() => {});
+      navigator.share({ title: t('share.resultTitle'), text }).catch(() => {});
     } else if (navigator.clipboard) {
-      navigator.clipboard.writeText(text).then(() => toast('Result copied! 📋'));
+      navigator.clipboard.writeText(text).then(() => toast(t('toast.resultCopied')));
     } else {
       toast(text.split('\n')[0]);
     }
@@ -1520,20 +1582,20 @@
       link.download = 'mountain-goats-result.png';
       link.href = canvas.toDataURL('image/png');
       link.click();
-      toast('Image saved! 📸');
+      toast(t('toast.imageSaved'));
     } catch (e) { /* ignore */ }
   }
 
   function shareRoom() {
     if (!state) return;
     const inviteUrl = buildInviteUrl(state.code);
-    const text = `Join my Mountain Goats game!\nRoom code: ${state.code}\n${inviteUrl}`;
+    const text = t('share.inviteBody', { code: state.code, url: inviteUrl });
     if (navigator.share) {
       navigator.share({ title: 'Mountain Goats', text, url: inviteUrl }).catch(() => {});
     } else if (navigator.clipboard) {
-      navigator.clipboard.writeText(inviteUrl).then(() => toast('Invite link copied!'));
+      navigator.clipboard.writeText(inviteUrl).then(() => toast(t('toast.inviteCopied')));
     } else {
-      toast('Room code: ' + state.code);
+      toast(t('toast.roomCode', { code: state.code }));
     }
   }
   let leftRoom = false; // flag to ignore state broadcasts after leaving
@@ -1664,7 +1726,7 @@
         return;
       }
       waitingForLobbyAfterDismiss = true;
-      toast('Waiting for the host to open the lobby…');
+      toast(t('toast.waitHostLobby'));
       updateFinishedGameChrome();
       return;
     }
@@ -1838,7 +1900,9 @@
           localStorage.removeItem('mg_name');
           // Keep the scorecard if we already have a finished game locally (and not dismissed).
           if (state && state.finished && !isScorecardDone(code)) {
-            toast((res && res.error) ? res.error : 'Room closed. You can still view the result.');
+            toast((res && (res.errorKey || res.error))
+              ? formatServerError(res, 'toast.roomClosed')
+              : t('toast.roomClosed'));
             const overlay = $('win-overlay');
             if (overlay && !overlay.classList.contains('show')) showWin();
           } else if (!(state && state.finished && scorecardHold)) {
@@ -1926,8 +1990,8 @@
     localStorage.removeItem('mg_name');
     hideWinOverlay();
     show('home');
-    const hostName = (data && data.hostName) ? data.hostName : 'The host';
-    toast(`${hostName} kicked you from the room.`);
+    const hostName = (data && data.hostName) ? data.hostName : t('toast.hostFallback');
+    toast(t('toast.kicked', { hostName }));
   });
 
   // ===================== SOCKET =====================
@@ -1950,12 +2014,22 @@
     }
   });
 
-  // Online player count
-  socket.on('onlineCount', (count) => {
+  /**
+   * Paint the home online-count status from a cached or fresh count.
+   * @param {number} count Online players.
+   * @returns {void}
+   */
+  function updateOnlineCountDisplay(count) {
+    lastOnlineCount = count;
     const el = $('online-count');
     if (!el) return;
     el.classList.remove('is-pending');
-    el.textContent = `\u{1F7E2} ${count} player${count !== 1 ? 's' : ''} online`;
+    el.textContent = '\u{1F7E2} ' + tPlural('home.playersOnline', count, { count });
+  }
+
+  // Online player count
+  socket.on('onlineCount', (count) => {
+    updateOnlineCountDisplay(count);
   });
 
   socket.on('match-stats', (stats) => {
@@ -2131,7 +2205,7 @@
 
     const label = document.createElement('span');
     label.className = 'team-move-label';
-    label.textContent = player ? `Move ${player.name} to` : 'Move to';
+    label.textContent = player ? t('lobby.movePlayerTo', { name: player.name }) : t('lobby.moveTo');
     anchorRow.appendChild(label);
 
     const choices = document.createElement('div');
@@ -2142,7 +2216,7 @@
       chip.className = 'team-move-chip';
       chip.style.setProperty('--tc', team.color);
       chip.textContent = team.name.charAt(0).toUpperCase();
-      chip.title = `Team ${team.name}`;
+      chip.title = t('lobby.teamTitle', { name: team.name });
       chip.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -2157,7 +2231,7 @@
     closeBtn.type = 'button';
     closeBtn.className = 'team-move-close';
     closeBtn.textContent = '✕';
-    closeBtn.setAttribute('aria-label', 'Cancel');
+    closeBtn.setAttribute('aria-label', t('common.cancel'));
     closeBtn.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
@@ -2203,7 +2277,7 @@
     const movable = canMoveTeamPlayer(p.id, amHost) && state.teams && state.teams.length > 0;
     if (movable) {
       li.classList.add('team-movable');
-      li.title = 'Change team';
+      li.title = t('lobby.changeTeam');
     }
     return li;
   }
@@ -2226,8 +2300,8 @@
     const header = document.createElement('div');
     header.className = 'team-band-header';
     header.innerHTML = `<span class="team-dot" style="background:${team.color}"></span>
-      <span class="team-label">Team ${escapeHtml(team.name)}</span>
-      <span class="team-count">${team.members.length} player${team.members.length !== 1 ? 's' : ''}</span>`;
+      <span class="team-label">${escapeHtml(t('lobby.teamLabel', { name: team.name }))}</span>
+      <span class="team-count">${escapeHtml(tPlural('lobby.playerCount', team.members.length, { n: team.members.length }))}</span>`;
     band.appendChild(header);
 
     const members = document.createElement('ul');
@@ -2257,14 +2331,14 @@
     const header = document.createElement('div');
     header.className = 'team-band-header';
     header.innerHTML = `<span class="team-dot" style="background:#666"></span>
-      <span class="team-label">Unassigned</span>
-      <span class="team-count">${unassigned.length} player${unassigned.length !== 1 ? 's' : ''}</span>`;
+      <span class="team-label">${escapeHtml(t('lobby.unassigned'))}</span>
+      <span class="team-count">${escapeHtml(tPlural('lobby.playerCount', unassigned.length, { n: unassigned.length }))}</span>`;
     band.appendChild(header);
 
     const members = document.createElement('ul');
     members.className = 'team-band-members';
     unassigned.forEach((p) => {
-      members.appendChild(buildTeamMemberRow(p, null, amHost, '<span class="badge">UNASSIGNED</span>'));
+      members.appendChild(buildTeamMemberRow(p, null, amHost, '<span class="badge">' + escapeHtml(t('lobby.unassignedBadge')) + '</span>'));
     });
     band.appendChild(members);
     return band;
@@ -2374,16 +2448,16 @@
     startBtn.disabled = state.players.length < 2 || teamsUnequal;
     if (amHost) {
       if (state.players.length < 2) {
-        $('lobby-hint').textContent = 'Add a bot or wait for a friend to join.';
+        $('lobby-hint').textContent = t('lobby.hintAddBot');
       } else if (teamsUnequal) {
-        $('lobby-hint').textContent = 'Teams must be equal to start!';
+        $('lobby-hint').textContent = t('lobby.hintTeamsUnequal');
         $('lobby-hint').style.color = 'var(--danger)';
       } else {
         $('lobby-hint').textContent = currentMode().lobbyReadyHint(state, amHost);
         $('lobby-hint').style.color = '';
       }
     } else {
-      $('lobby-hint').textContent = 'Waiting for the host to start…';
+      $('lobby-hint').textContent = t('lobby.hintWaitHost');
       $('lobby-hint').style.color = '';
     }
   }
@@ -2463,24 +2537,26 @@
   function renderTurnBanner() {
     const banner = $('turn-banner');
     if (state && state.finished) {
-      banner.textContent = 'Game over';
+      banner.textContent = t('game.gameOver');
       banner.classList.remove('my-turn');
       banner.classList.remove('final');
       return;
     }
     const cur = state.players[state.currentIndex];
     if (!cur) { banner.textContent = '—'; return; }
-    const finalTag = state.lastRound ? '🔔 Final · ' : '';
+    const finalTag = state.lastRound ? ('🔔 ' + t('game.finalPrefix')) : '';
     if (isMyTurn()) {
-      banner.textContent = finalTag + '🎯 Your turn!';
+      banner.textContent = finalTag + t('game.yourTurn');
       banner.classList.add('my-turn');
       banner.classList.remove('final');
     } else if (!cur.connected && !cur.isBot) {
-      banner.textContent = `${finalTag}🤖 Auto-playing for ${cur.name}…`;
+      banner.textContent = finalTag + t('game.autoPlaying', { name: cur.name });
       banner.classList.remove('my-turn');
       banner.classList.toggle('final', !!state.lastRound);
     } else {
-      banner.textContent = `${finalTag}${cur.name}${cur.isBot ? ' 🤖' : ''}'s turn`;
+      banner.textContent = finalTag + t('game.theirTurn', {
+        name: cur.name + (cur.isBot ? ' 🤖' : ''),
+      });
       banner.classList.remove('my-turn');
       banner.classList.toggle('final', !!state.lastRound);
     }
@@ -2497,7 +2573,7 @@
     if (!row) return;
     const all = [15, 12, 9, 6];
     const remaining = new Set(state.bonusTokens || []);
-    row.innerHTML = '<span class="bonus-label">Bonus</span>' + all
+    row.innerHTML = '<span class="bonus-label">' + t('game.bonusLabel') + '</span>' + all
       .map((v) => {
         if (remaining.has(v)) {
           return `<span class="bonus-tok">✨${v}</span>`;
@@ -2546,7 +2622,7 @@
       const head = document.createElement('div');
       head.className = 'mhead';
       head.innerHTML = `<span class="mtok${m.chips > 0 ? '' : ' empty'}" style="--c:${paint}">${m.value}</span>
-        <span class="mleft">${m.chips > 0 ? '×' + m.chips : 'EMPTY'}</span>`;
+        <span class="mleft">${m.chips > 0 ? '×' + m.chips : t('board.empty')}</span>`;
       col.appendChild(head);
 
       // climbing track: top space (pos=height) down to bottom (pos=1)
@@ -2649,8 +2725,8 @@
           btn.type = 'button';
           btn.className = 'reface';
           btn.textContent = '↻';
-          btn.title = 'Change this die to any face';
-          btn.setAttribute('aria-label', 'Choose a new face for this die');
+          btn.title = t('dice.changeFaceTitle');
+          btn.setAttribute('aria-label', t('dice.chooseFaceAria'));
           btn.setAttribute('aria-expanded', refacePickerIndex === i ? 'true' : 'false');
           btn.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -2662,8 +2738,8 @@
           const badge = document.createElement('span');
           badge.className = 'reface reface--observe';
           badge.textContent = '↻';
-          badge.title = 'This die can still be re-faced';
-          badge.setAttribute('aria-label', 'This die can still be re-faced');
+          badge.title = t('dice.refaceableTitle');
+          badge.setAttribute('aria-label', t('dice.refaceableTitle'));
           badge.setAttribute('role', 'img');
           d.appendChild(badge);
         }
@@ -2676,7 +2752,7 @@
       const picker = document.createElement('div');
       picker.className = 'reface-picker';
       picker.setAttribute('role', 'listbox');
-      picker.setAttribute('aria-label', 'Choose die face');
+      picker.setAttribute('aria-label', t('dice.chooseDieFaceAria'));
       picker.addEventListener('click', (e) => e.stopPropagation());
       for (let face = 1; face <= 6; face++) {
         const opt = document.createElement('button');
@@ -2684,7 +2760,7 @@
         opt.className = 'reface-face' + (face === current ? ' is-current' : '');
         opt.textContent = String(face);
         opt.setAttribute('role', 'option');
-        opt.setAttribute('aria-label', `Face ${face}`);
+        opt.setAttribute('aria-label', t('dice.faceAria', { n: face }));
         opt.addEventListener('click', (e) => {
           e.stopPropagation();
           refacePickerIndex = null;
@@ -2707,7 +2783,9 @@
     const sum = selectedSum();
     const tMi = targetMountain();
     if (!finished && mine && state.rolled && selected.size) {
-      sumEl.textContent = tMi >= 0 ? `Group = ${sum} → tap Mountain ${sum}` : `Group = ${sum} (no mountain)`;
+      sumEl.textContent = tMi >= 0
+        ? t('game.groupOk', { sum })
+        : t('game.groupBad', { sum });
       sumEl.classList.toggle('ok', tMi >= 0);
     } else {
       sumEl.textContent = '';
@@ -2716,16 +2794,16 @@
 
     const hint = $('game-hint');
     if (state.finished) {
-      hint.textContent = 'Game over. Open Results or go Back to Lobby.';
+      hint.textContent = t('hint.gameOver');
       hint.classList.remove('auto-end');
     } else if (!mine) {
       const cur = state.players[state.currentIndex];
-      hint.textContent = cur ? `Waiting for ${cur.name}…` : '';
-    } else if (!state.rolled) hint.textContent = 'Tap "Roll Dice" to roll 4 dice.';
+      hint.textContent = cur ? t('hint.waiting', { name: cur.name }) : '';
+    } else if (!state.rolled) hint.textContent = t('hint.roll');
     else if (!anyGroupPossible()) {
       // Auto-end turn after 2 seconds when no valid groups remain
       if (!autoEndTimer) {
-        hint.textContent = 'No groups make 5–10 — ending turn in 2s…';
+        hint.textContent = t('hint.autoEnd');
         hint.classList.add('auto-end');
         autoEndTimer = setTimeout(() => {
           autoEndTimer = null;
@@ -2742,8 +2820,8 @@
         autoEndTimer = null;
         hint.classList.remove('auto-end');
       }
-      if (!selected.size) hint.textContent = 'Tap dice to group them (sum 5–10), then tap that mountain.';
-      else hint.textContent = tMi >= 0 ? 'Tap the glowing mountain to climb 🐐' : 'This group is not 5–10. Adjust your selection.';
+      if (!selected.size) hint.textContent = t('hint.group');
+      else hint.textContent = tMi >= 0 ? t('hint.climb') : t('hint.badGroup');
     }
   }
 
@@ -2839,14 +2917,10 @@
    */
   function ordinalPlace(placeOneBased) {
     const n = placeOneBased;
-    const mod100 = n % 100;
-    if (mod100 >= 11 && mod100 <= 13) return n + 'th';
-    switch (n % 10) {
-      case 1: return n + 'st';
-      case 2: return n + 'nd';
-      case 3: return n + 'rd';
-      default: return n + 'th';
-    }
+    if (n === 1) return t('win.ordinal1');
+    if (n === 2) return t('win.ordinal2');
+    if (n === 3) return t('win.ordinal3');
+    return t('win.ordinalOther', { n });
   }
 
   /**
@@ -3083,7 +3157,7 @@
     }
     const winCount = pendingMatchStats.matchesWon;
     banner.hidden = false;
-    banner.innerHTML = `You now have <strong>${winCount}</strong> ${winCount === 1 ? 'win' : 'wins'}!`;
+    banner.innerHTML = tPlural('win.statsBanner', winCount, { n: '<strong>' + winCount + '</strong>' });
   }
 
   /**

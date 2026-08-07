@@ -153,10 +153,25 @@ signed-in users rejoin with `mg_code` and their name from Supabase Auth metadata
 └── public/
     ├── index.html       # Home, lobby, game screens
     ├── css/style.css    # Premium UI
+    ├── i18n/
+    │   └── en.json      # English UI catalog (add fr.json etc. for new locales)
     └── js/
+        ├── i18n.js      # Client i18n loader / t() / applyDom
         ├── auth.js      # Supabase client, Google sign-in
         └── main.js      # Client: sockets, rendering, interactions
 ```
+
+## 🌐 Languages (i18n)
+UI copy lives in JSON catalogs under `public/i18n/`. English ships by default (`en.json`).
+
+To add a language (example French):
+1. Copy `public/i18n/en.json` to `public/i18n/fr.json` and translate values (keep the same keys).
+2. In `public/js/i18n.js`, add `'fr'` to `SUPPORTED_LOCALES` and a label in `LOCALE_LABELS` (e.g. `fr: 'Francais'`).
+3. Players pick the language in **Settings**. Choice is stored in `localStorage.mg_locale`.
+
+Server callbacks may send `errorKey` (preferred) plus an English `error` for logs/old clients; the UI translates via `errorKey`.
+
+---
 
 ## ⚙️ Tweakables (in `server.js`)
 - `WIN_TARGET` — mountains needed to win (default `3`).

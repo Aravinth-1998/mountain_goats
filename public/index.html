@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
   <noscript><link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" /></noscript>
-  <link rel="stylesheet" href="/css/style.css?v=20260807m" />
+  <link rel="stylesheet" href="/css/style.css?v=20260807r" />
   <script>
     try {
       if (localStorage.getItem('mg_code')) {
@@ -28,7 +28,7 @@
     <div class="loading-center">
       <div class="loading-goat">🐐</div>
       <div class="loading-dots"><span></span><span></span><span></span></div>
-      <p class="loading-msg">Rejoining your game…</p>
+      <p class="loading-msg" data-i18n="loading.rejoining">Rejoining your game…</p>
     </div>
   </section>
 
@@ -36,10 +36,10 @@
   <section id="screen-home" class="screen active">
     <div id="profile-stats-backdrop" class="stats-backdrop" hidden aria-hidden="true"></div>
 
-    <aside id="profile-stats-drawer" class="stats-drawer" hidden aria-label="Profile stats">
+    <aside id="profile-stats-drawer" class="stats-drawer" hidden data-i18n-aria-label="profile.drawerAria" aria-label="Profile stats">
       <div class="stats-drawer-header">
-        <h3 class="stats-drawer-title">Your Profile</h3>
-        <button type="button" id="profile-stats-close" class="stats-drawer-close" aria-label="Close profile sidebar">&times;</button>
+        <h3 class="stats-drawer-title" data-i18n="profile.title">Your Profile</h3>
+        <button type="button" id="profile-stats-close" class="stats-drawer-close" data-i18n-aria-label="profile.closeAria" aria-label="Close profile sidebar">&times;</button>
       </div>
 
       <div class="card profile-header">
@@ -52,56 +52,56 @@
 
       <div class="card stats-panel">
         <button type="button" id="profile-stats-toggle" class="stats-panel-toggle" aria-expanded="false" aria-controls="profile-stats-body">
-          <span>Stats</span>
+          <span data-i18n="profile.stats">Stats</span>
           <span class="toggle-arrow" aria-hidden="true">&#9662;</span>
         </button>
         <div id="profile-stats-body" class="stats-panel-body" hidden>
           <div id="profile-stats-viewport" class="stats-panel-viewport">
             <div id="profile-stats-loading" class="stats-panel-loader" hidden></div>
-            <p id="profile-stats-unavailable" class="stats-unavailable muted center" hidden>Data is not currently available.</p>
+            <p id="profile-stats-unavailable" class="stats-unavailable muted center" hidden data-i18n="profile.statsUnavailable">Data is not currently available.</p>
             <div id="profile-stats-content" class="stats-panel-content" hidden>
               <div class="stats-bars">
           <div class="stats-mode-block">
-            <p class="stats-mode-title">Overall</p>
+            <p class="stats-mode-title" data-i18n="profile.overall">Overall</p>
             <div class="stats-mode-nums">
               <span class="stats-mode-win" id="profile-overall-won">0</span>
               <span class="stats-mode-played" id="profile-overall-played">0</span>
               <span class="stats-mode-loss" id="profile-overall-lost">0</span>
             </div>
             <div class="stats-mode-labels">
-              <span>won</span><span>played</span><span>lost</span>
+              <span data-i18n="profile.won">won</span><span data-i18n="profile.played">played</span><span data-i18n="profile.lost">lost</span>
             </div>
             <div class="stats-mode-bar" id="profile-overall-bar" aria-hidden="true"></div>
           </div>
           <div class="stats-mode-block">
-            <p class="stats-mode-title">Standard</p>
+            <p class="stats-mode-title" data-i18n="profile.standard">Standard</p>
             <div class="stats-mode-nums">
               <span class="stats-mode-win" id="profile-standard-won">0</span>
               <span class="stats-mode-played" id="profile-standard-played">0</span>
               <span class="stats-mode-loss" id="profile-standard-lost">0</span>
             </div>
             <div class="stats-mode-labels">
-              <span>won</span><span>played</span><span>lost</span>
+              <span data-i18n="profile.won">won</span><span data-i18n="profile.played">played</span><span data-i18n="profile.lost">lost</span>
             </div>
             <div class="stats-mode-bar" id="profile-standard-bar" aria-hidden="true"></div>
           </div>
           <div class="stats-mode-block">
-            <p class="stats-mode-title">Team</p>
+            <p class="stats-mode-title" data-i18n="profile.team">Team</p>
             <div class="stats-mode-nums">
               <span class="stats-mode-win" id="profile-team-won">0</span>
               <span class="stats-mode-played" id="profile-team-played">0</span>
               <span class="stats-mode-loss" id="profile-team-lost">0</span>
             </div>
             <div class="stats-mode-labels">
-              <span>won</span><span>played</span><span>lost</span>
+              <span data-i18n="profile.won">won</span><span data-i18n="profile.played">played</span><span data-i18n="profile.lost">lost</span>
             </div>
             <div class="stats-mode-bar" id="profile-team-bar" aria-hidden="true"></div>
           </div>
         </div>
         <p class="stats-streaks-line" id="profile-streak-line">
-          Streak <span id="profile-stat-streak">0</span>
+          <span data-i18n="profile.streak">Streak</span> <span id="profile-stat-streak">0</span>
           <span class="stats-streaks-sep" aria-hidden="true">&middot;</span>
-          Best <span id="profile-stat-best-streak">0</span>
+          <span data-i18n="profile.best">Best</span> <span id="profile-stat-best-streak">0</span>
         </p>
             </div>
           </div>
@@ -109,21 +109,21 @@
       </div>
 
       <div class="stats-drawer-footer">
-        <button type="button" id="btn-signout" class="btn btn-ghost btn-block profile-signout-btn">Sign out</button>
+        <button type="button" id="btn-signout" class="btn btn-ghost btn-block profile-signout-btn" data-i18n="profile.signOut">Sign out</button>
       </div>
     </aside>
 
     <div class="brand">
       <div class="goat-emoji">🐐</div>
       <h1>Mountain Goats</h1>
-      <p class="tagline">Race your herd over the peaks. Play live with friends.</p>
+      <p class="tagline" data-i18n="home.tagline">Race your herd over the peaks. Play live with friends.</p>
       <p id="online-count" class="online-count is-pending" role="status" aria-live="polite">Connecting...</p>
     </div>
 
     <div class="home-play-block">
       <div class="home-name-row">
-        <input id="home-name" class="home-key home-key--name" type="text" maxlength="16" placeholder="Enter your GOAT name" autocomplete="off" />
-        <button type="button" id="profile-stats-fab" class="stats-fab" hidden aria-label="Sign in with Google" aria-expanded="false" aria-controls="profile-stats-drawer">
+        <input id="home-name" class="home-key home-key--name" type="text" maxlength="16" placeholder="Enter your GOAT name" data-i18n-placeholder="home.namePlaceholder" autocomplete="off" />
+        <button type="button" id="profile-stats-fab" class="stats-fab" hidden aria-label="Sign in with Google" data-i18n-aria-label="home.signInAria" aria-expanded="false" aria-controls="profile-stats-drawer">
           <img id="profile-stats-avatar" class="stats-fab-img" hidden alt="" referrerpolicy="no-referrer" />
           <span id="profile-stats-signin-g" class="stats-fab-g" hidden aria-hidden="true">
             <svg class="stats-fab-g-icon" viewBox="0 0 48 48" aria-hidden="true" focusable="false">
@@ -137,17 +137,17 @@
       </div>
       <p id="home-name-error" class="error-msg"></p>
       <div class="home-actions">
-        <button id="btn-create" class="btn btn-primary btn-block home-key">Create Room</button>
-        <button id="btn-goto-join" class="btn btn-join btn-block home-key">Join Room</button>
+        <button id="btn-create" class="btn btn-primary btn-block home-key" data-i18n="home.createRoom">Create Room</button>
+        <button id="btn-goto-join" class="btn btn-join btn-block home-key" data-i18n="home.joinRoom">Join Room</button>
       </div>
-      <div class="home-util-row" role="group" aria-label="Home utilities">
-        <button type="button" id="btn-settings" class="settings-toggle-btn" aria-label="Settings" title="Settings" aria-haspopup="dialog" aria-controls="settings-overlay">
+      <div class="home-util-row" role="group" aria-label="Home utilities" data-i18n-aria-label="home.utilitiesAria">
+        <button type="button" id="btn-settings" class="settings-toggle-btn" aria-label="Settings" title="Settings" data-i18n-aria-label="common.settings" data-i18n-title="common.settings" aria-haspopup="dialog" aria-controls="settings-overlay">
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="3"/>
             <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
           </svg>
         </button>
-        <button type="button" id="btn-leaderboard" class="icon-btn icon-btn--emoji" aria-label="Leaderboard" title="Leaderboard" aria-haspopup="dialog" aria-controls="leaderboard-overlay" aria-expanded="false">
+        <button type="button" id="btn-leaderboard" class="icon-btn icon-btn--emoji" aria-label="Leaderboard" title="Leaderboard" data-i18n-aria-label="common.leaderboard" data-i18n-title="common.leaderboard" aria-haspopup="dialog" aria-controls="leaderboard-overlay" aria-expanded="false">
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M8 21h8"/>
             <path d="M12 17v4"/>
@@ -156,7 +156,7 @@
             <path d="M19 9a3 3 0 0 0 3-3V4h-5"/>
           </svg>
         </button>
-        <button type="button" id="btn-howto" class="icon-btn icon-btn--emoji" aria-label="How to Play" title="How to Play" aria-haspopup="dialog" aria-controls="howto-overlay">?</button>
+        <button type="button" id="btn-howto" class="icon-btn icon-btn--emoji" aria-label="How to Play" title="How to Play" data-i18n-aria-label="common.howToPlay" data-i18n-title="common.howToPlay" aria-haspopup="dialog" aria-controls="howto-overlay">?</button>
       </div>
     </div>
 
@@ -166,16 +166,16 @@
   <!-- TUTORIAL (client-only practice) -->
   <section id="screen-tutorial" class="screen">
     <div class="topbar">
-      <div class="room-pill">Tutorial</div>
-      <div id="tut-turn-banner" class="turn-banner">Your turn</div>
-      <button type="button" class="icon-btn" id="tut-exit">Exit</button>
+      <div class="room-pill" data-i18n="tutorial.badge">Tutorial</div>
+      <div id="tut-turn-banner" class="turn-banner" data-i18n="tutorial.yourTurn">Your turn</div>
+      <button type="button" class="icon-btn" id="tut-exit" data-i18n="tutorial.exit">Exit</button>
     </div>
 
     <div id="tut-stats-strip" class="stats-strip"></div>
     <div id="tut-bonus-row" class="bonus-row"></div>
     <p id="tut-coach" class="tut-coach" role="status"></p>
     <div id="tut-inline-continue-wrap" class="tut-inline-continue-wrap" hidden>
-      <button type="button" id="tut-btn-inline-continue" class="btn btn-primary btn-block" data-tut-target="continue">Continue</button>
+      <button type="button" id="tut-btn-inline-continue" class="btn btn-primary btn-block" data-tut-target="continue" data-i18n="common.continue">Continue</button>
     </div>
 
     <div class="board-wrap">
@@ -186,8 +186,8 @@
       <p id="tut-sel-sum" class="sel-sum"></p>
       <div id="tut-dice-area" class="dice-area"></div>
       <div class="control-buttons">
-        <button type="button" id="tut-btn-roll" class="btn btn-primary" data-tut-target="roll">Roll Dice</button>
-        <button type="button" id="tut-btn-endturn" class="btn btn-ghost" data-tut-target="endturn">End Turn</button>
+        <button type="button" id="tut-btn-roll" class="btn btn-primary" data-tut-target="roll" data-i18n="game.rollDice">Roll Dice</button>
+        <button type="button" id="tut-btn-endturn" class="btn btn-ghost" data-tut-target="endturn" data-i18n="game.endTurn">End Turn</button>
       </div>
       <p id="tut-hint" class="game-hint">—</p>
     </div>
@@ -195,36 +195,36 @@
     <div id="tut-intro" class="tut-panel overlay show">
       <div class="overlay-card" style="max-width:340px">
         <div style="font-size:40px;margin-bottom:8px">🐐</div>
-        <h2 style="margin:0 0 8px">Standard Tutorial</h2>
-        <p class="muted">Learn the full Standard rules — starting positions, dice, climbing, bumps, harvest, End Turn, bonuses, and how games end. Tap the glowing controls to continue.</p>
-        <button type="button" id="tut-btn-start" class="btn btn-primary btn-block" data-tut-target="start">Start</button>
+        <h2 style="margin:0 0 8px" data-i18n="tutorial.introTitle">Standard Tutorial</h2>
+        <p class="muted" data-i18n="tutorial.introBody">Learn the full Standard rules — starting positions, dice, climbing, bumps, harvest, End Turn, bonuses, and how games end. Tap the glowing controls to continue.</p>
+        <button type="button" id="tut-btn-start" class="btn btn-primary btn-block" data-tut-target="start" data-i18n="tutorial.start">Start</button>
       </div>
     </div>
 
     <div id="tut-continue-panel" class="tut-panel overlay">
       <div class="overlay-card" style="max-width:340px">
         <div id="tut-continue-icon" style="font-size:40px;margin-bottom:8px">🐐</div>
-        <h2 id="tut-continue-title" style="margin:0 0 8px">Continue</h2>
+        <h2 id="tut-continue-title" style="margin:0 0 8px" data-i18n="common.continue">Continue</h2>
         <p class="muted" id="tut-continue-body"></p>
-        <button type="button" id="tut-btn-continue" class="btn btn-primary btn-block" data-tut-target="continue">Continue</button>
+        <button type="button" id="tut-btn-continue" class="btn btn-primary btn-block" data-tut-target="continue" data-i18n="common.continue">Continue</button>
       </div>
     </div>
 
     <div id="tut-info" class="tut-panel overlay">
       <div class="overlay-card" style="max-width:340px">
         <div id="tut-info-icon" style="font-size:40px;margin-bottom:8px">✨</div>
-        <h2 id="tut-info-title" style="margin:0 0 8px">Bonus tokens</h2>
-        <p class="muted" id="tut-info-body">Collect a token from all 6 mountains (a full set) to claim a Bonus Token (15 / 12 / 9 / 6).</p>
-        <button type="button" id="tut-btn-gotit" class="btn btn-primary btn-block" data-tut-target="gotit">Got it</button>
+        <h2 id="tut-info-title" style="margin:0 0 8px" data-i18n="tutorial.bonusInfoTitle">Bonus tokens</h2>
+        <p class="muted" id="tut-info-body" data-i18n="tutorial.bonusInfoBody">Collect a token from all 6 mountains (a full set) to claim a Bonus Token (15 / 12 / 9 / 6).</p>
+        <button type="button" id="tut-btn-gotit" class="btn btn-primary btn-block" data-tut-target="gotit" data-i18n="tutorial.gotIt">Got it</button>
       </div>
     </div>
 
     <div id="tut-done" class="tut-panel overlay">
       <div class="overlay-card" style="max-width:340px">
         <div style="font-size:40px;margin-bottom:8px">🏆</div>
-        <h2 style="margin:0 0 8px">You're ready!</h2>
-        <p class="muted">You know the Standard rules. Create a room or join friends to play for real. Team mode tips stay under How to Play.</p>
-        <button type="button" id="tut-btn-home" class="btn btn-primary btn-block" data-tut-target="home">Back to Home</button>
+        <h2 style="margin:0 0 8px" data-i18n="tutorial.doneTitle">You're ready!</h2>
+        <p class="muted" data-i18n="tutorial.doneBody">You know the Standard rules. Create a room or join friends to play for real. Team mode tips stay under How to Play.</p>
+        <button type="button" id="tut-btn-home" class="btn btn-primary btn-block" data-tut-target="home" data-i18n="tutorial.backHome">Back to Home</button>
       </div>
     </div>
   </section>
@@ -232,24 +232,24 @@
   <!-- JOIN ROOM -->
   <section id="screen-join" class="screen">
     <div class="topbar">
-      <button class="icon-btn" id="join-back">‹ Back</button>
-      <h2 class="topbar-title">Join a Room</h2>
+      <button class="icon-btn" id="join-back" data-i18n="join.back">‹ Back</button>
+      <h2 class="topbar-title" data-i18n="join.title">Join a Room</h2>
       <div style="width:60px"></div>
     </div>
 
     <div class="card">
-      <p class="muted" style="margin:0 0 10px;text-align:center">Enter a room code to join a private or public game</p>
-      <input id="join-code" type="number" inputmode="numeric" pattern="[0-9]*" maxlength="4" placeholder="Enter 4-digit room code" autocomplete="off" class="code-input" />
+      <p class="muted" style="margin:0 0 10px;text-align:center" data-i18n="join.hint">Enter a room code to join a private or public game</p>
+      <input id="join-code" type="number" inputmode="numeric" pattern="[0-9]*" maxlength="4" placeholder="Enter 4-digit room code" data-i18n-placeholder="join.codePlaceholder" autocomplete="off" class="code-input" />
       <div style="height:10px"></div>
-      <button id="btn-join" class="btn btn-join btn-block">Join Room</button>
+      <button id="btn-join" class="btn btn-join btn-block" data-i18n="join.joinRoom">Join Room</button>
       <p id="join-error" class="error-msg"></p>
     </div>
 
     <div class="card">
-      <h3 style="margin:0 0 8px;font-size:15px">🌐 Public Rooms</h3>
-      <p class="muted" style="margin:0 0 10px;font-size:12px">Open rooms you can join directly</p>
+      <h3 style="margin:0 0 8px;font-size:15px">🌐 <span data-i18n="join.publicRooms">Public Rooms</span></h3>
+      <p class="muted" style="margin:0 0 10px;font-size:12px" data-i18n="join.publicHint">Open rooms you can join directly</p>
       <div id="public-rooms-list" class="public-rooms-list">
-        <p class="muted center" id="public-rooms-empty">Searching for rooms…</p>
+        <p class="muted center" id="public-rooms-empty" data-i18n="join.searching">Searching for rooms…</p>
       </div>
     </div>
   </section>
@@ -257,16 +257,16 @@
   <!-- LOBBY -->
   <section id="screen-lobby" class="screen">
     <div class="topbar">
-      <div class="room-pill" id="lobby-pill" title="Tap to copy room code">Room <strong id="lobby-code">----</strong> 📋</div>
+      <div class="room-pill" id="lobby-pill" title="Tap to copy room code" data-i18n-title="lobby.copyTitle"><span data-i18n="lobby.room">Room</span> <strong id="lobby-code">----</strong> 📋</div>
       <div class="topbar-end">
-        <button type="button" id="btn-settings-lobby" class="settings-toggle-btn settings-toggle-btn--topbar" aria-label="Settings" title="Settings" aria-haspopup="dialog" aria-controls="settings-overlay">
+        <button type="button" id="btn-settings-lobby" class="settings-toggle-btn settings-toggle-btn--topbar" aria-label="Settings" title="Settings" data-i18n-aria-label="common.settings" data-i18n-title="common.settings" aria-haspopup="dialog" aria-controls="settings-overlay">
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="3"/>
             <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
           </svg>
         </button>
-        <button type="button" id="btn-howto-lobby" class="icon-btn icon-btn--emoji" aria-label="How to Play" title="How to Play" aria-haspopup="dialog" aria-controls="howto-overlay">?</button>
-        <button type="button" class="icon-btn icon-btn--emoji" id="lobby-share" aria-label="Share" title="Share">
+        <button type="button" id="btn-howto-lobby" class="icon-btn icon-btn--emoji" aria-label="How to Play" title="How to Play" data-i18n-aria-label="common.howToPlay" data-i18n-title="common.howToPlay" aria-haspopup="dialog" aria-controls="howto-overlay">?</button>
+        <button type="button" class="icon-btn icon-btn--emoji" id="lobby-share" aria-label="Share" title="Share" data-i18n-aria-label="common.share" data-i18n-title="common.share">
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="18" cy="5" r="3"/>
             <circle cx="6" cy="12" r="3"/>
@@ -275,7 +275,7 @@
             <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
           </svg>
         </button>
-        <button type="button" class="icon-btn icon-btn--emoji" id="lobby-leave" aria-label="Leave" title="Leave">
+        <button type="button" class="icon-btn icon-btn--emoji" id="lobby-leave" aria-label="Leave" title="Leave" data-i18n-aria-label="common.leave" data-i18n-title="common.leave">
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
             <polyline points="16 17 21 12 16 7"/>
@@ -286,32 +286,32 @@
     </div>
 
     <div id="room-settings" class="card room-settings" style="display:none">
-      <h3 style="margin:0 0 10px;font-size:15px">Room Settings</h3>
+      <h3 style="margin:0 0 10px;font-size:15px" data-i18n="lobby.roomSettings">Room Settings</h3>
         <div class="setting-row">
-        <label class="setting-label">Room Visibility</label>
+        <label class="setting-label" data-i18n="lobby.visibility">Room Visibility</label>
           <div class="toggle-group">
-          <button id="btn-private" class="toggle-btn active">Private</button>
-          <button id="btn-public" class="toggle-btn">Public</button>
+          <button id="btn-private" class="toggle-btn active" data-i18n="lobby.private">Private</button>
+          <button id="btn-public" class="toggle-btn" data-i18n="lobby.public">Public</button>
         </div>
       </div>
       <div class="setting-row">
-        <label class="setting-label">Game Mode</label>
+        <label class="setting-label" data-i18n="lobby.gameMode">Game Mode</label>
         <div class="toggle-group">
-          <button type="button" id="btn-teams-off" class="toggle-btn active">Standard</button>
-          <button type="button" id="btn-teams-on" class="toggle-btn">Team</button>
+          <button type="button" id="btn-teams-off" class="toggle-btn active" data-i18n="mode.standard">Standard</button>
+          <button type="button" id="btn-teams-on" class="toggle-btn" data-i18n="mode.team">Team</button>
         </div>
       </div>
       <div class="setting-row" id="team-config-row" hidden>
-        <label class="setting-label">Team count</label>
+        <label class="setting-label" data-i18n="lobby.teamCount">Team count</label>
         <div class="toggle-group" id="team-config-wrap">
-          <button type="button" id="btn-2teams" class="toggle-btn">2 teams</button>
-          <button type="button" id="btn-3teams" class="toggle-btn">3 teams</button>
+          <button type="button" id="btn-2teams" class="toggle-btn" data-i18n="lobby.twoTeams">2 teams</button>
+          <button type="button" id="btn-3teams" class="toggle-btn" data-i18n="lobby.threeTeams">3 teams</button>
         </div>
       </div>
       <details class="advanced-settings">
-        <summary>Advanced settings</summary>
+        <summary data-i18n="lobby.advanced">Advanced settings</summary>
         <div class="setting-row">
-          <label class="setting-label">Max Players</label>
+          <label class="setting-label" data-i18n="lobby.maxPlayers">Max Players</label>
           <div class="player-count-selector">
             <button id="btn-maxp-down" class="count-btn">−</button>
             <span id="maxp-display" class="count-display">10</span>
@@ -319,7 +319,7 @@
           </div>
         </div>
         <div class="setting-row">
-          <label class="setting-label">Turn Timer</label>
+          <label class="setting-label" data-i18n="lobby.turnTimer">Turn Timer</label>
           <div class="player-count-selector">
             <button type="button" id="btn-turn-timer-down" class="count-btn">&lt;</button>
             <span id="turn-timer-display" class="count-display">0s</span>
@@ -330,31 +330,31 @@
     </div>
 
     <div class="card">
-      <h2>Lobby</h2>
-      <p class="muted">Share the room code with friends. The host starts the game.</p>
+      <h2 data-i18n="lobby.title">Lobby</h2>
+      <p class="muted" data-i18n="lobby.shareHint">Share the room code with friends. The host starts the game.</p>
       <p id="team-move-hint" class="muted team-move-hint" hidden></p>
       <ul id="lobby-players" class="player-list"></ul>
-      <button id="btn-addbot" class="btn btn-ghost btn-block">+ Add Bot 🤖</button>
+      <button id="btn-addbot" class="btn btn-ghost btn-block" data-i18n="lobby.addBot">+ Add Bot</button>
       <div style="height:10px"></div>
-      <button id="btn-start" class="btn btn-primary btn-block">Start Game</button>
-      <p id="lobby-hint" class="muted center">Waiting for players…</p>
+      <button id="btn-start" class="btn btn-primary btn-block" data-i18n="lobby.startGame">Start Game</button>
+      <p id="lobby-hint" class="muted center" data-i18n="lobby.waitingPlayers">Waiting for players…</p>
     </div>
   </section>
 
   <!-- GAME -->
   <section id="screen-game" class="screen">
     <div class="topbar">
-      <div class="room-pill">Room <strong id="game-code">----</strong></div>
+      <div class="room-pill"><span data-i18n="game.room">Room</span> <strong id="game-code">----</strong></div>
       <div id="turn-banner" class="turn-banner">—</div>
       <div class="topbar-end">
-        <button type="button" id="btn-settings-game" class="settings-toggle-btn settings-toggle-btn--topbar" aria-label="Settings" title="Settings" aria-haspopup="dialog" aria-controls="settings-overlay">
+        <button type="button" id="btn-settings-game" class="settings-toggle-btn settings-toggle-btn--topbar" aria-label="Settings" title="Settings" data-i18n-aria-label="common.settings" data-i18n-title="common.settings" aria-haspopup="dialog" aria-controls="settings-overlay">
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="3"/>
             <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
           </svg>
         </button>
-        <button type="button" id="btn-howto-game" class="icon-btn icon-btn--emoji" aria-label="How to Play" title="How to Play" aria-haspopup="dialog" aria-controls="howto-overlay">?</button>
-        <button type="button" class="icon-btn icon-btn--emoji" id="game-leave" aria-label="Leave" title="Leave">
+        <button type="button" id="btn-howto-game" class="icon-btn icon-btn--emoji" aria-label="How to Play" title="How to Play" data-i18n-aria-label="common.howToPlay" data-i18n-title="common.howToPlay" aria-haspopup="dialog" aria-controls="howto-overlay">?</button>
+        <button type="button" class="icon-btn icon-btn--emoji" id="game-leave" aria-label="Leave" title="Leave" data-i18n-aria-label="common.leave" data-i18n-title="common.leave">
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
             <polyline points="16 17 21 12 16 7"/>
@@ -383,12 +383,12 @@
         <div id="turn-timer" class="turn-timer" hidden aria-live="polite">—</div>
       </div>
       <div class="control-buttons" id="play-controls">
-        <button id="btn-roll" class="btn btn-primary">Roll Dice</button>
-        <button id="btn-endturn" class="btn btn-ghost">End Turn</button>
+        <button id="btn-roll" class="btn btn-primary" data-i18n="game.rollDice">Roll Dice</button>
+        <button id="btn-endturn" class="btn btn-ghost" data-i18n="game.endTurn">End Turn</button>
       </div>
       <div class="control-buttons finished-controls" id="finished-controls" hidden>
-        <button type="button" id="btn-game-lobby" class="btn btn-primary" hidden>Back to Lobby</button>
-        <button type="button" id="btn-results" class="btn btn-ghost" hidden>Results</button>
+        <button type="button" id="btn-game-lobby" class="btn btn-primary" hidden data-i18n="game.backToLobby">Back to Lobby</button>
+        <button type="button" id="btn-results" class="btn btn-ghost" hidden data-i18n="game.results">Results</button>
       </div>
       <p id="game-hint" class="game-hint">—</p>
     </div>
@@ -401,16 +401,16 @@
       <div class="win-head">
         <div class="trophy">🏆</div>
         <p id="win-place" class="win-place" hidden></p>
-        <h2 id="win-title">Winner!</h2>
+        <h2 id="win-title" data-i18n="win.title">Winner!</h2>
         <p id="win-outcome" class="win-outcome muted" hidden></p>
         <p id="win-stats-banner" class="win-stats-banner" hidden></p>
       </div>
       <div id="win-sub" class="muted"></div>
       <div class="win-actions">
-        <button id="btn-home" class="btn btn-primary btn-block">Back to Lobby</button>
+        <button id="btn-home" class="btn btn-primary btn-block" data-i18n="game.backToLobby">Back to Lobby</button>
         <div class="win-actions-secondary">
-          <button type="button" id="btn-view-board" class="btn btn-ghost">View board</button>
-          <button type="button" id="btn-win-share" class="icon-btn icon-btn--emoji win-share-btn" aria-label="Share result" title="Share">
+          <button type="button" id="btn-view-board" class="btn btn-ghost" data-i18n="win.viewBoard">View board</button>
+          <button type="button" id="btn-win-share" class="icon-btn icon-btn--emoji win-share-btn" aria-label="Share result" title="Share" data-i18n-aria-label="win.shareAria" data-i18n-title="common.share">
             <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <circle cx="18" cy="5" r="3"/>
               <circle cx="6" cy="12" r="3"/>
@@ -430,11 +430,11 @@
   <div id="endturn-overlay" class="overlay">
     <div class="overlay-card" style="max-width:320px">
       <div style="font-size:40px;margin-bottom:8px">⚠️</div>
-      <h2 style="margin:0 0 8px">End turn early?</h2>
-      <p class="muted">You still have dice that can make a valid group (5–10).</p>
+      <h2 style="margin:0 0 8px" data-i18n="endTurn.title">End turn early?</h2>
+      <p class="muted" data-i18n="endTurn.body">You still have dice that can make a valid group (5–10).</p>
       <div class="overlay-actions">
-        <button id="btn-endturn-confirm" class="btn btn-danger btn-block">Yes, End Turn</button>
-        <button id="btn-endturn-cancel" class="btn btn-ghost btn-block">Keep Playing</button>
+        <button id="btn-endturn-confirm" class="btn btn-danger btn-block" data-i18n="endTurn.confirm">Yes, End Turn</button>
+        <button id="btn-endturn-cancel" class="btn btn-ghost btn-block" data-i18n="endTurn.cancel">Keep Playing</button>
       </div>
     </div>
   </div>
@@ -443,36 +443,36 @@
   <div id="howto-overlay" class="overlay" role="dialog" aria-modal="true" aria-labelledby="howto-title" hidden>
     <div class="overlay-card howto-card">
       <div class="howto-header">
-        <h2 id="howto-title">How to Play</h2>
-        <button type="button" id="btn-howto-close" class="howto-close" aria-label="Close">&times;</button>
+        <h2 id="howto-title" data-i18n="howto.title">How to Play</h2>
+        <button type="button" id="btn-howto-close" class="howto-close" aria-label="Close" data-i18n-aria-label="common.close">&times;</button>
       </div>
       <div id="howto-rules-content" class="rules-content howto-rules">
-        <div class="rules-tabs" role="tablist" aria-label="Rules mode">
-          <button type="button" class="rules-tab is-active" role="tab" aria-selected="true" data-rules-tab="standard">Standard</button>
-          <button type="button" class="rules-tab" role="tab" aria-selected="false" data-rules-tab="team">Team</button>
+        <div class="rules-tabs" role="tablist" aria-label="Rules mode" data-i18n-aria-label="howto.rulesModeAria">
+          <button type="button" class="rules-tab is-active" role="tab" aria-selected="true" data-rules-tab="standard" data-i18n="mode.standard">Standard</button>
+          <button type="button" class="rules-tab" role="tab" aria-selected="false" data-rules-tab="team" data-i18n="mode.team">Team</button>
         </div>
         <div class="rules-pane is-active" data-rules-pane="standard" role="tabpanel">
           <ol>
-            <li>Six mountains <b>5–10</b>. You have a 🐐 at the foot of each. Heights: 5,6→4; 7,8→3; 9,10→2.</li>
-            <li>On your turn, <b>roll 4 dice</b> (multiple 1s: keep one, re‑face the rest).</li>
-            <li><b>Group</b> dice — each group whose <b>sum is 5–10</b> moves that mountain's goat up one space.</li>
-            <li>Reach a <b>top</b> to take a Point Token (and bump the goat there off). Already on top? A match harvests another token.</li>
-            <li>Collect from <b>all 6 mountains</b> (a set) to claim a <b>Bonus Token</b> ✨ (15/12/9/6).</li>
-            <li>End when all Bonus Tokens are gone or 3 mountains empty, then equal turns. <b>Most points wins. 🏆</b> Winners by table size: 2–4p → 1st, 5–7p → top 2, 8–10p → top 3.</li>
+            <li data-i18n-html="howto.standard1">Six mountains <b>5–10</b>. You have a 🐐 at the foot of each. Heights: 5,6→4; 7,8→3; 9,10→2.</li>
+            <li data-i18n-html="howto.standard2">On your turn, roll <b>4 dice</b> (multiple 1s: keep one, re-face the rest).</li>
+            <li data-i18n-html="howto.standard3"><b>Group</b> dice — each group whose <b>sum is 5–10</b> moves that mountain's goat up one space.</li>
+            <li data-i18n-html="howto.standard4">Reach a top to take a <b>Point Token</b> (and bump the goat there off). Already on top? A match <b>harvests</b> another token.</li>
+            <li data-i18n-html="howto.standard5">Collect from <b>all 6 mountains</b> (a set) to claim a <b>Bonus Token</b> ✨ (15/12/9/6).</li>
+            <li data-i18n-html="howto.standard6">End when all Bonus Tokens are gone or 3 mountains empty, then equal turns. <b>Most points wins.</b> 🏆 Winners by table size: 2–4p → 1st, 5–7p → top 2, 8–10p → top 3.</li>
           </ol>
         </div>
         <div class="rules-pane" data-rules-pane="team" role="tabpanel" hidden>
           <ol>
-            <li>Teams of <b>2 or 3</b> players share a combined score. Supported: 4p→2 teams, 6p→2 or 3 teams.</li>
-            <li><b>Teammates can share summits</b> — no bumping between teammates.</li>
-            <li>Each player <b>collects their own tokens</b>, even if a teammate is already on that summit.</li>
-            <li>If an <b>opposing player</b> reaches a team-held summit, <b>all</b> teammate goats there are bumped back to base (<b>Team Wipeout</b>).</li>
-            <li>Turns <b>alternate between teams</b> (Red→Blue→Red→Blue…).</li>
-            <li>Team with the <b>highest combined score</b> wins. Same tie‑break rules apply at team level.</li>
+            <li data-i18n-html="howto.team1">Teams of 2 or 3 players share a combined score. Supported: 4p→2 teams, 6p→2 or 3 teams.</li>
+            <li data-i18n-html="howto.team2">Teammates can share summits — no bumping between teammates.</li>
+            <li data-i18n-html="howto.team3">Each player collects their own tokens, even if a teammate is already on that summit.</li>
+            <li data-i18n-html="howto.team4">If an opposing player reaches a team-held summit, all teammate goats there are bumped back to base (Team Wipeout).</li>
+            <li data-i18n-html="howto.team5">Turns alternate between teams (Red→Blue→Red→Blue…).</li>
+            <li data-i18n-html="howto.team6">Team with the highest combined score wins. Same tie-break rules apply at team level.</li>
           </ol>
         </div>
       </div>
-      <button type="button" id="btn-play-tutorial" class="btn btn-primary btn-block howto-tutorial-btn">Play tutorial</button>
+      <button type="button" id="btn-play-tutorial" class="btn btn-primary btn-block howto-tutorial-btn" data-i18n="howto.playTutorial">Play tutorial</button>
     </div>
   </div>
 
@@ -480,19 +480,19 @@
   <div id="leaderboard-overlay" class="overlay" role="dialog" aria-modal="true" aria-labelledby="leaderboard-title" hidden>
     <div class="overlay-card leaderboard-card">
       <div class="howto-header">
-        <h2 id="leaderboard-title">Leaderboard</h2>
-        <button type="button" id="btn-leaderboard-close" class="howto-close" aria-label="Close">&times;</button>
+        <h2 id="leaderboard-title" data-i18n="leaderboard.title">Leaderboard</h2>
+        <button type="button" id="btn-leaderboard-close" class="howto-close" aria-label="Close" data-i18n-aria-label="common.close">&times;</button>
       </div>
       <div id="home-leaderboard-content" class="leaderboard-content leaderboard-overlay-body">
-        <p class="leaderboard-note muted">Signed-in players only</p>
+        <p class="leaderboard-note muted" data-i18n="leaderboard.note">Signed-in players only</p>
         <div id="leaderboard-header" class="leaderboard-header" aria-hidden="true">
-          <span class="leaderboard-rank">#</span>
+          <span class="leaderboard-rank" data-i18n="leaderboard.rank">#</span>
           <span class="leaderboard-avatar-spacer"></span>
-          <span class="leaderboard-name">Player</span>
-          <span class="leaderboard-wins">Wins</span>
+          <span class="leaderboard-name" data-i18n="leaderboard.player">Player</span>
+          <span class="leaderboard-wins" data-i18n="leaderboard.wins">Wins</span>
         </div>
         <div id="leaderboard-list" class="leaderboard-list" role="list"></div>
-        <p id="leaderboard-empty" class="muted center leaderboard-empty" hidden>No ranked players yet.</p>
+        <p id="leaderboard-empty" class="muted center leaderboard-empty" hidden data-i18n="leaderboard.empty">No ranked players yet.</p>
         <p id="leaderboard-error" class="error-msg leaderboard-error" hidden></p>
       </div>
     </div>
@@ -502,17 +502,21 @@
   <div id="settings-overlay" class="overlay" role="dialog" aria-modal="true" aria-labelledby="settings-title" hidden>
     <div class="overlay-card settings-card">
       <div class="howto-header">
-        <h2 id="settings-title">Settings</h2>
-        <button type="button" id="btn-settings-close" class="howto-close" aria-label="Close">&times;</button>
+        <h2 id="settings-title" data-i18n="settings.title">Settings</h2>
+        <button type="button" id="btn-settings-close" class="howto-close" aria-label="Close" data-i18n-aria-label="common.close">&times;</button>
       </div>
       <div class="settings-overlay-body">
         <div class="settings-row">
-          <span class="settings-label">Sound</span>
-          <button type="button" class="feedback-toggle" data-sound-toggle aria-pressed="false" aria-label="Sound off">&#128266;</button>
+          <span class="settings-label" data-i18n="settings.sound">Sound</span>
+          <button type="button" class="feedback-toggle" data-sound-toggle aria-pressed="false" aria-label="Sound off" data-i18n-aria-label="settings.soundOff">&#128266;</button>
         </div>
         <div class="settings-row">
-          <span class="settings-label">Haptics</span>
-          <button type="button" class="feedback-toggle" data-haptics-toggle aria-pressed="false" aria-label="Haptics off">&#128243;</button>
+          <span class="settings-label" data-i18n="settings.haptics">Haptics</span>
+          <button type="button" class="feedback-toggle" data-haptics-toggle aria-pressed="false" aria-label="Haptics off" data-i18n-aria-label="settings.hapticsOff">&#128243;</button>
+        </div>
+        <div class="settings-row">
+          <span class="settings-label" data-i18n="settings.language">Language</span>
+          <select id="settings-locale" class="settings-locale-select" data-i18n-aria-label="settings.language" aria-label="Language"></select>
         </div>
       </div>
     </div>
@@ -522,11 +526,11 @@
   <div id="leave-overlay" class="overlay">
     <div class="overlay-card" style="max-width:320px">
       <div style="font-size:40px;margin-bottom:8px">🏃‍♂️</div>
-      <h2 style="margin:0 0 8px">Leave the game?</h2>
-      <p class="muted" id="leave-msg">You will lose your progress.</p>
+      <h2 id="leave-title" style="margin:0 0 8px" data-i18n="leave.gameTitle">Leave the game?</h2>
+      <p class="muted" id="leave-msg" data-i18n="leave.progressLoss">You will lose your progress.</p>
       <div class="overlay-actions">
-        <button id="btn-leave-confirm" class="btn btn-danger btn-block">Yes, Leave</button>
-        <button id="btn-leave-cancel" class="btn btn-ghost btn-block">Stay</button>
+        <button id="btn-leave-confirm" class="btn btn-danger btn-block" data-i18n="leave.confirm">Yes, Leave</button>
+        <button id="btn-leave-cancel" class="btn btn-ghost btn-block" data-i18n="leave.stay">Stay</button>
       </div>
     </div>
   </div>
@@ -542,15 +546,16 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="/socket.io/socket.io.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-  <script src="/js/auth.js"></script>
+  <script src="/js/i18n.js?v=20260807r"></script>
+  <script src="/js/auth.js?v=20260807r"></script>
   <script src="/js/feedback-events.js"></script>
-  <script src="/js/haptics.js"></script>
-  <script src="/js/sounds.js?v=20260803e"></script>
-  <script src="/js/tutorial.js?v=20260802f"></script>
+  <script src="/js/haptics.js?v=20260807r"></script>
+  <script src="/js/sounds.js?v=20260807r"></script>
+  <script src="/js/tutorial.js?v=20260807r"></script>
   <script src="/js/modes/index.js"></script>
-  <script src="/js/modes/standard.js?v=20260802t"></script>
-  <script src="/js/modes/standardTeam.js?v=20260802u"></script>
-  <script src="/js/main.js?v=20260807k"></script>
+  <script src="/js/modes/standard.js?v=20260807r"></script>
+  <script src="/js/modes/standardTeam.js?v=20260807r"></script>
+  <script src="/js/main.js?v=20260807r"></script>
 </body>
 </html>
 

@@ -5,11 +5,16 @@
   const GameModes = root.GameModes;
   if (!GameModes) return;
 
-  const PLACE_PHRASES = [
-    'The GOAT team won!',
-    'Almost owned the ridge',
-    'Base camp builds champions',
-  ];
+  /**
+   * Translate a catalog key (falls back to the key).
+   *
+   * @param {string} key Dotted catalog key.
+   * @param {Record<string, string|number>} [vars] Interpolation values.
+   * @returns {string}
+   */
+  function t(key, vars) {
+    return root.t ? root.t(key, vars) : key;
+  }
 
   /**
    * @param {number} rankIndex Zero-based team rank.
@@ -37,7 +42,7 @@
    * @returns {string}
    */
   function roomsListLabel(room) {
-    return '👥 Team';
+    return t('mode.teamRoomsList');
   }
 
   /**
@@ -93,7 +98,7 @@
    * @returns {string}
    */
   function lobbyReadyHint(state, amHost) {
-    return 'Teams ready! Start when you are!';
+    return t('lobby.hintTeamsReady');
   }
 
   /**
@@ -104,15 +109,19 @@
     const sortedTeams = [...(state.teams || [])].sort(
       (a, b) => (b.score || 0) - (a.score || 0) || (b.tops || 0) - (a.tops || 0)
     );
-    const standings = sortedTeams.map((t, i) => {
+    const standings = sortedTeams.map((tm, i) => {
       const prefix = teamRankPrefix(i);
-      return `${prefix} Team ${t.name}: ${t.score || 0} ⭐`;
+      return t('share.teamStanding', {
+        prefix,
+        name: tm.name,
+        score: `${tm.score || 0} ⭐`,
+      });
     }).join('\n');
 
-    let winnerLine = 'Game over!';
+    let winnerLine = t('share.gameOver');
     if (state.winnerTeamId != null && state.teams) {
-      const winTeam = state.teams.find((t) => t.id === state.winnerTeamId);
-      if (winTeam) winnerLine = `Team ${winTeam.name} wins!`;
+      const winTeam = state.teams.find((tm) => tm.id === state.winnerTeamId);
+      if (winTeam) winnerLine = t('share.teamWins', { name: winTeam.name });
     }
     return { standings, winnerLine };
   }
@@ -144,8 +153,8 @@
       teamMoveHint.hidden = !state.teams;
       if (state.teams) {
         teamMoveHint.textContent = amHost
-          ? 'Tap ⇄ to move players between teams.'
-          : 'Tap ⇄ on your row to change teams.';
+          ? t('lobby.teamMoveHost')
+          : t('lobby.teamMoveSelf');
       }
     }
   }
@@ -167,7 +176,7 @@
     state.teams.forEach((team) => {
       ul.appendChild(buildTeamBand(team, amHost));
     });
-    const assigned = new Set(state.teams.flatMap((t) => t.members));
+    const assigned = new Set(state.teams.flatMap((tm) => tm.members));
     const unassigned = state.players.filter((p) => !assigned.has(p.id));
     if (unassigned.length) {
       ul.appendChild(buildUnassignedBand(unassigned, amHost));
@@ -186,7 +195,7 @@
 
     const teamOrder = state.teams.map(() => []);
     state.players.forEach((p) => {
-      const tIdx = state.teams.findIndex((t) => t.members.includes(p.id));
+      const tIdx = state.teams.findIndex((tm) => tm.members.includes(p.id));
       if (tIdx >= 0) teamOrder[tIdx].push(p);
     });
 
@@ -213,17 +222,17 @@
       return panel;
     }
 
-    state.teams.forEach((t, tIdx) => {
+    state.teams.forEach((tm, tIdx) => {
       const teamBlock = document.createElement('div');
       teamBlock.className = 'team-block';
-      teamBlock.style.setProperty('--tc', t.color);
+      teamBlock.style.setProperty('--tc', tm.color);
 
       const head = document.createElement('div');
       head.className = 'tg-head';
-      head.style.setProperty('--tc', t.color);
-      head.innerHTML = `<span class="tg-dot" style="background:${t.color}"></span>
-          <span class="tg-name">${escapeHtml(t.name)}</span>
-          <span class="tg-score">⭐ ${t.score || 0}</span>`;
+      head.style.setProperty('--tc', tm.color);
+      head.innerHTML = `<span class="tg-dot" style="background:${tm.color}"></span>
+          <span class="tg-name">${escapeHtml(tm.name)}</span>
+          <span class="tg-score">⭐ ${tm.score || 0}</span>`;
       teamBlock.appendChild(head);
 
       const membersRow = document.createElement('div');
@@ -241,8 +250,8 @@
    * @returns {string}
    */
   function catchphrase(rankIndex) {
-    if (rankIndex >= 0 && rankIndex < PLACE_PHRASES.length) return PLACE_PHRASES[rankIndex];
-    return PLACE_PHRASES[PLACE_PHRASES.length - 1];
+    if (rankIndex >= 0 && rankIndex <= 2) return t('win.teamPhrase' + rankIndex);
+    return t('win.teamPhrase2');
   }
 
   /**
@@ -258,18 +267,18 @@
     const total = (a.score || 0) + (b.score || 0);
     const pctA = total > 0 ? Math.round(((a.score || 0) / total) * 100) : 50;
     const pctB = 100 - pctA;
-    const side = (t, i) => {
-      const isWin = t.id === winTeam.id;
-      const bg = colorWithAlpha(t.color, 0.12);
-      const border = colorWithAlpha(t.color, isWin ? 0.55 : 0.35);
+    const side = (tm, i) => {
+      const isWin = tm.id === winTeam.id;
+      const bg = colorWithAlpha(tm.color, 0.12);
+      const border = colorWithAlpha(tm.color, isWin ? 0.55 : 0.35);
       return `<div class="win-rival-side${isWin ? ' winner' : ''} win-extra" style="--i:${i};background:${bg};border-color:${border}">
-        <div class="win-rival-name" style="color:${escapeHtml(t.color)}">${escapeHtml(t.name)}</div>
-        <div class="win-rival-score">${t.score || 0}</div>
+        <div class="win-rival-name" style="color:${escapeHtml(tm.color)}">${escapeHtml(tm.name)}</div>
+        <div class="win-rival-score">${tm.score || 0}</div>
       </div>`;
     };
     return `<div class="win-rival">
       ${side(a, 0)}
-      <div class="win-rival-vs win-extra" style="--i:0">VS</div>
+      <div class="win-rival-vs win-extra" style="--i:0">${t('win.vs')}</div>
       ${side(b, 1)}
     </div>
     <div class="win-bar-track win-extra" style="--i:1">
@@ -288,20 +297,20 @@
     const first = sortedTeams[0];
     const second = sortedTeams[1];
     const third = sortedTeams[2];
-    const pod = (t, placeClass, placeLabel, i) => {
-      if (!t) return '';
+    const pod = (tm, placeClass, placeLabel, i) => {
+      if (!tm) return '';
       const barAlpha = placeClass === 'first' ? 0.55 : 0.45;
-      const barBg = colorWithAlpha(t.color, barAlpha);
+      const barBg = colorWithAlpha(tm.color, barAlpha);
       return `<div class="win-pod ${placeClass} win-extra" style="--i:${i}">
         <div class="win-pod-place">${placeLabel}</div>
-        <div class="win-pod-name" style="color:${escapeHtml(t.color)}">${escapeHtml(t.name)}</div>
-        <div class="win-pod-height" style="background:${barBg}"><span class="win-pod-bar-score">${t.score || 0}</span></div>
+        <div class="win-pod-name" style="color:${escapeHtml(tm.color)}">${escapeHtml(tm.name)}</div>
+        <div class="win-pod-height" style="background:${barBg}"><span class="win-pod-bar-score">${tm.score || 0}</span></div>
       </div>`;
     };
     return `<div class="win-podium">
-      ${pod(second, 'second', '2nd', 0)}
-      ${pod(first, 'first', '1st', 1)}
-      ${pod(third, 'third', '3rd', 2)}
+      ${pod(second, 'second', t('win.ordinal2'), 0)}
+      ${pod(first, 'first', t('win.ordinal1'), 1)}
+      ${pod(third, 'third', t('win.ordinal3'), 2)}
     </div>`;
   }
 
@@ -316,11 +325,11 @@
     } = ctx;
 
     const winTeam = state.teams && state.winnerTeamId != null
-      ? state.teams.find((t) => t.id === state.winnerTeamId)
+      ? state.teams.find((tm) => tm.id === state.winnerTeamId)
       : null;
     if (!winTeam) {
       resetWinHeadChrome();
-      $('win-title').textContent = 'Game Over!';
+      $('win-title').textContent = t('win.gameOver');
       $('win-sub').innerHTML = '';
       return;
     }
@@ -333,16 +342,16 @@
     const titleEl = $('win-title');
     const head = document.querySelector('#win-overlay .win-head');
     const trophy = document.querySelector('#win-overlay .trophy');
-    const rankIndex = sortedTeams.findIndex((t) => t.members && t.members.includes(myId));
+    const rankIndex = sortedTeams.findIndex((tm) => tm.members && tm.members.includes(myId));
     const localWon = didPlayerWin(state, myId);
 
     if (rankIndex < 0) {
       resetWinHeadChrome();
-      titleEl.textContent = `Team ${winTeam.name} Wins!`;
+      titleEl.textContent = t('win.teamWins', { name: winTeam.name });
     } else {
       if (placeEl) {
         placeEl.hidden = false;
-        placeEl.textContent = ordinalPlace(rankIndex + 1) + ' place';
+        placeEl.textContent = t('win.place', { place: ordinalPlace(rankIndex + 1) });
       }
       titleEl.textContent = catchphrase(rankIndex);
       if (trophy) {
@@ -353,7 +362,10 @@
       if (outcomeEl) {
         if (!localWon) {
           outcomeEl.hidden = false;
-          outcomeEl.textContent = 'Team ' + winTeam.name + ' took the peak · ' + (winTeam.score || 0) + ' pts';
+          outcomeEl.textContent = t('win.teamOutcome', {
+            name: winTeam.name,
+            score: winTeam.score || 0,
+          });
         } else {
           outcomeEl.hidden = true;
           outcomeEl.textContent = '';
@@ -375,7 +387,7 @@
     const labelIdx = rowIdx++;
     const sorted = sortedPlayersByScore();
     const playerRows = sorted.map((p) => {
-      const team = state.teams.find((t) => t.members.includes(p.id));
+      const team = state.teams.find((tm) => tm.members.includes(p.id));
       const teamBorder = team ? `border-color:${escapeHtml(team.color)}` : '';
       const idx = rowIdx++;
       return `<div class="score-row score-row-sm" style="--i:${idx};${teamBorder}">
@@ -385,14 +397,14 @@
     }).join('');
 
     $('win-sub').innerHTML = `${teamViz}
-        <div class="team-breakdown-label win-extra" style="--i:${labelIdx}">Individual Scores</div>
+        <div class="team-breakdown-label win-extra" style="--i:${labelIdx}">${t('win.individualScores')}</div>
         <div class="scoreboard scoreboard-sm">${playerRows}</div>`;
     document.querySelector('#win-overlay .win-actions').style.setProperty('--rows', String(rowIdx));
   }
 
   GameModes.register({
     id: 'standardTeam',
-    label: 'Team',
+    get label() { return t('mode.team'); },
     usesTeams: true,
     roomsListLabel,
     didPlayerWin,

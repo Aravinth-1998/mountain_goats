@@ -26,36 +26,26 @@
   /** @type {number|null} Die index with an open re-face picker, or null. */
   let refacePickerIndex = null;
 
-  /** Inline Continue — board stays visible, highlights only (no fade) */
-  const INLINE_CONTINUE = {
-    mountainsExplain: 'Six mountains numbered 5–10. A dice group that sums to that number climbs that mountain. 5–6 are tall (4 spaces); 9–10 are short (2 spaces).',
-    tokens: 'Each colored circle is the mountain number. The × count is how many point tokens remain — a token is worth that mountain\'s number when you take the summit.',
-    boardStart: 'Every goat starts at the foot (bottom) of each mountain. Yours and Rival\'s are highlighted below.',
-    noticeUsed: 'Dice you already used this turn are dimmed and cannot be selected again.',
-    firstToken: 'First summit! You took 1 point token from Mountain 10 — that adds 10 points to your score. The × count on that mountain dropped by 1.',
-    rivalBump: 'Rival took your summit — you were bumped back to the foot. Only one goat holds a summit in Standard mode.',
-    bonusSetup: 'Fast-forward: you already have a point token from mountains 5–9. Only mountain 10 is missing from your set. Claim it to earn a Bonus Token.',
-  };
-
-  /** Overlay Continue (before ones roll) */
+  /** Overlay Continue (before ones roll) — copy resolved via t() at display time */
   const OVERLAY_CONTINUE = {
     onesExplain: {
       icon: '1️⃣',
-      title: 'Multiple 1s',
-      body: 'If you roll more than one 1, keep one 1 and re-face extras to any face (1–6) with ↻. Then play this turn however you like — group dice and climb. When the turn ends, the tutorial continues.',
+      titleKey: 'tutorial.ones.title',
+      bodyKey: 'tutorial.ones.body',
     },
   };
 
+  /** Info panels — copy resolved via t() at display time */
   const INFO_STEPS = {
     bonusClaimed: {
       icon: '✨',
-      title: 'Bonus claimed!',
-      body: 'You collected a token from all 6 mountains — a full set. That claims the highest Bonus Token (✨15). Later sets claim 12, then 9, then 6.',
+      titleKey: 'tutorial.bonusClaimed.title',
+      bodyKey: 'tutorial.bonusClaimed.body',
     },
     ending: {
       icon: '🏁',
-      title: 'How games end',
-      body: 'The final round starts when all Bonus Tokens are claimed or 3 mountains run out of point tokens. Everyone gets equal turns, then most points wins. Ties: most goats on tops, then a goat on the higher-numbered mountain.',
+      titleKey: 'tutorial.ending.title',
+      bodyKey: 'tutorial.ending.body',
     },
   };
 
@@ -69,13 +59,34 @@
 
   const $ = (id) => document.getElementById(id);
 
+  /**
+   * Translate a catalog key at call time.
+   * @param {string} key
+   * @param {Record<string, string|number>} [vars]
+   * @returns {string}
+   */
+  function t(key, vars) {
+    return window.t ? window.t(key, vars) : key;
+  }
+
+  /** Steps that show the inline Continue control. */
+  const INLINE_CONTINUE_STEPS = {
+    mountainsExplain: 1,
+    tokens: 1,
+    boardStart: 1,
+    noticeUsed: 1,
+    firstToken: 1,
+    rivalBump: 1,
+    bonusSetup: 1,
+  };
+
   function createState() {
     return {
       mountains: MOUNTAINS.map((m) => ({ ...m })),
       players: [
         {
           id: YOU_ID,
-          name: 'You',
+          name: '', // set via syncPlayerNames
           color: '#5ad4ff',
           pos: MOUNTAINS.map(() => 0),
           score: 0,
@@ -87,7 +98,7 @@
         },
         {
           id: RIVAL_ID,
-          name: 'Rival',
+          name: '', // set via syncPlayerNames
           color: '#ff6b8a',
           pos: MOUNTAINS.map(() => 0),
           score: 0,
@@ -104,10 +115,24 @@
       adjustable: [],
       numDice: 4,
       banner: '',
+      bannerKey: null,
+      bannerVars: null,
       bonusTokens: [15, 12, 9, 6],
       youSawBonusRow: false,
       refaceMountain: null,
     };
+  }
+
+  /**
+   * Apply translated YOU / RIVAL labels onto the active tutorial state.
+   * @returns {void}
+   */
+  function syncPlayerNames() {
+    if (!state || !state.players) return;
+    const y = state.players.find((p) => p.id === YOU_ID);
+    const r = state.players.find((p) => p.id === RIVAL_ID);
+    if (y) y.name = t('tutorial.you');
+    if (r) r.name = t('tutorial.rival');
   }
 
   function you() {
@@ -141,11 +166,41 @@
    * @param {string} nextStepId
    * @param {string} [message]
    */
-  function beginAutoEnd(nextStepId, message) {
+  /**
+   * @param {string} nextStepId
+   * @param {string} [bannerKey] Catalog key under tutorial.banner.*
+   * @returns {void}
+   */
+  function beginAutoEnd(nextStepId, bannerKey) {
     clearAutoEndTimers();
     autoEndNext = nextStepId;
-    state.banner = message || 'No groups of 5–10 left — tap End Turn.';
+    state.bannerKey = bannerKey || 'tutorial.banner.noGroups';
+    state.bannerVars = null;
+    state.banner = '';
     setStep('autoEnd');
+  }
+
+  /**
+   * Resolve current banner text from key or free-form fallback.
+   * @returns {string}
+   */
+  function resolveBanner() {
+    if (!state) return '';
+    if (state.bannerKey) return t(state.bannerKey, state.bannerVars || undefined);
+    return state.banner || '';
+  }
+
+  /**
+   * Set a catalog banner key (clears free-form banner).
+   * @param {string} key
+   * @param {Record<string, string|number>} [vars]
+   * @returns {void}
+   */
+  function setBannerKey(key, vars) {
+    if (!state) return;
+    state.bannerKey = key || null;
+    state.bannerVars = vars || null;
+    state.banner = '';
   }
 
   function finishAutoEnd() {
@@ -192,8 +247,8 @@
     const title = $('tut-continue-title');
     const body = $('tut-continue-body');
     if (icon) icon.textContent = cfg.icon;
-    if (title) title.textContent = cfg.title;
-    if (body) body.textContent = cfg.body;
+    if (title) title.textContent = t(cfg.titleKey);
+    if (body) body.textContent = t(cfg.bodyKey);
   }
 
   function fillInfoPanel() {
@@ -203,8 +258,8 @@
     const title = $('tut-info-title');
     const body = $('tut-info-body');
     if (icon) icon.textContent = cfg.icon;
-    if (title) title.textContent = cfg.title;
-    if (body) body.textContent = cfg.body;
+    if (title) title.textContent = t(cfg.titleKey);
+    if (body) body.textContent = t(cfg.bodyKey);
   }
 
   /**
@@ -288,33 +343,36 @@
   }
 
   function coachText() {
-    if (INLINE_CONTINUE[stepId]) return INLINE_CONTINUE[stepId];
+    if (INLINE_CONTINUE_STEPS[stepId]) return t('tutorial.inline.' + stepId);
     switch (stepId) {
-      case 'intro': return 'Tap Start to begin.';
-      case 'onesExplain': return 'Learn what happens when you roll multiple 1s.';
-      case 'roll1': return 'Tap Roll Dice to roll your 4 dice.';
-      case 'sel4': return 'Tap the die showing 4.';
-      case 'sel6': return 'Tap the die showing 6. Groups that sum to 5–10 climb that mountain.';
-      case 'climb1': return 'Mountain 10 is glowing — tap it to climb one space.';
-      case 'sel5a': return 'Tap a die showing 5.';
-      case 'sel5b': return 'Tap the other 5 to make another group of 10.';
-      case 'summit': return 'Tap Mountain 10 to reach the summit and take a point token.';
-      case 'roll2': return 'You are on the summit. Tap Roll Dice again.';
-      case 'selH4': return 'Tap 4 — a matching group while on top harvests another token.';
-      case 'selH6': return 'Tap 6 to finish the group of 10.';
-      case 'harvest': return 'Tap Mountain 10 to harvest another point token.';
-      case 'autoEnd': return (state && state.banner)
-        ? state.banner + ' In a real game this wait auto-ends after 2 seconds.'
-        : 'No groups of 5–10 remain. Tap End Turn.';
-      case 'roll3': return 'Tap Roll Dice — you rolled two 1s.';
-      case 'freeTurn': return 'Your turn — re-face 1s with ↻ if you want, group dice (sum 5–10), and climb. The turn ends when you have used all the dice you can.';
-      case 'rollBonus': return 'Tap Roll Dice — finish the set on mountain 10.';
-      case 'selB4': return 'Tap 4.';
-      case 'selB6': return 'Tap 6 (4+6=10).';
-      case 'climbBonus': return 'Tap Mountain 10 to take the last token and claim a Bonus!';
-      case 'bonusClaimed': return 'You earned a Bonus Token.';
-      case 'ending': return 'How a game ends and who wins.';
-      case 'done': return 'Tutorial complete.';
+      case 'intro': return t('tutorial.coach.intro');
+      case 'onesExplain': return t('tutorial.coach.onesExplain');
+      case 'roll1': return t('tutorial.coach.roll1');
+      case 'sel4': return t('tutorial.coach.sel4');
+      case 'sel6': return t('tutorial.coach.sel6');
+      case 'climb1': return t('tutorial.coach.climb1');
+      case 'sel5a': return t('tutorial.coach.sel5a');
+      case 'sel5b': return t('tutorial.coach.sel5b');
+      case 'summit': return t('tutorial.coach.summit');
+      case 'roll2': return t('tutorial.coach.roll2');
+      case 'selH4': return t('tutorial.coach.selH4');
+      case 'selH6': return t('tutorial.coach.selH6');
+      case 'harvest': return t('tutorial.coach.harvest');
+      case 'autoEnd': {
+        const banner = resolveBanner();
+        return banner
+          ? t('tutorial.coach.autoEndWithBanner', { banner })
+          : t('tutorial.coach.autoEnd');
+      }
+      case 'roll3': return t('tutorial.coach.roll3');
+      case 'freeTurn': return t('tutorial.coach.freeTurn');
+      case 'rollBonus': return t('tutorial.coach.rollBonus');
+      case 'selB4': return t('tutorial.coach.selB4');
+      case 'selB6': return t('tutorial.coach.selB6');
+      case 'climbBonus': return t('tutorial.coach.climbBonus');
+      case 'bonusClaimed': return t('tutorial.coach.bonusClaimed');
+      case 'ending': return t('tutorial.coach.ending');
+      case 'done': return t('tutorial.coach.done');
       default: return '';
     }
   }
@@ -324,23 +382,23 @@
       stepId === 'climb1' || stepId === 'summit' || stepId === 'harvest'
       || stepId === 'climbBonus'
     ) {
-      return 'Tap the glowing mountain to climb.';
+      return t('tutorial.hint.climb');
     }
     if (stepId === 'freeTurn') {
       const tMi = freeTargetMountain();
-      if (selected.size && tMi >= 0) return 'Tap the glowing mountain to climb.';
-      if (selected.size) return 'Group = ' + selectedSum() + ' (need 5–10). Adjust your selection.';
-      return 'Tap dice to group them, or ↻ to re-face extra 1s. End Turn when finished.';
+      if (selected.size && tMi >= 0) return t('tutorial.hint.climb');
+      if (selected.size) return t('tutorial.hint.groupNeed', { sum: selectedSum() });
+      return t('tutorial.hint.free');
     }
-    if (stepId.startsWith('sel')) return 'Tap the highlighted die.';
+    if (stepId.startsWith('sel')) return t('tutorial.hint.die');
     if (stepId === 'roll1' || stepId === 'roll2' || stepId === 'roll3' || stepId === 'rollBonus') {
-      return 'Tap "Roll Dice" to roll.';
+      return t('tutorial.hint.roll');
     }
     if (stepId === 'autoEnd') {
-      return 'Tap "End Turn" to continue.';
+      return t('tutorial.hint.endTurn');
     }
-    if (INLINE_CONTINUE[stepId]) return 'Tap Continue when you understand.';
-    return state && state.banner ? state.banner : '';
+    if (INLINE_CONTINUE_STEPS[stepId]) return t('tutorial.hint.continue');
+    return resolveBanner();
   }
 
   function goatCluster(players) {
@@ -391,7 +449,7 @@
     const all = [15, 12, 9, 6];
     const remaining = new Set(state.bonusTokens || all.slice());
     row.hidden = false;
-    row.innerHTML = '<span class="bonus-label">Bonus</span>' + all
+    row.innerHTML = '<span class="bonus-label">' + t('tutorial.bonusLabel') + '</span>' + all
       .map((v) => {
         if (remaining.has(v)) {
           return `<span class="bonus-tok">✨${v}</span>`;
@@ -436,7 +494,7 @@
       const head = document.createElement('div');
       head.className = 'mhead';
       head.innerHTML = `<span class="mtok${m.chips > 0 ? '' : ' empty'}" style="--c:${paint}">${m.value}</span>
-        <span class="mleft">${m.chips > 0 ? '×' + m.chips : 'EMPTY'}</span>`;
+        <span class="mleft">${m.chips > 0 ? '×' + m.chips : t('tutorial.empty')}</span>`;
       const myCollected = (you() && you().collected[mi]) || 0;
       if (myCollected > 0) {
         head.insertAdjacentHTML('beforeend', `<span class="tut-have-tok">✓${myCollected}</span>`);
@@ -525,7 +583,7 @@
         btn.type = 'button';
         btn.className = 'reface';
         btn.textContent = '↻';
-        btn.title = 'Change this die face';
+        btn.title = t('tutorial.refaceTitle');
         btn.setAttribute('data-tut-target', 'reface-' + i);
         btn.setAttribute('aria-expanded', refacePickerIndex === i ? 'true' : 'false');
         btn.addEventListener('click', (e) => {
@@ -545,7 +603,7 @@
       const picker = document.createElement('div');
       picker.className = 'reface-picker';
       picker.setAttribute('role', 'listbox');
-      picker.setAttribute('aria-label', 'Choose die face');
+      picker.setAttribute('aria-label', t('tutorial.chooseDieFace'));
       picker.addEventListener('click', (e) => e.stopPropagation());
       for (let face = 1; face <= 6; face++) {
         const opt = document.createElement('button');
@@ -565,7 +623,7 @@
   function renderInlineContinue() {
     const wrap = $('tut-inline-continue-wrap');
     if (!wrap) return;
-    const show = !!INLINE_CONTINUE[stepId];
+    const show = !!INLINE_CONTINUE_STEPS[stepId];
     wrap.hidden = !show;
     if (show) {
       const btn = $('tut-btn-inline-continue');
@@ -596,8 +654,10 @@
         const sum = selectedSum();
         const tMi = freeTargetMountain();
         sumEl.textContent = tMi >= 0
-          ? `Group = ${sum} → Mountain ${sum}`
-          : `Group = ${sum}` + (sum >= 5 && sum <= 10 ? '' : ' (need 5–10)');
+          ? t('tutorial.sumOk', { sum })
+          : (sum >= 5 && sum <= 10
+            ? t('tutorial.sumPlain', { sum })
+            : t('tutorial.sumNeed', { sum }));
         sumEl.classList.toggle('ok', tMi >= 0);
       } else {
         sumEl.textContent = '';
@@ -613,10 +673,9 @@
 
     const banner = $('tut-turn-banner');
     if (banner) {
-      if (stepId === 'rivalBump') banner.textContent = 'Rival\'s turn';
-      else if (stepId === 'autoEnd' && state && state.banner) banner.textContent = state.banner;
-      else if (state && state.banner) banner.textContent = state.banner;
-      else banner.textContent = 'Your turn';
+      if (stepId === 'rivalBump') banner.textContent = t('tutorial.banner.rivalTurn');
+      else if (resolveBanner()) banner.textContent = resolveBanner();
+      else banner.textContent = t('tutorial.banner.yourTurn');
     }
 
     renderInlineContinue();
@@ -703,7 +762,7 @@
       me.pos[MI_10] = 1;
       selected.forEach((i) => { state.diceUsed[i] = true; });
       selected.clear();
-      state.banner = 'Climbed one space!';
+      setBannerKey('tutorial.banner.climbed');
       setStep('noticeUsed');
       return;
     }
@@ -720,7 +779,7 @@
       selected.clear();
       state.rolled = false;
       state.adjustable = [];
-      state.banner = 'Summit! +10 points, token taken.';
+      setBannerKey('tutorial.banner.summit');
       setStep('firstToken');
       return;
     }
@@ -733,8 +792,8 @@
       }
       selected.forEach((i) => { state.diceUsed[i] = true; });
       selected.clear();
-      state.banner = 'Harvested — leftover 1 and 2 cannot make 5–10.';
-      beginAutoEnd('rivalBump', '1 + 2 = 3 — not a valid group (need 5–10). Tap End Turn.');
+      setBannerKey('tutorial.banner.harvested');
+      beginAutoEnd('rivalBump', 'tutorial.banner.invalidGroup');
       return;
     }
 
@@ -760,7 +819,7 @@
       me.score += bonusVal;
       selected.forEach((i) => { state.diceUsed[i] = true; });
       selected.clear();
-      state.banner = 'Full set! Bonus ✨15 claimed.';
+      setBannerKey('tutorial.banner.bonusClaimed');
       setStep('bonusClaimed');
     }
   }
@@ -797,6 +856,9 @@
     selected.forEach((i) => { state.diceUsed[i] = true; });
     selected.clear();
     if (state.diceUsed.some((u) => u)) state.adjustable = [];
+    // Free-climb feedback is mountain-specific (no catalog keys yet).
+    state.bannerKey = null;
+    state.bannerVars = null;
     state.banner = next === m.height
       ? ('Token from Mountain ' + m.value + '!')
       : ('Climbed Mountain ' + m.value + '.');
@@ -805,9 +867,7 @@
       const allUsed = state.diceUsed.every((u) => u);
       beginAutoEnd(
         'bonusSetup',
-        allUsed
-          ? 'You used all your dice — the turn ends. Tap End Turn.'
-          : 'You used every dice group you could — the turn ends. Tap End Turn.'
+        allUsed ? 'tutorial.banner.usedAllDice' : 'tutorial.banner.usedAllGroups'
       );
     }
   }
@@ -837,7 +897,7 @@
     state.dice = [null, null, null, null];
     state.diceUsed = [false, false, false, false];
     state.adjustable = [];
-    state.banner = 'One step from summit on mountain 10.';
+    setBannerKey('tutorial.banner.oneStep');
     state.youSawBonusRow = true;
     // Ensure mountain 10 still has chips
     if (m10.chips < 1) m10.chips = 3;
@@ -856,6 +916,8 @@
       state.dice = [4, 6, 5, 5];
       state.diceUsed = [false, false, false, false];
       state.adjustable = [];
+      state.bannerKey = null;
+      state.bannerVars = null;
       state.banner = '';
       setStep('sel4');
       return;
@@ -866,7 +928,7 @@
       state.dice = [4, 6, 1, 2];
       state.diceUsed = [false, false, false, false];
       state.adjustable = [];
-      state.banner = 'Already on top — matching group harvests.';
+      setBannerKey('tutorial.banner.onTop');
       setStep('selH4');
       return;
     }
@@ -876,7 +938,7 @@
       state.dice = [1, 1, 4, 5];
       state.diceUsed = [false, false, false, false];
       state.adjustable = [1];
-      state.banner = 'Free turn — re-face, group, and climb as you like.';
+      setBannerKey('tutorial.banner.freeTurn');
       setStep('freeTurn');
       return;
     }
@@ -886,7 +948,7 @@
       state.dice = [4, 6, 2, 3];
       state.diceUsed = [false, false, true, true];
       state.adjustable = [];
-      state.banner = 'Group 4+6 to finish mountain 10.';
+      setBannerKey('tutorial.banner.groupBonus');
       setStep('selB4');
     }
   }
@@ -917,7 +979,7 @@
       opp.collected[MI_10] += 1;
       opp.score += m.value;
     }
-    state.banner = 'Rival claimed the summit!';
+    setBannerKey('tutorial.banner.rivalClaimed');
   }
 
   /**
@@ -936,7 +998,7 @@
     if (!(next >= 1 && next <= 6)) return;
     state.dice[index] = next;
     refacePickerIndex = null;
-    state.banner = 'Re-faced to ' + next + '.';
+    setBannerKey('tutorial.banner.refaced', { face: next });
     render();
   }
 
@@ -1020,11 +1082,18 @@
     autoEndNext = null;
     onExitHome = api && api.goHome ? api.goHome : null;
     state = createState();
+    syncPlayerNames();
     selected.clear();
     stepId = 'intro';
     if (api && typeof api.showScreen === 'function') api.showScreen('tutorial');
     render();
   }
+
+  document.addEventListener('mg:localechange', () => {
+    if (!state) return;
+    syncPlayerNames();
+    render();
+  });
 
   window.MGTutorial = { start, exit };
 })();

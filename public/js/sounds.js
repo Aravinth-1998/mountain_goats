@@ -103,15 +103,27 @@
   }
 
   /**
+   * Localized sound toggle label.
+   *
+   * @param {boolean} on Whether sound is enabled.
+   * @returns {string}
+   */
+  function soundToggleLabel(on) {
+    const key = on ? 'settings.soundOn' : 'settings.soundOff';
+    return window.t ? window.t(key) : (on ? 'Sound on' : 'Sound off');
+  }
+
+  /**
    * @param {boolean} on
    * @returns {void}
    */
   function syncToggleButtons(on) {
+    const label = soundToggleLabel(on);
     document.querySelectorAll('[data-sound-toggle]').forEach((button) => {
       button.setAttribute('aria-pressed', on ? 'true' : 'false');
       button.classList.toggle('is-off', !on);
-      button.title = on ? 'Sound on' : 'Sound off';
-      button.setAttribute('aria-label', on ? 'Sound on' : 'Sound off');
+      button.title = label;
+      button.setAttribute('aria-label', label);
     });
   }
 
@@ -219,6 +231,10 @@
         setEnabled(!enabled);
         if (enabled) play({ type: 'ui_tap', self: true });
       });
+    });
+
+    document.addEventListener('mg:localechange', () => {
+      syncToggleButtons(enabled);
     });
   }
 

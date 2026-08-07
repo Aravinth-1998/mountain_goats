@@ -1948,6 +1948,18 @@ input.input-error:focus {
   font-weight: 600;
   color: var(--text);
 }
+.settings-locale-select {
+  min-width: 140px;
+  max-width: 55%;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--card-border);
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+}
 #screen-home .stats-fab {
   position: static;
   flex: 0 0 52px;

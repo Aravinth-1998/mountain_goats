@@ -14,9 +14,19 @@
   let statsLoadedOnce = false;
   const PROFILE_DRAWER_MS = 280;
   const STATS_REFRESH_MS = 60000;
-  const STATS_UNAVAILABLE_MSG = 'Data is not currently available.';
   let resolveAuthBootstrapped = null;
   let resolveAuthReady = null;
+
+  /**
+   * Translate a catalog key (falls back to the key).
+   *
+   * @param {string} key Dotted catalog key.
+   * @param {Record<string, string|number>} [vars] Interpolation values.
+   * @returns {string}
+   */
+  function t(key, vars) {
+    return window.t ? window.t(key, vars) : key;
+  }
 
   /**
    * Clone the shared inline loader markup with an optional message.
@@ -29,7 +39,7 @@
     if (!tpl) return null;
     const node = tpl.content.firstElementChild.cloneNode(true);
     const msg = node.querySelector('.loading-msg');
-    if (msg) msg.textContent = message || 'Loading...';
+    if (msg) msg.textContent = message || t('common.loading');
     return node;
   }
 
@@ -52,7 +62,7 @@
     const container = document.getElementById('profile-stats-loading');
     if (!container) return;
     container.innerHTML = '';
-    const loader = createInlineLoader(message || 'Loading stats...');
+    const loader = createInlineLoader(message || t('profile.loadingStats'));
     if (loader) container.appendChild(loader);
     container.hidden = false;
     setProfileStatsContentVisible(false);
@@ -74,7 +84,7 @@
   function showProfileStatsUnavailable() {
     const unavailable = document.getElementById('profile-stats-unavailable');
     if (unavailable) {
-      unavailable.textContent = STATS_UNAVAILABLE_MSG;
+      unavailable.textContent = t('profile.statsUnavailable');
       unavailable.hidden = false;
     }
     setProfileStatsContentVisible(false);
@@ -105,7 +115,7 @@
     }
 
     hideProfileStatsUnavailable();
-    showProfileStatsLoading('Loading stats...');
+    showProfileStatsLoading(t('profile.loadingStats'));
     try {
       const result = await fetchMatchStats();
       if (result.ok) {
@@ -154,15 +164,15 @@
    * @returns {string}
    */
   function displayNameFromUser(user) {
-    if (!user) return 'Player';
+    if (!user) return t('common.player');
     const meta = user.user_metadata || {};
     const raw =
       meta.full_name ||
       meta.name ||
       (user.email ? String(user.email).split('@')[0] : '') ||
-      'Player';
+      t('common.player');
     const name = String(raw).trim();
-    return name || 'Player';
+    return name || t('common.player');
   }
 
   /**
@@ -172,7 +182,7 @@
    * @returns {string}
    */
   function buildAvatarFallbackUrl(name) {
-    const encoded = encodeURIComponent(name || 'Player');
+    const encoded = encodeURIComponent(name || t('common.player'));
     return `https://ui-avatars.com/api/?name=${encoded}&background=4f7cff&color=fff&size=72`;
   }
 
@@ -213,14 +223,16 @@
   function setAvatarImage(img, primaryUrl, displayName) {
     if (!img) return;
 
-    const name = displayName || 'Player';
+    const name = displayName || t('common.player');
     const fallbackUrl = buildAvatarFallbackUrl(name);
     const resolvedPrimary = primaryUrl || readCachedAvatarUrl();
     const usePrimary = resolvedPrimary && resolvedPrimary !== fallbackUrl;
 
     img.referrerPolicy = 'no-referrer';
     img.decoding = 'async';
-    img.alt = name ? `${name} profile photo` : 'Your profile photo';
+    img.alt = name
+      ? t('profile.photoAlt', { name })
+      : t('profile.yourPhotoAlt');
     img.removeAttribute('data-avatar-fallback');
 
     img.onload = null;
@@ -311,7 +323,7 @@
   function setGamingNameLoadingPlaceholder() {
     const nameInput = document.getElementById('home-name');
     if (!nameInput || nameInput.value.trim()) return;
-    nameInput.placeholder = 'Loading your GOAT name...';
+    nameInput.placeholder = t('home.nameLoading');
   }
 
   /**
@@ -399,7 +411,7 @@
     const nameInput = document.getElementById('home-name');
     if (!nameInput) return;
     nameInput.readOnly = false;
-    nameInput.placeholder = profile.isSignedIn ? 'Choose your GOAT name' : 'Enter your GOAT name';
+    nameInput.placeholder = profile.isSignedIn ? t('profile.chooseGoatName') : t('home.namePlaceholder');
     if (gamingName) {
       nameInput.value = gamingName;
     } else if (!profile.isSignedIn) {
@@ -417,7 +429,7 @@
       if (nameInput) {
         nameInput.disabled = false;
         nameInput.readOnly = false;
-        nameInput.placeholder = 'Enter your GOAT name';
+        nameInput.placeholder = t('home.namePlaceholder');
       }
       updateProfileStatsFab();
       return;
@@ -425,12 +437,12 @@
 
     if (profile.isSignedIn) {
       if (nameInput) {
-        nameInput.placeholder = 'Choose your GOAT name';
+        nameInput.placeholder = t('profile.chooseGoatName');
         nameInput.readOnly = false;
       }
     } else {
       if (nameInput) {
-        nameInput.placeholder = 'Enter your GOAT name';
+        nameInput.placeholder = t('home.namePlaceholder');
         nameInput.readOnly = false;
       }
       closeProfileStatsDrawer({ immediate: true });
@@ -497,14 +509,14 @@
     if (!avatar || !displayNameEl || !goatNameEl) return;
 
     setAvatarImage(avatar, profile.avatarUrl, profile.displayName);
-    displayNameEl.textContent = profile.displayName || 'Player';
+    displayNameEl.textContent = profile.displayName || t('common.player');
 
     const goatName = getGamingNameForPlay();
     if (goatName) {
       goatNameEl.textContent = goatName;
       goatNameEl.classList.remove('is-empty');
     } else {
-      goatNameEl.textContent = 'Choose your GOAT name';
+      goatNameEl.textContent = t('profile.chooseGoatName');
       goatNameEl.classList.add('is-empty');
     }
   }
@@ -710,7 +722,7 @@
       avatar.hidden = false;
       signInG.hidden = true;
       signInG.setAttribute('aria-hidden', 'true');
-      fab.setAttribute('aria-label', 'Your profile');
+      fab.setAttribute('aria-label', t('profile.yourProfileAria'));
       fab.setAttribute('aria-controls', 'profile-stats-drawer');
       setAvatarImage(avatar, profile.avatarUrl, profile.displayName);
       return;
@@ -719,7 +731,7 @@
     avatar.hidden = true;
     signInG.hidden = false;
     signInG.setAttribute('aria-hidden', 'false');
-    fab.setAttribute('aria-label', 'Sign in with Google');
+    fab.setAttribute('aria-label', t('home.signInAria'));
     fab.removeAttribute('aria-controls');
   }
 
