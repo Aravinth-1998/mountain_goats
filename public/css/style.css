@@ -1742,6 +1742,17 @@ input.input-error:focus {
   flex-direction: column;
   gap: 10px;
 }
+.home-name-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+.home-name-row .home-key--name {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: auto;
+}
 #screen-home #home-name-error {
   min-height: 0;
   margin: 0;
@@ -1931,36 +1942,40 @@ input.input-error:focus {
   color: var(--text);
 }
 #screen-home .stats-fab {
-  position: absolute;
-  top: 16px;
-  right: 16px;
-  z-index: 40;
+  position: static;
+  flex: 0 0 52px;
+  width: 52px;
+  height: 52px;
+  top: auto;
+  right: auto;
+  z-index: 2;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 3px;
-  border-radius: 50%;
-  border: 2px solid rgba(79, 124, 255, 0.45);
-  background: rgba(79, 124, 255, 0.12);
+  padding: 0;
+  border-radius: 14px;
+  border: none;
+  background: transparent;
   cursor: pointer;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  box-shadow: none;
   overflow: hidden;
 }
 #screen-home .stats-fab:hover {
-  border-color: rgba(79, 124, 255, 0.75);
-  background: rgba(79, 124, 255, 0.2);
+  border: none;
+  background: transparent;
+  filter: brightness(1.06);
 }
 #screen-home .stats-fab-img {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
+  width: 100%;
+  height: 100%;
+  border-radius: 14px;
   object-fit: cover;
   display: block;
 }
 #screen-home .stats-fab-g {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
+  width: 100%;
+  height: 100%;
+  border-radius: 14px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1968,8 +1983,8 @@ input.input-error:focus {
   flex-shrink: 0;
 }
 #screen-home .stats-fab-g-icon {
-  width: 22px;
-  height: 22px;
+  width: 28px;
+  height: 28px;
   display: block;
 }
 #screen-home .stats-fab-img[hidden],
@@ -1981,15 +1996,16 @@ input.input-error:focus {
   border: none;
   background: transparent;
   box-shadow: none;
-  overflow: visible;
+  overflow: hidden;
 }
 #screen-home .stats-fab.is-guest:hover {
   border: none;
   background: transparent;
   box-shadow: none;
+  filter: brightness(1.06);
 }
 #screen-home .stats-fab.is-guest:hover .stats-fab-g {
-  opacity: 0.92;
+  opacity: 0.95;
 }
 #screen-home .stats-fab[hidden] {
   display: none !important;
