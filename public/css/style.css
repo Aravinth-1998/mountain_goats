@@ -80,6 +80,7 @@ body { background-color: var(--bg-0); }
   padding-top: 20px;
   padding-bottom: max(20px, env(safe-area-inset-bottom, 0px));
   overflow: hidden;
+  justify-content: center;
 }
 /* While home is showing, stop document rubber-band scroll (iOS Safari) */
 html.mg-on-home,
@@ -342,10 +343,9 @@ html.mg-rejoining #screen-loading {
 
 /* Brand */
 .brand { text-align: center; margin-top: 6vh; }
-#screen-home .brand { margin-top: 4vh; }
+#screen-home .brand { margin-top: 0; }
 @media (max-height: 560px) {
   #screen-home.screen { gap: 12px; padding-top: 12px; }
-  #screen-home .brand { margin-top: 1.5vh; }
   #screen-home .goat-emoji { font-size: 52px; }
   #screen-home .brand h1 { font-size: 34px; }
 }
