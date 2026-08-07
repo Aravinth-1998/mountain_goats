@@ -77,8 +77,7 @@ body { background-color: var(--bg-0); }
   max-height: 100dvh;
   max-height: 100svh;
   min-height: 0;
-  /* Clear absolute top icons (settings / leaderboard / ?) */
-  padding-top: 64px;
+  padding-top: 20px;
   padding-bottom: max(20px, env(safe-area-inset-bottom, 0px));
   overflow: hidden;
 }
@@ -345,7 +344,7 @@ html.mg-rejoining #screen-loading {
 .brand { text-align: center; margin-top: 6vh; }
 #screen-home .brand { margin-top: 4vh; }
 @media (max-height: 560px) {
-  #screen-home.screen { gap: 12px; padding-top: 52px; }
+  #screen-home.screen { gap: 12px; padding-top: 12px; }
   #screen-home .brand { margin-top: 1.5vh; }
   #screen-home .goat-emoji { font-size: 52px; }
   #screen-home .brand h1 { font-size: 34px; }
@@ -1854,27 +1853,31 @@ input.input-error:focus {
   opacity: 1;
 }
 
-/* Profile stats sidebar (home screen) */
-#screen-home .home-top-start {
-  position: absolute;
-  top: 16px;
-  left: 16px;
-  z-index: 40;
+/* Profile / utility controls on home (under Join Room) */
+#screen-home .home-util-row {
+  position: static;
   display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: center;
+  gap: 14px;
+  margin-top: 4px;
+  z-index: 1;
 }
-#screen-home .home-top-start .icon-btn--emoji {
-  width: 40px;
-  height: 40px;
+#screen-home .home-util-row .icon-btn--emoji {
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   background: rgba(22, 31, 51, 0.72);
   border: 1px solid rgba(255,255,255,0.10);
   font-size: 18px;
   font-weight: 700;
 }
-#screen-home .home-top-start .icon-btn--emoji:hover {
+#screen-home .home-util-row .icon-btn--emoji:hover {
   background: rgba(30, 42, 68, 0.85);
+}
+#screen-home .home-util-row .settings-toggle-btn {
+  width: 44px;
+  height: 44px;
 }
 .settings-toggle-btn {
   list-style: none;
