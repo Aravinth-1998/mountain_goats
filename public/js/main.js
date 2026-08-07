@@ -783,19 +783,95 @@
 
   // ===================== SETTINGS LOCALE =====================
   (function wireSettingsLocale() {
-    const sel = $('settings-locale');
-    if (!sel || !window.MgI18n) return;
-    sel.innerHTML = '';
+    const root = $('settings-locale');
+    const btn = $('settings-locale-btn');
+    const flagEl = $('settings-locale-flag');
+    const label = $('settings-locale-label');
+    const menu = $('settings-locale-menu');
+    if (!root || !btn || !flagEl || !label || !menu || !window.MgI18n) return;
+
+    /**
+     * Build flag + name markup for a locale option or button.
+     * @param {string} code Locale code.
+     * @returns {{ flag: string, name: string }}
+     */
+    function localeParts(code) {
+      return {
+        flag: window.MgI18n.getLocaleFlag(code),
+        name: window.MgI18n.getLocaleLabel(code),
+      };
+    }
+
+    /**
+     * Sync button label and active option with current locale.
+     * @returns {void}
+     */
+    function syncLocaleUi() {
+      const code = window.MgI18n.getLocale();
+      const parts = localeParts(code);
+      if (parts.flag) {
+        flagEl.src = parts.flag;
+        flagEl.hidden = false;
+      } else {
+        flagEl.hidden = true;
+      }
+      label.textContent = parts.name;
+      menu.querySelectorAll('.settings-locale-option').forEach((el) => {
+        el.classList.toggle('is-active', el.getAttribute('data-locale') === code);
+      });
+    }
+
+    /**
+     * Open or close the custom language menu.
+     * @param {boolean} open Whether the menu should be open.
+     * @returns {void}
+     */
+    function setMenuOpen(open) {
+      root.classList.toggle('is-open', open);
+      btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      menu.hidden = !open;
+    }
+
+    menu.innerHTML = '';
     window.MgI18n.getSupportedLocales().forEach((code) => {
-      const opt = document.createElement('option');
-      opt.value = code;
-      opt.textContent = window.MgI18n.getLocaleLabel(code);
-      sel.appendChild(opt);
+      const parts = localeParts(code);
+      const li = document.createElement('li');
+      li.setAttribute('role', 'presentation');
+      const opt = document.createElement('button');
+      opt.type = 'button';
+      opt.className = 'settings-locale-option';
+      opt.setAttribute('role', 'option');
+      opt.setAttribute('data-locale', code);
+      opt.innerHTML =
+        '<img class="settings-locale-flag" alt="" width="20" height="14" />' +
+        '<span class="settings-locale-option-text"></span>';
+      const flagImg = opt.querySelector('.settings-locale-flag');
+      if (parts.flag) flagImg.src = parts.flag;
+      else flagImg.hidden = true;
+      opt.querySelector('.settings-locale-option-text').textContent = parts.name;
+      opt.addEventListener('click', () => {
+        setMenuOpen(false);
+        window.MgI18n.setLocale(code);
+      });
+      li.appendChild(opt);
+      menu.appendChild(li);
     });
-    sel.value = window.MgI18n.getLocale();
-    sel.addEventListener('change', () => {
-      window.MgI18n.setLocale(sel.value);
+    syncLocaleUi();
+
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      setMenuOpen(menu.hidden);
     });
+
+    document.addEventListener('click', (e) => {
+      if (!root.contains(e.target)) setMenuOpen(false);
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') setMenuOpen(false);
+    });
+
+    document.addEventListener('mg:localechange', syncLocaleUi);
   })();
 
   document.addEventListener('mg:localechange', () => {
@@ -804,8 +880,6 @@
       const el = $('online-count');
       if (el && el.classList.contains('is-pending')) el.textContent = t('home.connecting');
     }
-    const sel = $('settings-locale');
-    if (sel && window.MgI18n) sel.value = window.MgI18n.getLocale();
     if (state) {
       try {
         if ($('screen-lobby') && $('screen-lobby').classList.contains('active')) renderLobby();

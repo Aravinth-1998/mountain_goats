@@ -6,6 +6,11 @@
   const STORAGE_KEY = 'mg_locale';
   const SUPPORTED_LOCALES = ['en', 'fr', 'de'];
   const LOCALE_LABELS = { en: 'English', fr: 'Francais', de: 'Deutsch' };
+  const LOCALE_FLAGS = {
+    en: '/img/flags/us.svg',
+    fr: '/img/flags/fr.svg',
+    de: '/img/flags/de.svg',
+  };
 
   /** @type {Record<string, object>} */
   const catalogs = {};
@@ -135,6 +140,16 @@
   }
 
   /**
+   * Flag image URL for a locale code.
+   *
+   * @param {string} code Locale code.
+   * @returns {string}
+   */
+  function getLocaleFlag(code) {
+    return LOCALE_FLAGS[code] || '';
+  }
+
+  /**
    * Persist locale, update DOM lang, re-apply static strings, notify listeners.
    *
    * @param {string} code Locale code.
@@ -234,6 +249,7 @@
     setLocale,
     getSupportedLocales,
     getLocaleLabel,
+    getLocaleFlag,
     formatServerError,
     init,
   };
