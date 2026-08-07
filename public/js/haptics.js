@@ -22,7 +22,7 @@
     game_start: [20, 30, 20],
   };
 
-  let enabled = false;
+  let enabled = true;
 
   /**
    * @returns {boolean}
@@ -158,9 +158,11 @@
    */
   function readStoredEnabled() {
     try {
-      return localStorage.getItem(STORAGE_KEY) === 'true';
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw === null) return true;
+      return raw === 'true';
     } catch (err) {
-      return false;
+      return true;
     }
   }
 

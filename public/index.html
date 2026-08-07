@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
   <noscript><link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" /></noscript>
-  <link rel="stylesheet" href="/css/style.css?v=20260807y" />
+  <link rel="stylesheet" href="/css/style.css?v=20260807ac" />
   <script>
     try {
       if (localStorage.getItem('mg_code')) {
@@ -508,11 +508,15 @@
       <div class="settings-overlay-body">
         <div class="settings-row">
           <span class="settings-label" data-i18n="settings.sound">Sound</span>
-          <button type="button" class="feedback-toggle" data-sound-toggle aria-pressed="false" aria-label="Sound off" data-i18n-aria-label="settings.soundOff">&#128266;</button>
+          <button type="button" class="settings-switch" data-sound-toggle aria-pressed="true" aria-label="Sound on" data-i18n-aria-label="settings.soundOn">
+            <span class="settings-switch-knob" aria-hidden="true"></span>
+          </button>
         </div>
         <div class="settings-row">
           <span class="settings-label" data-i18n="settings.haptics">Haptics</span>
-          <button type="button" class="feedback-toggle" data-haptics-toggle aria-pressed="false" aria-label="Haptics off" data-i18n-aria-label="settings.hapticsOff">&#128243;</button>
+          <button type="button" class="settings-switch" data-haptics-toggle aria-pressed="true" aria-label="Haptics on" data-i18n-aria-label="settings.hapticsOn">
+            <span class="settings-switch-knob" aria-hidden="true"></span>
+          </button>
         </div>
         <div class="settings-row settings-row--locale">
           <span class="settings-label" data-i18n="settings.language">Language</span>

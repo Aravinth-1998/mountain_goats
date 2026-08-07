@@ -20,7 +20,7 @@
     game_end_loss: '/audio/lose.wav',
   };
 
-  let enabled = false;
+  let enabled = true;
   let unlocked = false;
   const pool = new Map();
 
@@ -205,9 +205,11 @@
    */
   function readStoredEnabled() {
     try {
-      return localStorage.getItem(STORAGE_KEY) === 'true';
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw === null) return true;
+      return raw === 'true';
     } catch (err) {
-      return false;
+      return true;
     }
   }
 
