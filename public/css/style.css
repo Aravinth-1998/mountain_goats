@@ -2778,6 +2778,21 @@ input.input-error:focus {
   border-top: 1px solid rgba(255,255,255,0.06);
 }
 
+.room-settings-summary[hidden] {
+  display: none !important;
+}
+.room-settings-summary .advanced-settings {
+  margin-top: 0;
+  border-top: none;
+  padding-top: 0;
+}
+.room-settings-summary-body .setting-row .setting-value {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  text-align: right;
+}
+
 /* Toggle group (Private / Public) */
 .toggle-group {
   display: flex; gap: 0;

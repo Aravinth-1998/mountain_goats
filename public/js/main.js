@@ -2470,6 +2470,86 @@
     }
   }
 
+  /**
+   * Non-default lobby room settings for the guest summary.
+   *
+   * @param {object} roomState Public room state.
+   * @returns {{ label: string, value: string }[]}
+   */
+  function collectLobbySettingDiffs(roomState) {
+    if (!roomState) return [];
+    const diffs = [];
+
+    if (roomState.isPublic) {
+      diffs.push({ label: t('lobby.visibility'), value: t('lobby.public') });
+    }
+
+    const modeId = GameModes.resolveModeId(roomState);
+    const mode = GameModes.getModeForState(roomState);
+    if (modeId !== 'standard') {
+      diffs.push({
+        label: t('lobby.gameMode'),
+        value: mode.roomsListLabel ? mode.roomsListLabel(roomState) : t('mode.team'),
+      });
+      if (roomState.teams && roomState.teams.length) {
+        const n = roomState.teams.length;
+        diffs.push({
+          label: t('lobby.teamCount'),
+          value: n === 3 ? t('lobby.threeTeams') : t('lobby.twoTeams'),
+        });
+      }
+    }
+
+    const maxPlayers = roomState.maxPlayers || MAX_PLAYERS;
+    if (maxPlayers !== MAX_PLAYERS) {
+      diffs.push({ label: t('lobby.maxPlayers'), value: String(maxPlayers) });
+    }
+
+    const turnSec = roomState.turnTimeSec || 0;
+    if (turnSec > 0) {
+      diffs.push({ label: t('lobby.turnTimer'), value: formatTurnTimeSec(turnSec) });
+    }
+
+    return diffs;
+  }
+
+  /**
+   * Show read-only non-default room settings for non-hosts.
+   *
+   * @param {object} roomState Public room state.
+   * @param {boolean} amHost Whether the local player is the host.
+   * @returns {void}
+   */
+  function renderLobbySettingsSummary(roomState, amHost) {
+    const card = $('room-settings-summary');
+    const body = $('room-settings-summary-body');
+    if (!card || !body) return;
+
+    if (amHost || !roomState) {
+      card.hidden = true;
+      body.innerHTML = '';
+      return;
+    }
+
+    const diffs = collectLobbySettingDiffs(roomState);
+    if (!diffs.length) {
+      card.hidden = true;
+      body.innerHTML = '';
+      return;
+    }
+
+    body.innerHTML = '';
+    diffs.forEach((row) => {
+      const el = document.createElement('div');
+      el.className = 'setting-row';
+      el.innerHTML = '<span class="setting-label"></span><span class="setting-value"></span>';
+      el.querySelector('.setting-label').textContent = row.label;
+      el.querySelector('.setting-value').textContent = row.value;
+      body.appendChild(el);
+    });
+    card.hidden = false;
+  }
+
   function renderLobby() {
     closeColorPicker();
     closeTeamPicker();
@@ -2493,6 +2573,7 @@
         $('btn-turn-timer-up').disabled = turnIdx >= TURN_TIME_OPTIONS.length - 1;
       }
     }
+    renderLobbySettingsSummary(state, amHost);
 
     const ul = $('lobby-players');
     ul.innerHTML = '';
