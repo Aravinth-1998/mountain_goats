@@ -1760,6 +1760,60 @@ input.input-error:focus {
   flex-direction: column;
   gap: 10px;
 }
+.home-auth-gate {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+.home-auth-gate[hidden],
+.home-play-panel[hidden] {
+  display: none;
+}
+.home-play-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+.home-sign-in-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  overflow: visible;
+}
+.home-sign-in-g {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  background: #fff;
+  border-radius: 6px;
+  box-sizing: border-box;
+}
+.home-sign-in-g-icon {
+  width: 18px;
+  height: 18px;
+  display: block;
+  overflow: visible;
+}
+.home-auth-or {
+  margin: 0;
+  text-align: center;
+  font-size: 13px;
+  color: var(--muted);
+  letter-spacing: 0.02em;
+}
+.home-guest-btn {
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.06);
+}
+.home-guest-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
 .home-name-row {
   display: flex;
   align-items: center;

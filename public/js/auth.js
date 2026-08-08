@@ -4,11 +4,13 @@
   const GAMING_NAME_KEY = 'gaming_name';
   const GAMING_NAME_CACHE_KEY = 'mg_gaming_name';
   const AVATAR_URL_CACHE_KEY = 'mg_avatar_url';
+  const GUEST_MODE_KEY = 'mg_play_as_guest';
 
   let supabaseClient = null;
   let configured = false;
   let profile = { isSignedIn: false, userId: '', avatarUrl: null, displayName: '' };
   let statsSidebarBound = false;
+  let homeAuthGateBound = false;
   let profileDrawerClosing = false;
   let statsFetchedAt = 0;
   let statsLoadedOnce = false;
@@ -431,6 +433,7 @@
         nameInput.readOnly = false;
         nameInput.placeholder = t('home.namePlaceholder');
       }
+      updateHomeAuthVisibility();
       updateProfileStatsFab();
       return;
     }
@@ -448,7 +451,84 @@
       closeProfileStatsDrawer({ immediate: true });
     }
 
+    updateHomeAuthVisibility();
     updateProfileStatsFab();
+  }
+
+  /**
+   * Whether the user chose Play as Guest this session.
+   *
+   * @returns {boolean}
+   */
+  function isGuestMode() {
+    try {
+      return sessionStorage.getItem(GUEST_MODE_KEY) === '1';
+    } catch (err) {
+      return false;
+    }
+  }
+
+  /**
+   * Persist or clear Play as Guest for this tab session.
+   *
+   * @param {boolean} on Guest mode enabled.
+   * @returns {void}
+   */
+  function setGuestMode(on) {
+    try {
+      if (on) sessionStorage.setItem(GUEST_MODE_KEY, '1');
+      else sessionStorage.removeItem(GUEST_MODE_KEY);
+    } catch (err) {
+      /* ignore */
+    }
+  }
+
+  /**
+   * Show Sign in / Guest gate or the name + Create/Join panel.
+   *
+   * @returns {void}
+   */
+  function updateHomeAuthVisibility() {
+    const gate = document.getElementById('home-auth-gate');
+    const panel = document.getElementById('home-play-panel');
+    if (!gate || !panel) return;
+
+    if (!configured || profile.isSignedIn || isGuestMode()) {
+      gate.hidden = true;
+      panel.hidden = false;
+      return;
+    }
+
+    gate.hidden = false;
+    panel.hidden = true;
+  }
+
+  /**
+   * Bind home Sign in with Google and Play as Guest controls.
+   *
+   * @returns {void}
+   */
+  function bindHomeAuthGate() {
+    if (homeAuthGateBound) return;
+    homeAuthGateBound = true;
+
+    const signInBtn = document.getElementById('btn-sign-in-google');
+    if (signInBtn) {
+      signInBtn.addEventListener('click', () => {
+        signInWithGoogle().catch((err) => console.error('[auth] sign in failed:', err));
+      });
+    }
+
+    const guestBtn = document.getElementById('btn-play-as-guest');
+    if (guestBtn) {
+      guestBtn.addEventListener('click', () => {
+        setGuestMode(true);
+        updateHomeAuthVisibility();
+        updateProfileStatsFab();
+        const nameInput = document.getElementById('home-name');
+        if (nameInput) nameInput.focus();
+      });
+    }
   }
 
   /**
@@ -702,7 +782,7 @@
   }
 
   /**
-   * Show profile avatar or guest Google sign-in button on the home screen.
+   * Show profile avatar on the home screen when signed in.
    */
   function updateProfileStatsFab() {
     const fab = document.getElementById('profile-stats-fab');
@@ -710,29 +790,23 @@
     const signInG = document.getElementById('profile-stats-signin-g');
     if (!fab || !avatar || !signInG) return;
 
-    if (!configured) {
+    if (!configured || !profile.isSignedIn) {
       fab.hidden = true;
+      avatar.hidden = true;
+      signInG.hidden = true;
+      signInG.setAttribute('aria-hidden', 'true');
+      fab.classList.remove('is-guest');
       return;
     }
 
     fab.hidden = false;
-    fab.classList.toggle('is-guest', !profile.isSignedIn);
-
-    if (profile.isSignedIn) {
-      avatar.hidden = false;
-      signInG.hidden = true;
-      signInG.setAttribute('aria-hidden', 'true');
-      fab.setAttribute('aria-label', t('profile.yourProfileAria'));
-      fab.setAttribute('aria-controls', 'profile-stats-drawer');
-      setAvatarImage(avatar, profile.avatarUrl, profile.displayName);
-      return;
-    }
-
-    avatar.hidden = true;
-    signInG.hidden = false;
-    signInG.setAttribute('aria-hidden', 'false');
-    fab.setAttribute('aria-label', t('home.signInAria'));
-    fab.removeAttribute('aria-controls');
+    fab.classList.remove('is-guest');
+    avatar.hidden = false;
+    signInG.hidden = true;
+    signInG.setAttribute('aria-hidden', 'true');
+    fab.setAttribute('aria-label', t('profile.yourProfileAria'));
+    fab.setAttribute('aria-controls', 'profile-stats-drawer');
+    setAvatarImage(avatar, profile.avatarUrl, profile.displayName);
   }
 
   /**
@@ -756,8 +830,6 @@
     fab.addEventListener('click', () => {
       if (profile.isSignedIn) {
         openProfileStatsDrawer().catch((err) => console.error('[auth] open profile drawer failed:', err));
-      } else {
-        signInWithGoogle().catch((err) => console.error('[auth] sign in failed:', err));
       }
     });
 
@@ -810,6 +882,7 @@
     if (wasSignedIn) {
       clearCachedGamingName();
       clearCachedAvatarUrl();
+      setGuestMode(false);
       applyGamingNameToInput(null);
       window.dispatchEvent(new CustomEvent('mg-auth-changed', {
         detail: { signedIn: false, event },
@@ -952,6 +1025,7 @@
    */
   async function init() {
     bindProfileStatsSidebar();
+    bindHomeAuthGate();
 
     try {
       const res = await fetch('/api/public-config');
