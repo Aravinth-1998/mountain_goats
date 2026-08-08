@@ -502,6 +502,24 @@ input.input-error:focus {
 }
 .btn:active { transform: scale(0.97); }
 .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+/* Safari: opacity over the sticky dock gradient paints a half-tint band — use solid muted fills instead. */
+.control-dock .btn:disabled {
+  opacity: 1;
+  cursor: not-allowed;
+  pointer-events: none;
+  color: rgba(255, 255, 255, 0.55);
+  filter: none;
+  transform: none;
+}
+.control-dock .btn-primary:disabled {
+  background: #2a457f;
+  box-shadow: none;
+}
+.control-dock .btn-ghost:disabled {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.4);
+}
 .btn-block { display: block; width: 100%; }
 .spin { display: inline-block; animation: spinning .7s linear infinite; }
 @keyframes spinning { to { transform: rotate(360deg); } }
