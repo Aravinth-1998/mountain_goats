@@ -1,5 +1,6 @@
 /**
- * Mobile haptic feedback for Mountain Goats (navigator.vibrate).
+ * Mobile haptic feedback for Mountain Goats (navigator.vibrate + iOS Tactus ticks).
+ * iOS ticks are best-effort; user-gesture and OS limits may mute async game events.
  */
 (function () {
   const STORAGE_KEY = 'mg_haptics_enabled';
@@ -23,12 +24,30 @@
   };
 
   let enabled = true;
+  let iosPatternTimer = null;
 
   /**
    * @returns {boolean}
    */
   function canVibrate() {
     return typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function';
+  }
+
+  /**
+   * @returns {boolean}
+   */
+  function canTactusIOS() {
+    return !!(window.MGTactus && typeof window.MGTactus.isIOS === 'function' && window.MGTactus.isIOS()
+      && typeof window.MGTactus.triggerHaptic === 'function');
+  }
+
+  /**
+   * True when vibrate or iOS switch ticks are available.
+   *
+   * @returns {boolean}
+   */
+  function canHaptic() {
+    return canVibrate() || canTactusIOS();
   }
 
   /**
@@ -44,7 +63,54 @@
    * @returns {boolean}
    */
   function isActive() {
-    return enabled && canVibrate() && !isReducedMotion();
+    return enabled && canHaptic() && !isReducedMotion();
+  }
+
+  /**
+   * Cancel a pending iOS multi-tick sequence.
+   *
+   * @returns {void}
+   */
+  function clearIosPatternTimer() {
+    if (iosPatternTimer != null) {
+      clearTimeout(iosPatternTimer);
+      iosPatternTimer = null;
+    }
+  }
+
+  /**
+   * Play sequential Tactus ticks for a Vibration API pattern array.
+   * Even indices are pulse durations (tick once each); odd indices are pauses.
+   *
+   * @param {number[]} pattern Vibrate-style pattern.
+   * @returns {void}
+   */
+  function runIosPattern(pattern) {
+    clearIosPatternTimer();
+    const steps = [];
+    for (let i = 0; i < pattern.length; i += 2) {
+      const pulse = pattern[i];
+      if (typeof pulse === 'number' && pulse > 0) {
+        steps.push({
+          pauseAfter: typeof pattern[i + 1] === 'number' ? pattern[i + 1] : 0,
+        });
+      }
+    }
+    if (!steps.length) {
+      window.MGTactus.triggerHaptic();
+      return;
+    }
+
+    let index = 0;
+    function tickNext() {
+      iosPatternTimer = null;
+      window.MGTactus.triggerHaptic();
+      index += 1;
+      if (index >= steps.length) return;
+      const delay = Math.max(0, steps[index - 1].pauseAfter);
+      iosPatternTimer = setTimeout(tickNext, delay || 30);
+    }
+    tickNext();
   }
 
   /**
@@ -53,8 +119,25 @@
    */
   function runPattern(pattern) {
     if (!isActive()) return;
-    navigator.vibrate(0);
-    navigator.vibrate(pattern);
+
+    // Prefer Tactus on iOS even if a no-op vibrate stub exists.
+    if (canTactusIOS()) {
+      if (typeof pattern === 'number') {
+        clearIosPatternTimer();
+        window.MGTactus.triggerHaptic(pattern);
+        return;
+      }
+      if (Array.isArray(pattern)) {
+        runIosPattern(pattern);
+      }
+      return;
+    }
+
+    if (canVibrate()) {
+      clearIosPatternTimer();
+      navigator.vibrate(0);
+      navigator.vibrate(pattern);
+    }
   }
 
   /**
@@ -88,6 +171,7 @@
    */
   function setEnabled(on) {
     enabled = !!on;
+    if (!enabled) clearIosPatternTimer();
     try {
       localStorage.setItem(STORAGE_KEY, enabled ? 'true' : 'false');
     } catch (err) {
@@ -194,5 +278,6 @@
     setEnabled,
     getEnabled,
     canVibrate,
+    canHaptic,
   };
 })();
