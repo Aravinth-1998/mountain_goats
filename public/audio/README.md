@@ -8,10 +8,10 @@ Clips are CC0 from Kenney:
 | File | Source | Game event |
 |------|--------|------------|
 | `ui-tap.wav` | Interface `click_001` | UI button tap |
-| `dice-roll.ogg` | Casino `dice-shake-2` (trimmed to 0.72s) | Dice roll |
-| `dice-adjust.ogg` | Casino `die-throw-1` | Re-face a die |
+| `dice-roll.wav` | Casino `dice-shake-2` (trimmed to 0.72s) | Dice roll |
+| `dice-adjust.wav` | Casino `die-throw-1` | Re-face a die |
 | `summit.wav` | Interface `confirmation_002` | Reach summit / harvest |
-| `bump.ogg` | Casino `chips-collide-2` | Goat bumped |
+| `bump.wav` | Casino `chips-collide-2` | Goat bumped |
 | `bonus.wav` | Interface `glass_002` | Bonus token / full set |
 | `final-round.wav` | Interface `bong_001` | Final round bell |
 | `your-turn.wav` | Interface `pluck_002` | Turn passes to you |

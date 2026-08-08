@@ -1,19 +1,18 @@
 /**
- * Bundled sound effects for Mountain Goats (WAV + OGG Kenney CC0 clips).
- * Uses a small HTMLAudioElement pool per clip (no cloneNode) to cut play latency.
+ * Bundled sound effects for Mountain Goats (Kenney CC0 WAV clips).
+ * Uses Web Audio API (predecoded buffers) for low-latency mobile playback.
  */
 (function () {
   const STORAGE_KEY = 'mg_sound_enabled';
   const MASTER_VOLUME = 0.5;
   const OTHER_VOLUME = 0.35;
-  const POOL_SIZE = 3;
 
   const CLIPS = {
     ui_tap: '/audio/ui-tap.wav',
-    dice_roll: '/audio/dice-roll.ogg',
-    dice_adjust: '/audio/dice-adjust.ogg',
+    dice_roll: '/audio/dice-roll.wav',
+    dice_adjust: '/audio/dice-adjust.wav',
     summit: '/audio/summit.wav',
-    bump: '/audio/bump.ogg',
+    bump: '/audio/bump.wav',
     bonus: '/audio/bonus.wav',
     final_round: '/audio/final-round.wav',
     your_turn: '/audio/your-turn.wav',
@@ -24,8 +23,12 @@
 
   let enabled = true;
   let unlocked = false;
-  /** @type {Map<string, { instances: HTMLAudioElement[], next: number }>} */
-  const pool = new Map();
+  /** @type {AudioContext|null} */
+  let audioCtx = null;
+  /** @type {Map<string, AudioBuffer>} */
+  const buffers = new Map();
+  /** @type {Promise<void>|null} */
+  let loadPromise = null;
 
   /**
    * @returns {boolean}
@@ -44,105 +47,112 @@
   }
 
   /**
-   * Ensure a pool of preloaded Audio elements exists for a clip.
+   * Create or return the shared AudioContext.
+   *
+   * @returns {AudioContext|null}
+   */
+  function getAudioContext() {
+    if (audioCtx) return audioCtx;
+    if (typeof window === 'undefined') return null;
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return null;
+    audioCtx = new Ctx();
+    return audioCtx;
+  }
+
+  /**
+   * Fetch and decode one clip into the buffer map.
    *
    * @param {string} src Clip URL.
-   * @returns {{ instances: HTMLAudioElement[], next: number }}
+   * @param {AudioContext} ctx Web Audio context.
+   * @returns {Promise<void>}
    */
-  function ensurePool(src) {
-    if (!pool.has(src)) {
-      const instances = [];
-      for (let i = 0; i < POOL_SIZE; i += 1) {
-        const audio = new Audio(src);
-        audio.preload = 'auto';
-        instances.push(audio);
-      }
-      pool.set(src, { instances, next: 0 });
+  async function decodeClip(src, ctx) {
+    if (buffers.has(src)) return;
+    const res = await fetch(src);
+    if (!res.ok) throw new Error('Failed to load ' + src);
+    const data = await res.arrayBuffer();
+    const buffer = await ctx.decodeAudioData(data.slice(0));
+    buffers.set(src, buffer);
+  }
+
+  /**
+   * Prefetch and decode all SFX buffers.
+   *
+   * @returns {Promise<void>}
+   */
+  function loadAllBuffers() {
+    if (loadPromise) return loadPromise;
+    const ctx = getAudioContext();
+    if (!ctx) {
+      loadPromise = Promise.resolve();
+      return loadPromise;
     }
-    return pool.get(src);
+    loadPromise = Promise.all(
+      Object.values(CLIPS).map((src) => decodeClip(src, ctx).catch((err) => {
+        console.warn('[sounds] decode failed:', src, err);
+      }))
+    ).then(() => {});
+    return loadPromise;
   }
 
   /**
-   * Take the next pooled Audio for overlapping plays of the same clip.
+   * Play a predecoded clip through Web Audio.
    *
    * @param {string} src Clip URL.
-   * @returns {HTMLAudioElement}
-   */
-  function takePooledAudio(src) {
-    const entry = ensurePool(src);
-    const audio = entry.instances[entry.next];
-    entry.next = (entry.next + 1) % entry.instances.length;
-    return audio;
-  }
-
-  /**
-   * @param {string} src
-   * @param {number} volume
+   * @param {number} volume Linear gain 0–1.
    * @param {number} [delayMs]
    * @returns {void}
    */
   function playClip(src, volume, delayMs) {
     if (!isActive() || !src) return;
 
-    const play = () => {
-      const audio = takePooledAudio(src);
-      try {
-        audio.pause();
-        audio.currentTime = 0;
-      } catch (err) {
-        /* ignore seek errors before metadata */
+    const start = () => {
+      const ctx = getAudioContext();
+      const buffer = buffers.get(src);
+      if (!ctx || !buffer) return;
+      if (ctx.state === 'suspended') {
+        ctx.resume().catch(() => {});
       }
-      audio.volume = Math.max(0, Math.min(1, volume));
-      const promise = audio.play();
-      if (promise && typeof promise.catch === 'function') {
-        promise.catch(() => {});
+      const source = ctx.createBufferSource();
+      source.buffer = buffer;
+      const gain = ctx.createGain();
+      gain.gain.value = Math.max(0, Math.min(1, volume));
+      source.connect(gain);
+      gain.connect(ctx.destination);
+      try {
+        source.start(0);
+      } catch (err) {
+        /* ignore start errors */
       }
     };
 
     if (delayMs > 0) {
-      window.setTimeout(play, delayMs);
-    } else {
-      play();
+      window.setTimeout(start, delayMs);
+      return;
     }
-  }
 
-  /**
-   * Silently prime one Audio element so the OS unlocks playback.
-   *
-   * @param {HTMLAudioElement} audio Element to prime.
-   * @returns {void}
-   */
-  function primeAudio(audio) {
-    const prevVolume = audio.volume;
-    audio.volume = 0.001;
-    const promise = audio.play();
-    if (promise && typeof promise.then === 'function') {
-      promise.then(() => {
-        audio.pause();
-        try { audio.currentTime = 0; } catch (err) { /* ignore */ }
-        audio.volume = prevVolume;
-      }).catch(() => {
-        audio.volume = prevVolume;
+    if (!buffers.has(src)) {
+      loadAllBuffers().then(() => {
+        if (buffers.has(src) && isActive()) start();
       });
-    } else {
-      audio.volume = prevVolume;
+      return;
     }
+    start();
   }
 
   /**
-   * Prime all clip pools on first user gesture (mobile autoplay policy).
+   * Resume AudioContext and ensure buffers are decoded (mobile gesture unlock).
    *
    * @returns {void}
    */
   function unlock() {
-    if (unlocked) return;
+    const ctx = getAudioContext();
+    if (ctx && ctx.state === 'suspended') {
+      ctx.resume().catch(() => {});
+    }
+    loadAllBuffers();
     unlocked = true;
-    Object.values(CLIPS).forEach((src) => {
-      const entry = ensurePool(src);
-      entry.instances.forEach((audio) => {
-        primeAudio(audio);
-      });
-    });
   }
 
   /**
@@ -257,17 +267,14 @@
   }
 
   /**
-   * Preload clips and bind toggle buttons.
+   * Prefetch clips and bind toggle buttons.
    *
    * @returns {void}
    */
   function init() {
     enabled = readStoredEnabled();
-
-    Object.values(CLIPS).forEach((src) => {
-      ensurePool(src);
-    });
-
+    getAudioContext();
+    loadAllBuffers();
     syncToggleButtons(enabled);
 
     document.querySelectorAll('[data-sound-toggle]').forEach((button) => {
