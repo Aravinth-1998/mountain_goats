@@ -1,9 +1,17 @@
 /**
- * Mobile haptic feedback for Mountain Goats (navigator.vibrate + iOS Tactus ticks).
- * iOS ticks are best-effort; user-gesture and OS limits may mute async game events.
+ * Mobile haptic feedback for Mountain Goats (navigator.vibrate + iOS overlay ticks).
+ * On iOS, tap haptics come from MGTactus overlays; async game events are no-op.
  */
 (function () {
   const STORAGE_KEY = 'mg_haptics_enabled';
+
+  const STATIC_SELECTORS = [
+    '[data-haptics-toggle]',
+    '#btn-roll',
+    '#btn-endturn',
+    '#tut-btn-roll',
+    '#tut-btn-endturn',
+  ];
 
   const PATTERNS = {
     ui_tap: 12,
@@ -24,7 +32,6 @@
   };
 
   let enabled = true;
-  let iosPatternTimer = null;
 
   /**
    * @returns {boolean}
@@ -36,18 +43,17 @@
   /**
    * @returns {boolean}
    */
-  function canTactusIOS() {
-    return !!(window.MGTactus && typeof window.MGTactus.isIOS === 'function' && window.MGTactus.isIOS()
-      && typeof window.MGTactus.triggerHaptic === 'function');
+  function isIOSHaptics() {
+    return !!(window.MGTactus && typeof window.MGTactus.isIOS === 'function' && window.MGTactus.isIOS());
   }
 
   /**
-   * True when vibrate or iOS switch ticks are available.
+   * True when vibrate or iOS overlay haptics are available.
    *
    * @returns {boolean}
    */
   function canHaptic() {
-    return canVibrate() || canTactusIOS();
+    return canVibrate() || isIOSHaptics();
   }
 
   /**
@@ -67,50 +73,67 @@
   }
 
   /**
-   * Cancel a pending iOS multi-tick sequence.
+   * Whether iOS overlay switches should be present.
    *
-   * @returns {void}
+   * @returns {boolean}
    */
-  function clearIosPatternTimer() {
-    if (iosPatternTimer != null) {
-      clearTimeout(iosPatternTimer);
-      iosPatternTimer = null;
-    }
+  function iosOverlaysActive() {
+    return enabled && isIOSHaptics() && !isReducedMotion()
+      && window.MGTactus
+      && typeof window.MGTactus.bindHapticTarget === 'function';
   }
 
   /**
-   * Play sequential Tactus ticks for a Vibration API pattern array.
-   * Even indices are pulse durations (tick once each); odd indices are pauses.
+   * Bind or clear static control overlays (roll, end turn, settings toggle).
    *
-   * @param {number[]} pattern Vibrate-style pattern.
    * @returns {void}
    */
-  function runIosPattern(pattern) {
-    clearIosPatternTimer();
-    const steps = [];
-    for (let i = 0; i < pattern.length; i += 2) {
-      const pulse = pattern[i];
-      if (typeof pulse === 'number' && pulse > 0) {
-        steps.push({
-          pauseAfter: typeof pattern[i + 1] === 'number' ? pattern[i + 1] : 0,
-        });
-      }
-    }
-    if (!steps.length) {
-      window.MGTactus.triggerHaptic();
-      return;
-    }
+  function syncStaticOverlays() {
+    if (!window.MGTactus) return;
+    const bind = window.MGTactus.bindHapticTarget;
+    const unbind = window.MGTactus.unbindHapticTarget;
+    if (typeof bind !== 'function' || typeof unbind !== 'function') return;
 
-    let index = 0;
-    function tickNext() {
-      iosPatternTimer = null;
-      window.MGTactus.triggerHaptic();
-      index += 1;
-      if (index >= steps.length) return;
-      const delay = Math.max(0, steps[index - 1].pauseAfter);
-      iosPatternTimer = setTimeout(tickNext, delay || 30);
-    }
-    tickNext();
+    STATIC_SELECTORS.forEach((selector) => {
+      document.querySelectorAll(selector).forEach((el) => {
+        if (iosOverlaysActive()) bind(el);
+        else unbind(el);
+      });
+    });
+  }
+
+  /**
+   * Bind interactive dice under a root after they are re-rendered.
+   *
+   * @param {ParentNode|null|undefined} root Dice container (#dice-area or #tut-dice-area).
+   * @returns {void}
+   */
+  function syncDiceOverlays(root) {
+    if (!window.MGTactus || !root || !root.querySelectorAll) return;
+    const bind = window.MGTactus.bindHapticTarget;
+    const unbind = window.MGTactus.unbindHapticTarget;
+    if (typeof bind !== 'function' || typeof unbind !== 'function') return;
+
+    root.querySelectorAll('.die').forEach((die) => {
+      const placeholder = die.textContent === '🎲';
+      const interactive = iosOverlaysActive()
+        && !placeholder
+        && !die.classList.contains('used')
+        && !die.classList.contains('tut-die-used');
+      if (interactive) bind(die);
+      else unbind(die);
+    });
+  }
+
+  /**
+   * Show iOS-limited Settings note when relevant.
+   *
+   * @returns {void}
+   */
+  function syncIosHint() {
+    const hint = document.getElementById('settings-haptics-ios-hint');
+    if (!hint) return;
+    hint.hidden = !isIOSHaptics();
   }
 
   /**
@@ -119,25 +142,11 @@
    */
   function runPattern(pattern) {
     if (!isActive()) return;
-
-    // Prefer Tactus on iOS even if a no-op vibrate stub exists.
-    if (canTactusIOS()) {
-      if (typeof pattern === 'number') {
-        clearIosPatternTimer();
-        window.MGTactus.triggerHaptic(pattern);
-        return;
-      }
-      if (Array.isArray(pattern)) {
-        runIosPattern(pattern);
-      }
-      return;
-    }
-
-    if (canVibrate()) {
-      clearIosPatternTimer();
-      navigator.vibrate(0);
-      navigator.vibrate(pattern);
-    }
+    // iOS: tap ticks come from overlays only; async emit paths are silent.
+    if (isIOSHaptics()) return;
+    if (!canVibrate()) return;
+    navigator.vibrate(0);
+    navigator.vibrate(pattern);
   }
 
   /**
@@ -171,13 +180,15 @@
    */
   function setEnabled(on) {
     enabled = !!on;
-    if (!enabled) clearIosPatternTimer();
     try {
       localStorage.setItem(STORAGE_KEY, enabled ? 'true' : 'false');
     } catch (err) {
       // ignore storage errors
     }
     syncToggleButtons(enabled);
+    syncStaticOverlays();
+    syncDiceOverlays(document.getElementById('dice-area'));
+    syncDiceOverlays(document.getElementById('tut-dice-area'));
   }
 
   /**
@@ -251,7 +262,7 @@
   }
 
   /**
-   * Bind haptics toggle buttons.
+   * Bind haptics toggle buttons and iOS overlays.
    *
    * @returns {void}
    */
@@ -259,16 +270,20 @@
     enabled = readStoredEnabled();
 
     syncToggleButtons(enabled);
+    syncIosHint();
+    syncStaticOverlays();
+    syncDiceOverlays(document.getElementById('dice-area'));
+    syncDiceOverlays(document.getElementById('tut-dice-area'));
 
     document.querySelectorAll('[data-haptics-toggle]').forEach((button) => {
       button.addEventListener('click', () => {
         setEnabled(!enabled);
-        if (enabled) trigger({ type: 'ui_tap', self: true });
       });
     });
 
     document.addEventListener('mg:localechange', () => {
       syncToggleButtons(enabled);
+      syncIosHint();
     });
   }
 
@@ -279,5 +294,7 @@
     getEnabled,
     canVibrate,
     canHaptic,
+    syncDiceOverlays,
+    syncStaticOverlays,
   };
 })();

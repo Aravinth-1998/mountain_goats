@@ -242,6 +242,7 @@
     "haptics": "Haptics",
     "hapticsOn": "Haptics on",
     "hapticsOff": "Haptics off",
+    "hapticsIosLimited": "On iPhone, haptics work for taps only.",
     "language": "Language"
   },
   "leave": {

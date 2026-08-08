@@ -544,6 +544,9 @@
         d.textContent = '🎲';
         area.appendChild(d);
       }
+      if (window.MGHaptics && typeof window.MGHaptics.syncDiceOverlays === 'function') {
+        window.MGHaptics.syncDiceOverlays(area);
+      }
       return;
     }
 
@@ -618,6 +621,9 @@
       }
       area.appendChild(picker);
     }
+    if (window.MGHaptics && typeof window.MGHaptics.syncDiceOverlays === 'function') {
+      window.MGHaptics.syncDiceOverlays(area);
+    }
   }
 
   function renderInlineContinue() {
@@ -646,6 +652,9 @@
       endBtn.disabled = !needEnd;
       if (needEnd) endBtn.setAttribute('data-tut-active', '1');
       else endBtn.removeAttribute('data-tut-active');
+    }
+    if (window.MGHaptics && typeof window.MGHaptics.syncStaticOverlays === 'function') {
+      window.MGHaptics.syncStaticOverlays();
     }
 
     const sumEl = $('tut-sel-sum');

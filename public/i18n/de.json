@@ -242,6 +242,7 @@
     "haptics": "Vibration",
     "hapticsOn": "Vibration an",
     "hapticsOff": "Vibration aus",
+    "hapticsIosLimited": "Auf dem iPhone funktionieren Vibrationen nur bei Tippen.",
     "language": "Sprache"
   },
   "leave": {

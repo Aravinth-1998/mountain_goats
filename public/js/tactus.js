@@ -1,13 +1,12 @@
 /**
- * iOS Safari haptic ticks via checkbox[switch] (adapted from aadeexyz/tactus, MIT).
- * Best-effort: user-gesture and OS limits may mute programmatic ticks.
+ * iOS Safari haptic ticks via invisible checkbox[switch] overlays on real tap targets.
+ * Programmatic label.click() is unreliable on current iOS; finger must hit the switch.
+ * Adapted from aadeexyz/tactus (MIT).
  */
 (function () {
-  const SWITCH_ID = '___haptic-switch___';
-
-  let inputEl = null;
-  let labelEl = null;
+  const BOUND_ATTR = 'data-mg-haptic-bound';
   let iosCached = null;
+  let idSeq = 0;
 
   /**
    * @returns {boolean}
@@ -25,66 +24,89 @@
   }
 
   /**
-   * Ensure the hidden switch + label exist in the document.
+   * Remove overlay switch from a host element.
    *
+   * @param {Element|null|undefined} el Host control.
    * @returns {void}
    */
-  function ensureSwitch() {
-    if (inputEl && labelEl) return;
-    if (typeof document === 'undefined') return;
-
-    inputEl = document.getElementById(SWITCH_ID);
-    labelEl = document.querySelector('label[for="' + SWITCH_ID + '"]');
-
-    if (inputEl && labelEl) return;
-
-    inputEl = document.createElement('input');
-    inputEl.type = 'checkbox';
-    inputEl.id = SWITCH_ID;
-    inputEl.setAttribute('switch', '');
-    inputEl.style.display = 'none';
-    inputEl.setAttribute('aria-hidden', 'true');
-    inputEl.tabIndex = -1;
-    document.body.appendChild(inputEl);
-
-    labelEl = document.createElement('label');
-    labelEl.htmlFor = SWITCH_ID;
-    labelEl.style.display = 'none';
-    labelEl.setAttribute('aria-hidden', 'true');
-    document.body.appendChild(labelEl);
+  function unbindHapticTarget(el) {
+    if (!el || !el.querySelector) return;
+    const sw = el.querySelector(':scope > .mg-haptic-switch');
+    if (sw) sw.remove();
+    el.classList.remove('mg-haptic-host');
+    el.removeAttribute(BOUND_ATTR);
   }
 
   /**
-   * Fire one haptic tick (iOS switch) or a short vibrate elsewhere.
+   * Stack an invisible switch on a tap target so Safari fires a system haptic on press.
+   * Forwards one host.click() after the switch activates (avoids double-firing).
+   *
+   * @param {Element|null|undefined} el Host button or die.
+   * @returns {void}
+   */
+  function bindHapticTarget(el) {
+    if (!el || !isIOS()) return;
+    if (el.getAttribute(BOUND_ATTR) === '1' && el.querySelector(':scope > .mg-haptic-switch')) {
+      return;
+    }
+    unbindHapticTarget(el);
+
+    el.classList.add('mg-haptic-host');
+    el.setAttribute(BOUND_ATTR, '1');
+
+    const input = document.createElement('input');
+    input.type = 'checkbox';
+    input.className = 'mg-haptic-switch';
+    input.setAttribute('switch', '');
+    input.setAttribute('aria-hidden', 'true');
+    input.tabIndex = -1;
+    input.id = 'mg-haptic-sw-' + String(++idSeq);
+
+    let forwarding = false;
+
+    input.addEventListener('click', (event) => {
+      event.stopPropagation();
+    });
+
+    input.addEventListener('change', () => {
+      if (forwarding) return;
+      forwarding = true;
+      input.checked = false;
+      input.style.pointerEvents = 'none';
+      try {
+        if (!(el instanceof HTMLButtonElement && el.disabled)) {
+          el.click();
+        }
+      } finally {
+        window.requestAnimationFrame(() => {
+          input.style.pointerEvents = '';
+          forwarding = false;
+        });
+      }
+    });
+
+    el.appendChild(input);
+  }
+
+  /**
+   * Best-effort tick without an overlay (Android vibrate). No-op on iOS.
    *
    * @param {number} [duration=10] Vibrate duration in ms when not on iOS.
    * @returns {void}
    */
   function triggerHaptic(duration) {
     if (typeof window === 'undefined') return;
+    if (isIOS()) return;
     const ms = typeof duration === 'number' ? duration : 10;
-
-    if (isIOS()) {
-      ensureSwitch();
-      if (labelEl) labelEl.click();
-      return;
-    }
-
     if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
       navigator.vibrate(ms);
     }
   }
 
-  if (typeof document !== 'undefined') {
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', ensureSwitch, { once: true });
-    } else {
-      ensureSwitch();
-    }
-  }
-
   window.MGTactus = {
-    triggerHaptic,
     isIOS,
+    bindHapticTarget,
+    unbindHapticTarget,
+    triggerHaptic,
   };
 })();

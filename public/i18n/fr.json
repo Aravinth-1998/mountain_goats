@@ -242,6 +242,7 @@
     "haptics": "Vibrations",
     "hapticsOn": "Vibrations activees",
     "hapticsOff": "Vibrations desactivees",
+    "hapticsIosLimited": "Sur iPhone, les vibrations ne fonctionnent que pour les taps.",
     "language": "Langue"
   },
   "leave": {

@@ -2755,6 +2755,9 @@
     if (!area) return;
     if (state && state.finished) {
       area.innerHTML = '';
+      if (window.MGHaptics && typeof window.MGHaptics.syncDiceOverlays === 'function') {
+        window.MGHaptics.syncDiceOverlays(area);
+      }
       return;
     }
     area.innerHTML = '';
@@ -2765,6 +2768,9 @@
         d.className = 'die';
         d.textContent = '🎲';
         area.appendChild(d);
+      }
+      if (window.MGHaptics && typeof window.MGHaptics.syncDiceOverlays === 'function') {
+        window.MGHaptics.syncDiceOverlays(area);
       }
       return;
     }
@@ -2845,6 +2851,9 @@
       }
       area.appendChild(picker);
     }
+    if (window.MGHaptics && typeof window.MGHaptics.syncDiceOverlays === 'function') {
+      window.MGHaptics.syncDiceOverlays(area);
+    }
   }
 
   function renderControls() {
@@ -2852,6 +2861,9 @@
     const finished = !!(state && state.finished);
     $('btn-roll').disabled = finished || !mine || state.rolled;
     $('btn-endturn').disabled = finished || !mine || !state.rolled;
+    if (window.MGHaptics && typeof window.MGHaptics.syncStaticOverlays === 'function') {
+      window.MGHaptics.syncStaticOverlays();
+    }
 
     const sumEl = $('sel-sum');
     const sum = selectedSum();
