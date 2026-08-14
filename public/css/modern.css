@@ -698,6 +698,8 @@ html[data-ui="modern"] .pp.active {
   background: linear-gradient(rgba(10, 6, 30, 0.42), rgba(10, 6, 30, 0.42)), var(--c, rgba(255, 255, 255, 0.07));
   border-color: var(--c, rgba(255, 255, 255, 0.13));
   color: #fff;
+}
+html[data-ui="modern"] .pp.active-self {
   box-shadow: 0 0 0 2px rgba(255, 209, 102, 0.85), 0 10px 22px rgba(255, 209, 102, 0.28);
 }
 /* The goat swatch is glowed via its image filter, so drop the Classic coin pulse. */
@@ -709,15 +711,13 @@ html[data-ui="modern"] .pp.active.is-light { color: #08101f; }
 html[data-ui="modern"] .pp.active .pp-name { color: currentColor; }
 html[data-ui="modern"] .pp.active .pp-score,
 html[data-ui="modern"] .pp.active .pp-bonus { color: currentColor; opacity: 0.95; }
-/* Running outline on the active player panel. A rotating conic sweep follows
-   the rounded corners; a tiled pattern cannot, which is why the highlight used
-   to drift diagonally across the edges instead of travelling along them. */
+/* Running outline on the active player panel — only for the user whose turn it is. */
 @property --mg-outline-angle {
   syntax: '<angle>';
   inherits: false;
   initial-value: 0deg;
 }
-html[data-ui="modern"] .pp.active::after {
+html[data-ui="modern"] .pp.active-self::after {
   content: '';
   position: absolute;
   inset: -3px;
@@ -743,7 +743,7 @@ html[data-ui="modern"] .pp.active::after {
   to { --mg-outline-angle: 360deg; }
 }
 @media (prefers-reduced-motion: reduce) {
-  html[data-ui="modern"] .pp.active::after { animation: none; }
+  html[data-ui="modern"] .pp.active-self::after { animation: none; }
 }
 html[data-ui="modern"] .pp-chip {
   background: rgba(255, 255, 255, 0.08);

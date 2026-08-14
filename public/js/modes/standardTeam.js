@@ -216,8 +216,9 @@
     function buildPlayerPanel(p) {
       const idx = state.players.indexOf(p);
       const isActive = idx === state.currentIndex;
+      const isSelf = isActive && p.id === ctx.myId;
       const panel = document.createElement('div');
-      panel.className = 'pp team-pp' + (isActive ? ' active' : '') + (p.connected ? '' : ' off');
+      panel.className = 'pp team-pp' + (isActive ? ' active' : '') + (isSelf ? ' active-self' : '') + (p.connected ? '' : ' off');
       if (panelColor) {
         panel.style.setProperty('--c', p.color);
         if (root.MGUi.isLightColor(p.color)) panel.classList.add('is-light');
