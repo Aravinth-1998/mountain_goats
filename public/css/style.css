@@ -1020,6 +1020,12 @@ input.input-error:focus {
   border: 1px solid var(--card-border);
   border-radius: 14px; padding: 8px 10px;
 }
+.pp.active {
+  background: linear-gradient(rgba(10, 15, 26, 0.45), rgba(10, 15, 26, 0.45)), var(--c, var(--card));
+  border-color: var(--c, var(--card-border));
+  color: #fff;
+}
+.pp.active.is-light { color: #08101f; }
 .pp.active-self { box-shadow: 0 0 0 2px var(--gold), 0 8px 20px rgba(255,209,102,0.3); }
 .pp.active-self .swatch {
   box-shadow:

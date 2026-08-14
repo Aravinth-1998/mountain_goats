@@ -215,7 +215,7 @@
       const isSelf = isActive && p.id === ctx.myId;
       const panel = document.createElement('div');
       panel.className = 'pp' + (isActive ? ' active' : '') + (isSelf ? ' active-self' : '') + (p.connected ? '' : ' off');
-      if (panelColor) {
+      if (panelColor || isActive) {
         panel.style.setProperty('--c', p.color);
         if (root.MGUi.isLightColor(p.color)) panel.classList.add('is-light');
       }
