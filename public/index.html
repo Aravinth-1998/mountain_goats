@@ -11,8 +11,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Caveat:wght@500;600;700&family=Fredoka:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
   <noscript><link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Caveat:wght@500;600;700&family=Fredoka:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" /></noscript>
-  <link rel="stylesheet" href="/css/style.css?v=20260814b" />
-  <link rel="stylesheet" href="/css/modern.css?v=20260814c" />
+  <link rel="stylesheet" href="/css/style.css?v=20260814e" />
+  <link rel="stylesheet" href="/css/modern.css?v=20260814e" />
   <script>
     try {
       if (localStorage.getItem('mg_code')) {
@@ -20,7 +20,9 @@
       } else {
         document.documentElement.classList.add('mg-on-home');
       }
-      document.documentElement.setAttribute('data-ui', localStorage.getItem('mg_ui') === 'modern' ? 'modern' : 'classic');
+      /* Known theme ids only: unknown values keep Classic until ui.js registers more. */
+      var mgUi = localStorage.getItem('mg_ui');
+      document.documentElement.setAttribute('data-ui', (mgUi === 'modern' || mgUi === 'classic') ? mgUi : 'classic');
     } catch (e) { /* ignore */ }
   </script>
 </head>
@@ -284,7 +286,7 @@
   <!-- LOBBY -->
   <section id="screen-lobby" class="screen">
     <div class="topbar">
-      <div class="room-pill" id="lobby-pill" title="Tap to copy room code" data-i18n-title="lobby.copyTitle"><span data-i18n="lobby.room">Room</span> <strong id="lobby-code">----</strong> <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></div>
+      <div class="room-pill" id="lobby-pill" title="Tap to copy room code" data-i18n-title="lobby.copyTitle"><span data-i18n="lobby.room">Room</span> <strong id="lobby-code">----</strong> <span class="room-pill-copy room-pill-copy--classic" aria-hidden="true">📋</span><span class="room-pill-copy room-pill-copy--modern" aria-hidden="true"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></span></div>
       <div class="topbar-end">
         <button type="button" id="btn-settings-lobby" class="settings-toggle-btn settings-toggle-btn--topbar" aria-label="Settings" title="Settings" data-i18n-aria-label="common.settings" data-i18n-title="common.settings" aria-haspopup="dialog" aria-controls="settings-overlay">
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -319,7 +321,7 @@
     </div>
 
     <div id="room-settings" class="card room-settings" style="display:none">
-      <h3 style="margin:0 0 4px" data-i18n="lobby.roomSettings">Room Settings</h3>
+      <h3 style="margin:0 0 10px;font-size:15px" data-i18n="lobby.roomSettings">Room Settings</h3>
         <div class="setting-row">
         <label class="setting-label" data-i18n="lobby.visibility">Room Visibility</label>
           <div class="toggle-group">
@@ -434,7 +436,7 @@
       </div>
       <div class="control-buttons finished-controls" id="finished-controls" hidden>
         <button type="button" id="btn-game-lobby" class="btn btn-primary" hidden data-i18n="game.backToLobby">Back to Lobby</button>
-        <button type="button" id="btn-results" class="btn btn-primary" hidden data-i18n="game.results">Results</button>
+        <button type="button" id="btn-results" class="btn btn-ghost" hidden data-i18n="game.results">Results</button>
       </div>
       <p id="game-hint" class="game-hint">—</p>
     </div>
@@ -444,23 +446,6 @@
   <div id="win-overlay" class="overlay">
     <canvas id="win-confetti" class="win-confetti" aria-hidden="true"></canvas>
     <div class="overlay-card">
-      <div class="win-corner-buttons">
-        <button type="button" id="btn-win-back" class="icon-btn icon-btn--emoji" aria-label="View board" title="View board" data-i18n-aria-label="win.viewBoard" data-i18n-title="win.viewBoard">
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <line x1="19" y1="12" x2="5" y2="12"/>
-            <polyline points="12 19 5 12 12 5"/>
-          </svg>
-        </button>
-        <button type="button" id="btn-win-share" class="icon-btn icon-btn--emoji" aria-label="Share result" title="Share" data-i18n-aria-label="win.shareAria" data-i18n-title="common.share">
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <circle cx="18" cy="5" r="3"/>
-            <circle cx="6" cy="12" r="3"/>
-            <circle cx="18" cy="19" r="3"/>
-            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
-            <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
-          </svg>
-        </button>
-      </div>
       <div class="win-head">
         <div class="trophy">🏆</div>
         <p id="win-place" class="win-place" hidden></p>
@@ -470,7 +455,25 @@
       </div>
       <div id="win-sub" class="muted"></div>
       <div class="win-actions">
-        <button id="btn-home" class="btn btn-primary" data-i18n="game.backToLobby">Back to Lobby</button>
+        <button id="btn-home" class="btn btn-primary btn-block" data-i18n="game.backToLobby">Back to Lobby</button>
+        <div class="win-actions-secondary">
+          <button type="button" id="btn-win-back" class="btn btn-ghost" aria-label="View board" title="View board" data-i18n-aria-label="win.viewBoard" data-i18n-title="win.viewBoard">
+            <span class="win-back-label" data-i18n="win.viewBoard">View board</span>
+            <svg class="win-back-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <line x1="19" y1="12" x2="5" y2="12"/>
+              <polyline points="12 19 5 12 12 5"/>
+            </svg>
+          </button>
+          <button type="button" id="btn-win-share" class="icon-btn icon-btn--emoji win-share-btn" aria-label="Share result" title="Share" data-i18n-aria-label="win.shareAria" data-i18n-title="common.share">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="18" cy="5" r="3"/>
+              <circle cx="6" cy="12" r="3"/>
+              <circle cx="18" cy="19" r="3"/>
+              <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
+              <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+            </svg>
+          </button>
+        </div>
       </div>
     </div>
   </div>
@@ -617,17 +620,17 @@
   <script src="/socket.io/socket.io.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <script src="/js/i18n.js?v=20260807y"></script>
-  <script src="/js/ui.js?v=20260814c"></script>
+  <script src="/js/ui.js?v=20260814e"></script>
   <script src="/js/auth.js?v=20260808b"></script>
   <script src="/js/feedback-events.js"></script>
   <script src="/js/tactus.js?v=20260808e"></script>
   <script src="/js/haptics.js?v=20260808e"></script>
-  <script src="/js/sounds.js?v=20260814b"></script>
-  <script src="/js/tutorial.js?v=20260814e"></script>
+  <script src="/js/sounds.js?v=20260814e"></script>
+  <script src="/js/tutorial.js?v=20260814f"></script>
   <script src="/js/modes/index.js"></script>
-  <script src="/js/modes/standard.js?v=20260814e"></script>
-  <script src="/js/modes/standardTeam.js?v=20260814e"></script>
-  <script src="/js/main.js?v=20260814e"></script>
+  <script src="/js/modes/standard.js?v=20260814f"></script>
+  <script src="/js/modes/standardTeam.js?v=20260814f"></script>
+  <script src="/js/main.js?v=20260814f"></script>
 </body>
 </html>
 

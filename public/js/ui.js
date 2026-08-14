@@ -1,14 +1,77 @@
 /**
- * Mountain Goats — shared UI helpers: visual style (Classic / Modern) and
- * the coloured goat icon used by the Modern theme.
+ * Mountain Goats - shared UI helpers.
+ *
+ * This file owns the visual theme registry. A theme is a named bundle of
+ * feature flags plus an icon set; the rest of the client asks the registry
+ * what a theme supports instead of testing for one specific theme name, so a
+ * new theme can be added here without touching the render code.
+ *
+ * Theme resolution: the persisted selection (localStorage) seeds the applied
+ * data-ui attribute at startup; from then on the applied data-ui attribute is
+ * the single source of truth, because that is what the stylesheets react to.
+ * Unknown or missing values fall back to Classic, which is the baseline look.
  */
 (function (root) {
   const UI_STORAGE_KEY = 'mg_ui';
   const UI_CLASSIC = 'classic';
   const UI_MODERN = 'modern';
+  const THEME_EVENT = 'mg:stylechange';
 
   /**
-   * 10 vibrant goat colours — one per distinct goat image, all valid
+   * Every theme feature the client can ask about, with the Classic (baseline)
+   * answer as the default. A theme only lists the flags it turns on.
+   */
+  const DEFAULT_FEATURES = {
+    // Player pieces / swatches use goat artwork instead of letter coins.
+    goatArtwork: false,
+    // Brand and loading goats use the title artwork instead of the emoji.
+    brandArtwork: false,
+    // Lobby host / bot are word tags instead of emoji icons.
+    roleTags: false,
+    // Colour wash on a mountain column whose summit is held.
+    heldWash: false,
+    // Hop animation when the local player's goat changes cell.
+    climbAnimation: false,
+    // Stats panels carry the player colour (and a light-colour text hook).
+    panelPlayerColor: false,
+    // Highlight the active stats panel only when it is the local player.
+    activeTurnSelfOnly: false,
+    // Colour picker is limited to the curated artwork palette.
+    curatedColorPicker: false,
+  };
+
+  /** Icon markup used by Classic; kept as entities so the source stays ASCII. */
+  const CLASSIC_ICONS = {
+    host: '&#128081;',
+    bot: '&#129302;',
+    pencil: '&#9999;&#65039;',
+    trophy: '&#127942;',
+    copy: '&#128203;',
+  };
+
+  /** Inline SVG for the copy-icon on the lobby room pill. */
+  const COPY_ICON_SVG = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">'
+    + '<rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>'
+    + '<path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>'
+    + '</svg>';
+
+  /** Inline SVG pencil for the "edit colour" swatch badge. */
+  const PENCIL_ICON_SVG = '<svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">'
+    + '<path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>'
+    + '</svg>';
+
+  /** Inline SVG trophy for the lobby wins badge. */
+  const TROPHY_ICON_SVG = '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">'
+    + '<path d="M8 3h8v5a4 4 0 0 1-8 0Z"/>'
+    + '<path d="M8 5H5a3 3 0 0 0 3 3"/>'
+    + '<path d="M16 5h3a3 3 0 0 1-3 3"/>'
+    + '<path d="M12 12v4"/>'
+    + '<path d="M9 20h6"/>'
+    + '<path d="M10 20a2 2 0 0 1 4 0"/>'
+    + '</svg>';
+
+  /**
+   * 10 vibrant goat colours - one per distinct goat image, all valid
    * PLAYER_COLORS hexes. No two entries share the same goat artwork.
    */
   const GOAT_COLORS = [
@@ -67,6 +130,210 @@
     '#06d6a0': 'neon-green.png',
     '#86efac': 'lime-green.png',
   };
+
+  /** @type {Map<string, {id: string, features: object, icons: object}>} */
+  const themes = new Map();
+
+  /**
+   * Add (or replace) a theme in the registry.
+   *
+   * @param {{id: string, features?: object, icons?: object}} definition Theme definition.
+   * @returns {object|null} The stored theme, or null when the definition is unusable.
+   */
+  function registerTheme(definition) {
+    const id = definition && typeof definition.id === 'string'
+      ? definition.id.toLowerCase()
+      : '';
+    if (!id) return null;
+    const theme = {
+      id,
+      features: Object.assign({}, DEFAULT_FEATURES, definition.features || {}),
+      icons: Object.assign({}, CLASSIC_ICONS, definition.icons || {}),
+    };
+    themes.set(id, theme);
+    // A theme registered after startup can still take over when nothing valid
+    // has been applied to the document yet.
+    if (!appliedThemeId()) syncTheme();
+    return theme;
+  }
+
+  /**
+   * Ids of all registered themes, in registration order.
+   *
+   * @returns {string[]}
+   */
+  function listThemes() {
+    return Array.from(themes.keys());
+  }
+
+  /**
+   * Whether an id belongs to a registered theme.
+   *
+   * @param {string} id Candidate theme id.
+   * @returns {boolean}
+   */
+  function isKnownTheme(id) {
+    return themes.has(String(id || '').toLowerCase());
+  }
+
+  /**
+   * Normalise a candidate theme id to a registered one.
+   *
+   * @param {string} value Raw value from storage or the DOM.
+   * @returns {string|null} Registered theme id, or null when unknown.
+   */
+  function normalizeThemeId(value) {
+    const id = String(value || '').toLowerCase();
+    return themes.has(id) ? id : null;
+  }
+
+  /**
+   * Theme currently applied to the document (what the stylesheets follow).
+   *
+   * @returns {string|null} Registered theme id, or null when unset or unknown.
+   */
+  function appliedThemeId() {
+    const el = root.document && root.document.documentElement;
+    return el ? normalizeThemeId(el.getAttribute('data-ui')) : null;
+  }
+
+  /**
+   * Theme persisted as the user's preference.
+   *
+   * @returns {string|null} Registered theme id, or null when unset or unknown.
+   */
+  function storedThemeId() {
+    try {
+      return normalizeThemeId(root.localStorage.getItem(UI_STORAGE_KEY));
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /**
+   * Active theme id: the applied theme wins, then the persisted preference,
+   * then Classic.
+   *
+   * @returns {string}
+   */
+  function getTheme() {
+    return appliedThemeId() || storedThemeId() || UI_CLASSIC;
+  }
+
+  /**
+   * Full definition of a theme.
+   *
+   * @param {string} [id] Theme id (defaults to the active theme).
+   * @returns {{id: string, features: object, icons: object}}
+   */
+  function getThemeConfig(id) {
+    return themes.get(normalizeThemeId(id) || getTheme()) || themes.get(UI_CLASSIC);
+  }
+
+  /**
+   * Feature flags of a theme (a copy, safe to read freely).
+   *
+   * @param {string} [id] Theme id (defaults to the active theme).
+   * @returns {object}
+   */
+  function themeFeatures(id) {
+    return Object.assign({}, getThemeConfig(id).features);
+  }
+
+  /**
+   * Whether a theme enables a feature.
+   *
+   * @param {string} feature Feature name from DEFAULT_FEATURES.
+   * @param {string} [id] Theme id (defaults to the active theme).
+   * @returns {boolean}
+   */
+  function hasFeature(feature, id) {
+    return !!getThemeConfig(id).features[feature];
+  }
+
+  /**
+   * Icon markup for the active theme, e.g. 'host', 'bot', 'pencil', 'trophy'.
+   *
+   * @param {string} name Icon name.
+   * @param {string} [id] Theme id (defaults to the active theme).
+   * @returns {string} HTML string, or '' when the theme has no such icon.
+   */
+  function icon(name, id) {
+    const icons = getThemeConfig(id).icons;
+    return icons && icons[name] ? icons[name] : '';
+  }
+
+  /**
+   * Apply a theme to the document without touching the persisted preference.
+   *
+   * @param {string} [id] Theme id (defaults to the active theme).
+   * @returns {string} Theme id that was applied.
+   */
+  function applyTheme(id) {
+    const next = normalizeThemeId(id) || getTheme();
+    const el = root.document && root.document.documentElement;
+    if (el) el.setAttribute('data-ui', next);
+    return next;
+  }
+
+  /**
+   * Make the document match the persisted preference (used at startup).
+   *
+   * @returns {string} Theme id that was applied.
+   */
+  function syncTheme() {
+    return applyTheme(storedThemeId() || appliedThemeId() || UI_CLASSIC);
+  }
+
+  /**
+   * Persist a theme and apply it. Unknown ids fall back to Classic.
+   *
+   * @param {string} id Theme id.
+   * @returns {string} Theme id that was applied.
+   */
+  function setTheme(id) {
+    const next = normalizeThemeId(id) || UI_CLASSIC;
+    try {
+      root.localStorage.setItem(UI_STORAGE_KEY, next);
+    } catch (e) { /* ignore */ }
+    return applyTheme(next);
+  }
+
+  /**
+   * Tell the rest of the client that the theme changed so it can re-render.
+   *
+   * @param {string} id Theme id now in force.
+   * @returns {void}
+   */
+  function emitThemeChange(id) {
+    if (!root.document || typeof root.CustomEvent !== 'function') return;
+    root.document.dispatchEvent(new root.CustomEvent(THEME_EVENT, {
+      detail: { style: id, theme: id },
+    }));
+  }
+
+  /**
+   * Switch theme: persist, apply, refresh theme-owned DOM and notify listeners.
+   *
+   * @param {string} id Theme id.
+   * @returns {string} Theme id that was applied.
+   */
+  function changeTheme(id) {
+    const next = setTheme(id);
+    applyThemeDom();
+    emitThemeChange(next);
+    return next;
+  }
+
+  /**
+   * Whether the Modern theme is active. Kept for older call sites; prefer
+   * hasFeature() so new themes work without extra checks.
+   *
+   * @returns {boolean}
+   */
+  function isModern() {
+    return getTheme() === UI_MODERN;
+  }
 
   /**
    * Pick the goat image whose colour is closest to the given hex colour.
@@ -161,40 +428,6 @@
   }
 
   /**
-   * Current visual style: 'classic' | 'modern'.
-   *
-   * @returns {string}
-   */
-  function getUiStyle() {
-    try {
-      if (localStorage.getItem(UI_STORAGE_KEY) === UI_MODERN) return UI_MODERN;
-    } catch (e) { /* ignore */ }
-    return UI_CLASSIC;
-  }
-
-  /**
-   * Persist a visual style and apply it to <html>.
-   *
-   * @param {string} style 'classic' or 'modern'.
-   * @returns {string}
-   */
-  function setUiStyle(style) {
-    const next = style === UI_MODERN ? UI_MODERN : UI_CLASSIC;
-    try {
-      localStorage.setItem(UI_STORAGE_KEY, next);
-    } catch (e) { /* ignore */ }
-    root.document.documentElement.setAttribute('data-ui', next);
-    return next;
-  }
-
-  /**
-   * @returns {boolean}
-   */
-  function isModern() {
-    return getUiStyle() === UI_MODERN;
-  }
-
-  /**
    * Inline SVG goat, tinted with a hex colour.
    *
    * @param {string} color Hex fill for the goat.
@@ -230,10 +463,11 @@
   }
 
   /**
-   * Player icon (swatch): coloured goat image in Modern, letter coin in Classic.
+   * Player icon (swatch): goat artwork when the theme uses it, otherwise the
+   * baseline letter coin.
    *
    * @param {string} color Player colour.
-   * @param {string} name Player name (used for the Classic letter).
+   * @param {string} name Player name (used for the letter coin).
    * @param {string} [sizeClass] Extra swatch size class ('sm', ...).
    * @param {boolean} [markMe] Add the "me" styling hook.
    * @param {number} [teamId] Team id 0-2 (team-goat artwork).
@@ -243,7 +477,7 @@
     const cls = 'swatch'
       + (sizeClass ? ' ' + sizeClass : '')
       + (markMe ? ' me' : '');
-    if (isModern()) {
+    if (hasFeature('goatArtwork')) {
       return '<span class="' + cls + ' goat-swatch">' + goatImgHtml(color, name, teamId) + '</span>';
     }
     return '<span class="' + cls + '" style="background:' + color + '">'
@@ -251,29 +485,20 @@
       + '</span>';
   }
 
-  /** Inline SVG for the copy-icon on the lobby room pill (replaces 📋 emoji). */
-  const COPY_ICON_SVG = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">'
-    + '<rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>'
-    + '<path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>'
-    + '</svg>';
-
-  /** Inline SVG pencil for the "edit colour" swatch badge (replaces ✏️ emoji). */
-  const PENCIL_ICON_SVG = '<svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">'
-    + '<path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>'
-    + '</svg>';
-
   /**
-   * Swap the brand / loading goats for the Goat_title.png artwork in Modern,
-   * and restore the original emoji in Classic.
+   * Swap the brand / loading goats for the title artwork when the theme asks
+   * for it, and restore the original emoji otherwise.
    *
    * @returns {void}
    */
   function applyThemeDom() {
+    if (!root.document || !root.document.querySelectorAll) return;
+    const artwork = hasFeature('brandArtwork');
     root.document.querySelectorAll('.goat-emoji, .loading-goat').forEach((el) => {
       if (el.dataset.mgOriginal === undefined) {
         el.dataset.mgOriginal = el.innerHTML;
       }
-      if (isModern()) {
+      if (artwork) {
         if (el.dataset.mgGoatImg === undefined) {
           el.dataset.mgGoatImg = '1';
           el.innerHTML = '<img class="goat-title-img" src="/img/goat_title.png" alt="" draggable="false">';
@@ -286,13 +511,13 @@
   }
 
   /**
-   * Colours to offer in the Modern colour picker.
+   * Colours to offer in the colour picker for an artwork theme.
    *
    * @param {string[]} available Palette the server allows for this player.
    * @param {boolean} [keepAll] Keep every available shade (team palettes).
    * @returns {string[]}
    */
-  function modernPickerColors(available, keepAll) {
+  function pickerColors(available, keepAll) {
     const list = (available && available.length) ? available : GOAT_COLORS;
     if (keepAll) return list.slice(0, 10);
     const curated = list.filter((c) => GOAT_COLORS.indexOf(c) !== -1);
@@ -300,50 +525,93 @@
   }
 
   /**
-   * Wire the Settings → Style toggle buttons (Classic / Modern).
+   * Wire the Settings style toggle buttons. One button per registered theme,
+   * found by id ('settings-style-<themeId>'), so a new theme only needs its
+   * own button in the markup.
    *
    * @returns {void}
    */
-  function wireSettingsStyle() {
-    const buttons = root.document.querySelectorAll('#settings-style-classic, #settings-style-modern');
+  function wireThemeControls() {
+    if (!root.document || !root.document.getElementById) return;
+    const buttons = [];
+    listThemes().forEach((id) => {
+      const btn = root.document.getElementById('settings-style-' + id);
+      if (btn) buttons.push({ id, btn });
+    });
     if (!buttons.length) return;
 
     const sync = () => {
-      const style = getUiStyle();
-      buttons.forEach((btn) => {
-        const isActive = btn.id === 'settings-style-' + style;
-        btn.classList.toggle('active', isActive);
-        btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+      const active = getTheme();
+      buttons.forEach((entry) => {
+        const isActive = entry.id === active;
+        entry.btn.classList.toggle('active', isActive);
+        entry.btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
       });
     };
 
-    buttons.forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const style = btn.id === 'settings-style-modern' ? UI_MODERN : UI_CLASSIC;
-        setUiStyle(style);
-        applyThemeDom();
+    buttons.forEach((entry) => {
+      entry.btn.addEventListener('click', () => {
+        changeTheme(entry.id);
         sync();
-        root.document.dispatchEvent(new root.CustomEvent('mg:stylechange', { detail: { style } }));
       });
     });
 
     sync();
-    root.document.addEventListener('mg:stylechange', sync);
+    root.document.addEventListener(THEME_EVENT, sync);
   }
+
+  registerTheme({ id: UI_CLASSIC });
+  registerTheme({
+    id: UI_MODERN,
+    features: {
+      goatArtwork: true,
+      brandArtwork: true,
+      roleTags: true,
+      heldWash: true,
+      climbAnimation: true,
+      panelPlayerColor: true,
+      activeTurnSelfOnly: true,
+      curatedColorPicker: true,
+    },
+    icons: {
+      pencil: PENCIL_ICON_SVG,
+      trophy: TROPHY_ICON_SVG,
+      copy: COPY_ICON_SVG,
+    },
+  });
 
   root.MGUi = Object.assign(root.MGUi || {}, {
     UI_STORAGE_KEY,
     UI_CLASSIC,
     UI_MODERN,
+    THEME_EVENT,
     GOAT_COLORS,
     GOAT_INK,
     TEAM_GOAT_FOLDERS,
     TEAM_GOAT_IMAGE_BY_COLOR,
     COPY_ICON_SVG,
     PENCIL_ICON_SVG,
-    getUiStyle,
-    setUiStyle,
+    TROPHY_ICON_SVG,
+    registerTheme,
+    listThemes,
+    isKnownTheme,
+    getTheme,
+    getThemeConfig,
+    themeFeatures,
+    hasFeature,
+    icon,
+    applyTheme,
+    syncTheme,
+    setTheme,
+    changeTheme,
+    emitThemeChange,
+    wireThemeControls,
+    // Older names kept so existing call sites keep working.
+    getUiStyle: getTheme,
+    setUiStyle: setTheme,
     isModern,
+    modernPickerColors: pickerColors,
+    pickerColors,
     goatSvg,
     goatImgUrl,
     goatImgHtml,
@@ -351,11 +619,10 @@
     isLightColor,
     playerIconHtml,
     applyThemeDom,
-    modernPickerColors,
   });
 
-  // Apply the persisted style before paint (also set early in index.html).
-  root.document.documentElement.setAttribute('data-ui', getUiStyle());
+  // Apply the persisted theme before paint (also set early in index.html).
+  syncTheme();
   applyThemeDom();
-  wireSettingsStyle();
+  wireThemeControls();
 })(window);

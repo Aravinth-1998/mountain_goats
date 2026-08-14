@@ -1,29 +1,42 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { pickJoinColor } = require('../../game/core/player-colors');
-const { GOAT_COLORS } = require('../../game/core/constants');
+const { pickJoinColor, colorGroupIndex } = require('../../game/core/player-colors');
+const { PLAYER_COLORS } = require('../../game/core/constants');
 
-test('each of the first 10 joins gets a unique curated goat color', () => {
+test('first four joins use four different color groups', () => {
   const room = { players: [] };
-  const colors = [];
-  for (let i = 0; i < 10; i++) {
+  const groups = new Set();
+  for (let playerIndex = 0; playerIndex < 4; playerIndex++) {
     const color = pickJoinColor(room);
-    assert.ok(GOAT_COLORS.includes(color), `expected curated color, got ${color}`);
-    assert.equal(colors.includes(color), false, `duplicate color ${color}`);
-    colors.push(color);
+    const groupIndex = colorGroupIndex(color);
+    assert.ok(groupIndex >= 0);
+    assert.equal(groups.has(groupIndex), false);
+    groups.add(groupIndex);
     room.players.push({ color });
   }
-  assert.equal(new Set(colors).size, 10);
+  assert.equal(groups.size, 4);
 });
 
-test('all curated colors are valid player colors', () => {
-  const { PLAYER_COLORS } = require('../../game/core/constants');
-  for (const color of GOAT_COLORS) {
-    assert.ok(PLAYER_COLORS.includes(color), `missing from PLAYER_COLORS: ${color}`);
+test('second round of four also uses four different color groups', () => {
+  const room = { players: [] };
+  for (let playerIndex = 0; playerIndex < 8; playerIndex++) {
+    room.players.push({ color: pickJoinColor(room) });
   }
+  const secondRound = room.players.slice(4, 8).map((player) => colorGroupIndex(player.color));
+  assert.equal(new Set(secondRound).size, 4);
 });
 
-test('reshuffleJoinColors reassigns unique curated colors', () => {
+test('ninth and tenth joins pick any unused color', () => {
+  const room = { players: [] };
+  for (let playerIndex = 0; playerIndex < 10; playerIndex++) {
+    room.players.push({ color: pickJoinColor(room) });
+  }
+  const colors = room.players.map((player) => player.color);
+  assert.equal(new Set(colors).size, 10);
+  assert.equal(colors.every((color) => PLAYER_COLORS.includes(color)), true);
+});
+
+test('reshuffleJoinColors reassigns unique colors with group rules', () => {
   const { reshuffleJoinColors } = require('../../game/core/player-colors');
   const room = {
     players: [
@@ -34,9 +47,9 @@ test('reshuffleJoinColors reassigns unique curated colors', () => {
     ],
   };
   reshuffleJoinColors(room);
-  const colors = room.players.map((p) => p.color);
-  assert.equal(new Set(colors).size, 4);
-  assert.ok(colors.every((c) => GOAT_COLORS.includes(c)));
+  const groups = new Set(room.players.map((player) => colorGroupIndex(player.color)));
+  assert.equal(groups.size, 4);
+  assert.equal(new Set(room.players.map((player) => player.color)).size, 4);
 });
 
 test('switching to standardTeam then standard reshuffles off team palettes', () => {
@@ -57,8 +70,8 @@ test('switching to standardTeam then standard reshuffles off team palettes', () 
   setRoomMode(room, 'standard', () => {});
   assert.equal(room.teamMode, false);
   assert.equal(room.teams, null);
-  const colors = room.players.map((p) => p.color);
-  assert.equal(new Set(colors).size, 4);
-  assert.ok(colors.every((c) => GOAT_COLORS.includes(c)));
+  const groups = new Set(room.players.map((player) => colorGroupIndex(player.color)));
+  assert.equal(groups.size, 4);
+  assert.equal(room.players.every((player) => PLAYER_COLORS.includes(player.color)), true);
   assert.ok(teamColors.length > 0);
 });

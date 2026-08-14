@@ -17,6 +17,19 @@
   }
 
   /**
+   * Whether the active theme enables a feature. False when ui.js is missing,
+   * which keeps the baseline Classic markup.
+   *
+   * @param {string} feature Feature name from the ui.js theme registry.
+   * @returns {boolean}
+   */
+  function themeHas(feature) {
+    return !!(root.MGUi
+      && typeof root.MGUi.hasFeature === 'function'
+      && root.MGUi.hasFeature(feature));
+  }
+
+  /**
    * @param {number} rankIndex Zero-based team rank.
    * @returns {string}
    */
@@ -193,6 +206,8 @@
     const { state, escapeHtml, playerCoinHtml, myId } = ctx;
     if (!state.teams) return;
 
+    const selfOnlyTurn = themeHas('activeTurnSelfOnly');
+    const panelColor = themeHas('panelPlayerColor');
     const teamOrder = state.teams.map(() => []);
     state.players.forEach((p) => {
       const tIdx = state.teams.findIndex((tm) => tm.members.includes(p.id));
@@ -201,11 +216,12 @@
 
     function buildPlayerPanel(p) {
       const idx = state.players.indexOf(p);
+      const isActive = idx === state.currentIndex && (!selfOnlyTurn || p.id === myId);
       const panel = document.createElement('div');
-      panel.className = 'pp team-pp' + (p.id === myId && idx === state.currentIndex ? ' active' : '') + (p.connected ? '' : ' off');
-      panel.style.setProperty('--c', p.color);
-      if (window.MGUi && typeof window.MGUi.isLightColor === 'function' && window.MGUi.isLightColor(p.color)) {
-        panel.classList.add('is-light');
+      panel.className = 'pp team-pp' + (isActive ? ' active' : '') + (p.connected ? '' : ' off');
+      if (panelColor) {
+        panel.style.setProperty('--c', p.color);
+        if (root.MGUi.isLightColor(p.color)) panel.classList.add('is-light');
       }
       const pos = p.pos || [];
       const collected = p.collected || [];

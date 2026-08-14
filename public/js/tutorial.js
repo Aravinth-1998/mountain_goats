@@ -17,6 +17,19 @@
   const YOU_ID = 'tut-you';
   const RIVAL_ID = 'tut-rival';
 
+  /**
+   * Whether the active theme enables a feature. False when ui.js is missing,
+   * which keeps the baseline Classic markup.
+   *
+   * @param {string} feature Feature name from the ui.js theme registry.
+   * @returns {boolean}
+   */
+  function themeHas(feature) {
+    return !!(window.MGUi
+      && typeof window.MGUi.hasFeature === 'function'
+      && window.MGUi.hasFeature(feature));
+  }
+
   /** @type {ReturnType<typeof setTimeout>|null} */
   let autoEndTimer = null;
   /** @type {ReturnType<typeof setInterval>|null} */
@@ -410,9 +423,9 @@
       g.className = 'goat'
         + (p.id === YOU_ID ? ' me' : '')
         + (p.id === turnId ? ' turn' : '');
-      if (window.MGUi && typeof window.MGUi.isModern === 'function' && window.MGUi.isModern()) {
-        g.innerHTML = MGUi.goatImgHtml(p.color, p.name);
-      } else if (window.MGUi) {
+      if (themeHas('goatArtwork')) {
+        g.innerHTML = window.MGUi.goatImgHtml(p.color, p.name);
+      } else {
         g.style.background = p.color;
         g.textContent = String(p.name.charAt(0)).toUpperCase();
       }
@@ -485,12 +498,12 @@
       if (m.chips <= 0) col.classList.add('is-empty');
       if (glowMountains) col.classList.add('tut-mountain-glow');
       if (glowTokens || (glowFirstToken && mi === MI_10)) col.classList.add('tut-token-glow');
-      const topHolder = state.players.find((pl) => (pl.pos || [])[mi] === m.height);
-      if (topHolder && topHolder.color) {
-        col.classList.add('held');
-        if (window.MGUi && typeof MGUi.hexToRgba === 'function') {
-          // Uniform player colour wash on the held column — same intensity for every player.
-          col.style.setProperty('--myc-wash', MGUi.hexToRgba(topHolder.color, 0.28));
+      if (themeHas('heldWash')) {
+        const topHolder = state.players.find((pl) => (pl.pos || [])[mi] === m.height);
+        if (topHolder && topHolder.color) {
+          // Uniform player colour wash on the held column - same intensity for every player.
+          col.classList.add('held');
+          col.style.setProperty('--myc-wash', window.MGUi.hexToRgba(topHolder.color, 0.28));
         }
       }
       if (targetMi === mi) {

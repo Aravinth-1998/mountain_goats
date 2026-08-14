@@ -74,6 +74,9 @@ html[data-ui="modern"] .loading-goat .goat-title-img {
   margin: 0 auto;
   filter: drop-shadow(0 10px 18px rgba(124, 77, 255, 0.45));
 }
+html[data-ui="modern"] .inline-loader .loading-goat .goat-title-img {
+  width: 54px;
+}
 html[data-ui="modern"] .loading-dots span {
   background: #9a6bff;
 }
@@ -82,6 +85,19 @@ html[data-ui="modern"] .loading-dots span:nth-child(3) { background: #22e0a2; }
 
 /* ---------- Brand / Home ---------- */
 html[data-ui="modern"] .brand { margin-top: 0; }
+
+/* The title goat gets a gold aura and a squash-and-stretch hop instead of the
+   Classic bob. */
+html[data-ui="modern"] .goat-emoji {
+  filter: drop-shadow(0 10px 22px rgb(255 175 0 / 0.63));
+  animation: mg-hop 3s ease-in-out infinite;
+}
+@keyframes mg-hop {
+  0%, 100% { transform: translateY(0) scale(1, 1); }
+  30%      { transform: translateY(-20px) scale(0.95, 1.05); }
+  50%      { transform: translateY(0) scale(1.08, 0.92); }
+  65%      { transform: translateY(-6px) scale(1, 1); }
+}
 
 html[data-ui="modern"] .goat-emoji .goat-title-img {
   width: 140px;
@@ -151,6 +167,12 @@ html[data-ui="modern"] .card {
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
 }
+/* The lobby room-settings heading carries a baseline inline style, so the
+   Modern size has to win over it. */
+html[data-ui="modern"] .room-settings > h3 {
+  margin: 0 0 4px !important;
+  font-size: 22px !important;
+}
 
 /* ---------- Inputs ---------- */
 html[data-ui="modern"] input {
@@ -187,6 +209,7 @@ html[data-ui="modern"] #btn-goto-join,
 html[data-ui="modern"] #btn-join,
 html[data-ui="modern"] #btn-start,
 html[data-ui="modern"] #btn-play-tutorial,
+html[data-ui="modern"] #btn-results,
 html[data-ui="modern"] #tut-btn-start {
     border-radius: 100px !important;
     border: 0 !important;
@@ -519,9 +542,11 @@ html[data-ui="modern"] .kick-btn:hover {
 html[data-ui="modern"] button:not(:disabled) {
   transition: transform 0.15s ease, box-shadow 0.2s ease, filter 0.2s ease, background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
 }
-html[data-ui="modern"] button:not(:disabled):where(:hover, :focus-visible) { filter: brightness(1.14); }
+html[data-ui="modern"] button:not(:disabled):where(:hover),
+html[data-ui="modern"] button:not(:disabled):where(:focus-visible) { filter: brightness(1.14); }
 html[data-ui="modern"] button:not(:disabled):where(:active) { transform: scale(0.96); filter: brightness(0.94); }
-html[data-ui="modern"] .btn:not(:disabled):where(:hover, :focus-visible) {
+html[data-ui="modern"] .btn:not(:disabled):where(:hover),
+html[data-ui="modern"] .btn:not(:disabled):where(:focus-visible) {
   transform: translateY(-1px);
   box-shadow:
     0 5px 0 rgba(0, 0, 0, 0.35),
@@ -549,7 +574,16 @@ html[data-ui="modern"] .room-pill {
   color: #e7defa;
   border-radius: 999px;
 }
-html[data-ui="modern"] .room-pill svg { color: #9b8ec7; margin-left: 6px; }
+/* Swap the Classic clipboard emoji for the outlined copy icon. */
+html[data-ui="modern"] .room-pill-copy--classic { display: none; }
+html[data-ui="modern"] .room-pill-copy--modern {
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
+  margin-left: 6px;
+  flex: 0 0 auto;
+}
+html[data-ui="modern"] .room-pill svg { color: #9b8ec7; }
 
 html[data-ui="modern"] .turn-banner {
   background: rgba(255, 255, 255, 0.07);
@@ -589,6 +623,9 @@ html[data-ui="modern"] .team-member.lobby-you {
 }
 
 html[data-ui="modern"] .role-tag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.06em;
@@ -596,6 +633,8 @@ html[data-ui="modern"] .role-tag {
   padding: 4px 10px;
   border-radius: 999px;
   border: 1px solid transparent;
+  line-height: 1.4;
+  white-space: nowrap;
 }
 html[data-ui="modern"] .role-tag.host-tag {
   background: rgba(255, 209, 102, 0.16);
@@ -655,10 +694,16 @@ html[data-ui="modern"] .pp {
   border-radius: 16px;
 }
 html[data-ui="modern"] .pp.active {
+  position: relative;
   background: linear-gradient(rgba(10, 6, 30, 0.42), rgba(10, 6, 30, 0.42)), var(--c, rgba(255, 255, 255, 0.07));
   border-color: var(--c, rgba(255, 255, 255, 0.13));
   color: #fff;
   box-shadow: 0 0 0 2px rgba(255, 209, 102, 0.85), 0 10px 22px rgba(255, 209, 102, 0.28);
+}
+/* The goat swatch is glowed via its image filter, so drop the Classic coin pulse. */
+html[data-ui="modern"] .pp.active .swatch {
+  animation: none;
+  box-shadow: none;
 }
 html[data-ui="modern"] .pp.active.is-light { color: #08101f; }
 html[data-ui="modern"] .pp.active .pp-name { color: currentColor; }
@@ -676,10 +721,10 @@ html[data-ui="modern"] .pp.active::after {
   -webkit-mask-composite: xor;
           mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
           mask-composite: exclude;
-  animation: run-outline 1.2s linear infinite;
+  animation: mg-run-outline 1.2s linear infinite;
   pointer-events: none;
 }
-@keyframes run-outline {
+@keyframes mg-run-outline {
   from { background-position: 0 0; }
   to   { background-position: 18px -18px; }
 }
@@ -744,7 +789,7 @@ html[data-ui="modern"] .mcol.target::after {
   -webkit-mask-composite: xor;
           mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
           mask-composite: exclude;
-  animation: run-outline 1.2s linear infinite;
+  animation: mg-run-outline 1.2s linear infinite;
   pointer-events: none;
   z-index: 4;
 }
@@ -768,12 +813,17 @@ html[data-ui="modern"] .cell {
 html[data-ui="modern"] .cell.top {
   box-shadow: inset 0 0 0 2.5px var(--gold), 0 0 14px rgba(255, 209, 102, 0.45);
 }
-/* Held column: keep the player's colour wash strictly inside the tiles,
-   not on the column gutters or border. */
-html[data-ui="modern"] .mcol.my-top:not(.target),
-html[data-ui="modern"] .mcol.held:not(.target) {
-  background: none;
-  border-color: transparent;
+/* A goat owns the summit: wash the column's tiles in that player's colour,
+   keeping the wash strictly inside the tiles (not on gutters or the border). */
+html[data-ui="modern"] .mcol.my-top .cell::before,
+html[data-ui="modern"] .mcol.held .cell::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--myc-wash, transparent);
+  z-index: 0;
+  pointer-events: none;
 }
 html[data-ui="modern"] .mcol.is-empty .cell {
   background-color: rgba(255, 255, 255, 0.05);
@@ -787,6 +837,7 @@ html[data-ui="modern"] .mcol.is-empty .cell {
 
 /* Big subtle mountain number behind the goats, but above the column wash */
 html[data-ui="modern"] .cell .cnum {
+  position: relative;
   font-size: 30px;
   font-weight: 1000;
   color: rgba(255, 255, 255, 0.4);
@@ -808,11 +859,13 @@ html[data-ui="modern"] .goats {
 html[data-ui="modern"] .goat {
   width: 24px;
   height: 24px;
+  flex: 0 0 auto;
   padding: 0;
   background: none;
   border-radius: 0;
   border: none;
   box-shadow: none;
+  overflow: hidden;
   color: transparent;
   font-size: 0;
   line-height: 0;
@@ -820,9 +873,15 @@ html[data-ui="modern"] .goat {
 html[data-ui="modern"] .goat .goat-img {
   width: 100%;
   height: 100%;
+  object-fit: contain;
   display: block;
   border-radius: 0;
   filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.45));
+}
+html[data-ui="modern"] .goat svg {
+  width: 100%;
+  height: 100%;
+  display: block;
 }
 html[data-ui="modern"] .goat.me { outline: none; }
 html[data-ui="modern"] .goat.me .goat-img {
@@ -852,6 +911,7 @@ html[data-ui="modern"] .swatch.goat-swatch {
 html[data-ui="modern"] .swatch.goat-swatch .goat-img {
   width: 100%;
   height: 100%;
+  object-fit: contain;
   display: block;
   border-radius: 0;
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.4));
@@ -898,6 +958,7 @@ html[data-ui="modern"] .color-opt {
 html[data-ui="modern"] .color-opt .goat-img {
   width: 100%;
   height: 100%;
+  object-fit: contain;
   display: block;
   border-radius: 0;
   filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.4));
@@ -909,15 +970,39 @@ html[data-ui="modern"] .color-opt.current {
 html[data-ui="modern"] .color-opt.taken {
   opacity: 0.5;
 }
+/* Modern marks a taken goat with a "no entry" badge instead of the Classic X. */
+html[data-ui="modern"] .color-opt-taken {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
 html[data-ui="modern"] .color-opt-taken::before {
+  content: '';
+  position: absolute;
+  width: 68%;
+  height: 68%;
+  border-radius: 50%;
   background: rgba(130, 130, 150, 0.16);
-  border-color: rgba(255, 255, 255, 0.35);
+  border: 2px solid rgba(255, 255, 255, 0.35);
 }
 html[data-ui="modern"] .color-opt-taken::after {
+  content: '';
+  position: absolute;
+  width: 72%;
+  height: 2.5px;
+  border-radius: 999px;
   background: rgba(255, 255, 255, 0.45);
+  transform: rotate(-45deg);
 }
 
 /* ---------- Control dock ---------- */
+html[data-ui="modern"] .control-dock {
+  background: transparent;
+}
 html[data-ui="modern"] #screen-game.active > .control-dock {
   background: transparent;
   border-top: 1px solid rgba(255, 255, 255, 0.1);
@@ -1001,6 +1086,48 @@ html[data-ui="modern"] #win-overlay > .overlay-card {
   border: 1px solid rgba(255, 209, 102, 0.35);
 }
 
+/* The secondary win actions move to the card corners as two round icon
+   buttons, so "View board" shows its arrow instead of its label. */
+html[data-ui="modern"] .win-actions-secondary {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  right: 10px;
+  display: flex;
+  justify-content: space-between;
+  gap: 0;
+  z-index: 3;
+  pointer-events: none;
+}
+html[data-ui="modern"] .win-actions-secondary > .btn,
+html[data-ui="modern"] .win-actions-secondary > .icon-btn {
+  pointer-events: auto;
+}
+html[data-ui="modern"] #btn-win-back {
+  flex: 0 0 auto;
+  width: 40px;
+  height: 38px;
+  min-height: 0;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: var(--text);
+  box-shadow:
+    0 3px 0 rgba(0, 0, 0, 0.4),
+    0 8px 18px rgba(0, 0, 0, 0.28);
+}
+html[data-ui="modern"] #btn-win-back .win-back-label { display: none; }
+html[data-ui="modern"] #btn-win-back .win-back-icon { display: block; }
+html[data-ui="modern"] .win-actions-secondary .win-share-btn {
+  width: 40px;
+  height: 38px;
+  min-height: 0;
+}
+
 html[data-ui="modern"] .score-row {
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.12);
@@ -1072,6 +1199,13 @@ html[data-ui="modern"] .toast {
     animation: none;
   }
   html[data-ui="modern"] .mcol.target::after { animation: none; }
+}
+
+/* ---------- Responsive: short viewports ---------- */
+@media (max-height: 560px) {
+  html[data-ui="modern"] #screen-home .goat-emoji .goat-title-img {
+    width: 84px;
+  }
 }
 
 /* ---------- Responsive: mobile background art ---------- */

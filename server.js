@@ -45,7 +45,6 @@ const {
   NUM_DICE,
   MAX_PLAYERS,
   PLAYER_COLORS,
-  GOAT_COLORS,
   TEAM_PALETTES,
   BOT_NAME_POOLS,
 } = core.constants;
@@ -810,7 +809,7 @@ function publicState(room) {
     adjustable: room.adjustable,
     rolled: room.rolled,
     mountains: room.mountains, // {value, height, color, fullStack, chips}
-    playerColors: GOAT_COLORS,
+    playerColors: PLAYER_COLORS,
     modeId: resolveModeIdFromState(room),
     ...getModeForRoom(room).extraPublicState(room),
     players: room.players.map((p) => {
@@ -1086,7 +1085,7 @@ function rollDiceForTurn(room) {
   applyOnesRule(room);
 }
 
-function scheduleBot(room, delay = 1500) {
+function scheduleBot(room, delay = 850) {
   if (!shouldBotPlay(room)) return;
   if (!hasHuman(room)) return; // pause if no humans are watching
   if (room.botTimer) clearTimeout(room.botTimer);

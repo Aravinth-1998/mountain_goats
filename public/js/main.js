@@ -46,6 +46,56 @@
       : ((res && res.error) || t(fallbackKey || 'errors.generic'))
   );
 
+  // ===================== THEME =====================
+  // ui.js owns the theme registry. These helpers keep the client on the
+  // baseline Classic look when ui.js is missing or failed to load.
+
+  /** Classic icon markup, as entities so this file stays ASCII. */
+  const CLASSIC_ICONS = {
+    host: '&#128081;',
+    bot: '&#129302;',
+    pencil: '&#9999;&#65039;',
+    trophy: '&#127942;',
+  };
+
+  /**
+   * Whether the active theme enables a feature (false without ui.js).
+   *
+   * @param {string} feature Feature name from the ui.js theme registry.
+   * @returns {boolean}
+   */
+  function themeHas(feature) {
+    return !!(window.MGUi
+      && typeof window.MGUi.hasFeature === 'function'
+      && window.MGUi.hasFeature(feature));
+  }
+
+  /**
+   * Icon markup for the active theme, falling back to the Classic icon.
+   *
+   * @param {string} name Icon name ('host', 'bot', 'pencil', 'trophy').
+   * @returns {string} HTML string.
+   */
+  function themeIcon(name) {
+    if (window.MGUi && typeof window.MGUi.icon === 'function') {
+      const html = window.MGUi.icon(name);
+      if (html) return html;
+    }
+    return CLASSIC_ICONS[name] || '';
+  }
+
+  /**
+   * Id of the active theme (reads the applied attribute without ui.js).
+   *
+   * @returns {string}
+   */
+  function activeThemeId() {
+    if (window.MGUi && typeof window.MGUi.getTheme === 'function') {
+      return window.MGUi.getTheme();
+    }
+    return document.documentElement.getAttribute('data-ui') || 'classic';
+  }
+
   /** @type {number|null} */
   let lastOnlineCount = null;
 
@@ -224,6 +274,21 @@
     tutorial: document.getElementById('screen-tutorial'),
   };
   const $ = (id) => document.getElementById(id);
+
+  /**
+   * Attach a click handler to every id that is present in the markup. Lets one
+   * action stay wired while its button is renamed or moved in index.html.
+   *
+   * @param {string[]} ids Candidate element ids.
+   * @param {Function} handler Click handler.
+   * @returns {void}
+   */
+  function wireClick(ids, handler) {
+    ids.forEach((id) => {
+      const el = $(id);
+      if (el) el.addEventListener('click', handler);
+    });
+  }
 
   if (window.MGHaptics) window.MGHaptics.init();
   if (window.MGSounds) window.MGSounds.init();
@@ -542,21 +607,29 @@
    */
   function playerCoinHtml(p, sizeClass, options) {
     const markMe = !(options && options.markMe === false);
+    const artwork = themeHas('goatArtwork');
     const cls = 'swatch'
       + (sizeClass ? ' ' + sizeClass : '')
-      + (window.MGUi && window.MGUi.isModern() ? ' goat-swatch' : '')
+      + (artwork ? ' goat-swatch' : '')
       + (markMe && p.id === myId ? ' me' : '');
-    if (window.MGUi && window.MGUi.isModern()) {
+    if (artwork) {
       return `<span class="${cls}" style="background:${p.color}" title="${escapeHtml(p.name)}">${window.MGUi.goatImgHtml(p.color, p.name, playerTeamId(p))}</span>`;
     }
-    return `<span class="${cls}" style="background:${p.color}" title="${escapeHtml(p.name)}">${escapeHtml(p.name.charAt(0).toUpperCase())}</span>`;
+    return `<span class="${cls}" style="background:${p.color}">${escapeHtml(p.name.charAt(0).toUpperCase())}</span>`;
   }
   function lobbyPlayerEndIconHtml(p) {
+    const roleTags = themeHas('roleTags');
     if (p.id === state.hostId) {
-      return `<span class="role-tag host-tag" title="${escapeHtml(t('lobby.hostTitle'))}">${escapeHtml(t('lobby.hostTitle'))}</span>`;
+      const hostLabel = escapeHtml(t('lobby.hostTitle'));
+      return roleTags
+        ? `<span class="role-tag host-tag" title="${hostLabel}">${hostLabel}</span>`
+        : `<span class="host-icon" title="${hostLabel}">${themeIcon('host')}</span>`;
     }
     if (p.isBot) {
-      return `<span class="role-tag bot-tag" title="${escapeHtml(t('lobby.botTitle'))}">${escapeHtml(t('lobby.botTitle'))}</span>`;
+      const botLabel = escapeHtml(t('lobby.botTitle'));
+      return roleTags
+        ? `<span class="role-tag bot-tag" title="${botLabel}">${botLabel}</span>`
+        : `<span class="player-type-icon bot" title="${botLabel}">${themeIcon('bot')}</span>`;
     }
     return '';
   }
@@ -569,17 +642,17 @@
       ? (p.id === myId ? t('lobby.changeColourSelf') : t('lobby.changeColourOther', { name: p.name }))
       : '';
     const pen = clickable
-      ? `<span class="swatch-edit" aria-hidden="true">${window.MGUi ? window.MGUi.PENCIL_ICON_SVG : ''}</span>`
+      ? `<span class="swatch-edit" aria-hidden="true">${themeIcon('pencil')}</span>`
       : '';
     const cls = `swatch${p.id === myId ? ' me' : ''}${clickable}`;
-    if (window.MGUi && window.MGUi.isModern()) {
+    if (themeHas('goatArtwork')) {
       return `<span class="${cls} goat-swatch" style="background:${p.color}"${clickable ? ` role="button" tabindex="0" title="${escapeHtml(title)}"` : ''}>${window.MGUi.goatImgHtml(p.color, p.name, playerTeamId(p))}${pen}</span>`;
     }
     return `<span class="${cls}" style="background:${p.color}"${clickable ? ` role="button" tabindex="0" title="${escapeHtml(title)}"` : ''}>${escapeHtml(p.name.charAt(0).toUpperCase())}${pen}</span>`;
   }
   function lobbyWinsBadgeHtml(p) {
     if (typeof p.totalWins === 'number' && p.totalWins > 0) {
-      return `<span class="badge wins" title="${escapeHtml(tPlural('lobby.winsTitle', p.totalWins, { n: p.totalWins }))}">${escapeHtml(tPlural('lobby.winsBadge', p.totalWins, { n: p.totalWins }))}</span>`;
+      return `<span class="badge wins" title="${escapeHtml(tPlural('lobby.winsTitle', p.totalWins, { n: p.totalWins }))}">${themeIcon('trophy')} ${p.totalWins}</span>`;
     }
     return '';
   }
@@ -588,7 +661,13 @@
   }
   function lobbyPlayerRowHtml(p, badgeHtml) {
     const badge = badgeHtml || '';
-    return `<div class="player-main">${lobbySwatchHtml(p)}<span class="player-name">${escapeHtml(p.name)}</span>${lobbyPlayerEndIconHtml(p)}</div><div class="player-end">${badge}</div>`;
+    const roleIcon = lobbyPlayerEndIconHtml(p);
+    // Word tags read better next to the name; the baseline emoji icons sit at
+    // the row end, where the kick / switch buttons are inserted around them.
+    if (themeHas('roleTags')) {
+      return `<div class="player-main">${lobbySwatchHtml(p)}<span class="player-name">${escapeHtml(p.name)}</span>${roleIcon}</div><div class="player-end">${badge}</div>`;
+    }
+    return `<div class="player-main">${lobbySwatchHtml(p)}<span class="player-name">${escapeHtml(p.name)}</span></div><div class="player-end">${badge}${roleIcon}</div>`;
   }
   /** @returns {object} Active client mode module for current state. */
   function currentMode() {
@@ -660,9 +739,11 @@
   function openColorPicker(anchor, p) {
     closeTeamPicker();
     closeColorPicker();
-    const modern = window.MGUi && typeof window.MGUi.isModern === 'function' && window.MGUi.isModern();
+    const artwork = themeHas('goatArtwork');
     const usedByOthers = new Set(state.players.filter((pl) => pl.id !== p.id).map((pl) => pl.color));
-    const usedGoats = modern && !state.teamMode
+    // Two shades can share one goat image, so an artwork theme also blocks
+    // colours whose artwork is already taken.
+    const usedGoats = artwork && !state.teamMode
       ? new Set(
           state.players
             .filter((pl) => pl.id !== p.id && pl.color)
@@ -671,8 +752,8 @@
       : new Set();
     const palette = getPlayerColors(p);
     const teamId = playerTeamId(p);
-    const colors = modern
-      ? window.MGUi.modernPickerColors(palette, teamId != null)
+    const colors = themeHas('curatedColorPicker')
+      ? window.MGUi.pickerColors(palette, teamId != null)
       : palette;
     const pop = document.createElement('div');
     pop.className = 'color-picker-pop';
@@ -685,18 +766,19 @@
       btn.className = 'color-opt';
       btn.style.background = color;
       btn.dataset.color = color;
-      const taken = usedByOthers.has(color) || usedGoats.has(window.MGUi.goatImgUrl(color));
+      const taken = usedByOthers.has(color)
+        || (artwork && usedGoats.has(window.MGUi.goatImgUrl(color)));
       if (taken) {
         btn.classList.add('taken');
         btn.disabled = true;
-        if (modern) {
+        if (artwork) {
           btn.innerHTML = `${window.MGUi.goatImgHtml(color, null, teamId)}<span class="color-opt-taken" aria-hidden="true"></span>`;
         } else {
           btn.innerHTML = '<span class="color-opt-x">X</span>';
         }
       } else {
         if (p.color === color) btn.classList.add('current');
-        if (modern && window.MGUi) btn.innerHTML = window.MGUi.goatImgHtml(color, null, teamId);
+        if (artwork) btn.innerHTML = window.MGUi.goatImgHtml(color, null, teamId);
         const pickColor = (e) => {
           e.preventDefault();
           e.stopPropagation();
@@ -1251,11 +1333,6 @@
 
   $('btn-play-tutorial').addEventListener('click', () => {
     if (!window.MGTutorial) return;
-    if (window.MGUi && window.MGUi.isModern()) {
-      window.MGUi.setUiStyle(window.MGUi.UI_CLASSIC);
-      if (typeof window.MGUi.applyThemeDom === 'function') window.MGUi.applyThemeDom();
-      document.dispatchEvent(new CustomEvent('mg:stylechange', { detail: { style: window.MGUi.UI_CLASSIC } }));
-    }
     setHowtoOverlayOpen(false);
     window.MGTutorial.start({
       showScreen: show,
@@ -2106,7 +2183,7 @@
   $('btn-game-lobby').addEventListener('click', () => {
     backToLobbyFromBoard();
   });
-  $('btn-win-back').addEventListener('click', () => {
+  wireClick(['btn-view-board', 'btn-win-back'], () => {
     viewBoardFromScorecard();
   });
   $('btn-results').addEventListener('click', () => {
@@ -2115,7 +2192,7 @@
   $('btn-home').addEventListener('click', () => {
     dismissScorecardToLobby();
   });
-  $('btn-win-share').addEventListener('click', shareWinResult);
+  wireClick(['btn-win-share'], shareWinResult);
 
   // Handle being kicked by the host
   socket.on('kicked', (data) => {
@@ -2844,11 +2921,11 @@
       const isTarget = isMyTurn() && state.rolled && mi === tMi;
       if (isTarget) col.classList.add('target');
       if (m.chips <= 0) col.classList.add('is-empty');
-      const topHolder = state.players.find((pl) => (pl.pos || [])[mi] === m.height);
-      if (topHolder && topHolder.color) {
-        col.classList.add('held');
-        if (window.MGUi && typeof window.MGUi.hexToRgba === 'function') {
-          // Uniform player/team colour wash on the held column — same intensity for every player.
+      if (themeHas('heldWash')) {
+        const topHolder = state.players.find((pl) => (pl.pos || [])[mi] === m.height);
+        if (topHolder && topHolder.color) {
+          // Uniform player/team colour wash on the held column - same intensity for every player.
+          col.classList.add('held');
           col.style.setProperty('--myc-wash', window.MGUi.hexToRgba(mountainColumnColor(m, mi), 0.28));
         }
       }
@@ -2897,14 +2974,16 @@
   }
 
   /**
-   * Fingerprint of the board-relevant game state. When unchanged the board DOM
-   * can stay put (dice selection only needs the target highlight updated).
+   * Fingerprint of the board-relevant game state, including the active theme
+   * so a theme switch always redraws. When unchanged the board DOM can stay
+   * put (dice selection only needs the target highlight updated).
    *
    * @returns {string}
    */
   function boardSignature() {
     if (!state) return '';
     return JSON.stringify([
+      activeThemeId(),
       state.code,
       state.started,
       state.rolled,
@@ -2950,8 +3029,8 @@
   /**
    * Hop only the local player's goats whose cell position changed since the
    * last render, so the placed goat hops up from the tile it just left.
-   * Opponents' goats do not animate. Pure vertical hop — no sideways spread.
-   * Modern UI only.
+   * Opponents' goats do not animate. Pure vertical hop, no sideways spread.
+   * Only for themes with the climbAnimation feature.
    *
    * @param {Element} board Board element.
    * @param {Map<string, {pos: string, rect: DOMRect}>} prevGoats Previous goat data.
@@ -2959,11 +3038,7 @@
    * @returns {void}
    */
   function animateClimbingGoats(board, prevGoats, reduceMotion) {
-    if (reduceMotion
-      || !prevGoats.size
-      || !window.MGUi
-      || typeof window.MGUi.isModern !== 'function'
-      || !window.MGUi.isModern()) return;
+    if (reduceMotion || !prevGoats.size || !themeHas('climbAnimation')) return;
     board.querySelectorAll('.goat.me').forEach((g) => {
       const pid = g.dataset.pid;
       const prev = pid ? prevGoats.get(pid) : null;
@@ -2997,9 +3072,9 @@
       g.dataset.pid = p.id;
       if (typeof mi === 'number') g.dataset.pos = mi + ':' + pos;
       g.title = p.name;
-      if (window.MGUi && typeof window.MGUi.isModern === 'function' && window.MGUi.isModern()) {
+      if (themeHas('goatArtwork')) {
         g.innerHTML = window.MGUi.goatImgHtml(p.color, p.name, playerTeamId(p));
-      } else if (window.MGUi) {
+      } else {
         g.style.background = p.color;
         g.textContent = String(p.name.charAt(0)).toUpperCase();
       }
