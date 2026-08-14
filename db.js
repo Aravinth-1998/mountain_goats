@@ -131,41 +131,6 @@ async function init() {
   if (!p) return false;
 
   try {
-    // Rename legacy tables to mg_-prefixed names (idempotent: skips if already renamed).
-    await p.query(`
-      DO $$
-      BEGIN
-        IF EXISTS (
-          SELECT 1 FROM information_schema.tables
-          WHERE table_schema = 'public' AND table_name = 'game_history'
-        ) THEN
-          ALTER TABLE game_history RENAME TO mg_game_history;
-        END IF;
-      END $$;
-    `);
-    await p.query(`
-      DO $$
-      BEGIN
-        IF EXISTS (
-          SELECT 1 FROM pg_indexes
-          WHERE schemaname = 'public' AND indexname = 'idx_game_history_ended_at'
-        ) THEN
-          ALTER INDEX idx_game_history_ended_at RENAME TO idx_mg_game_history_ended_at;
-        END IF;
-      END $$;
-    `);
-    await p.query(`
-      DO $$
-      BEGIN
-        IF EXISTS (
-          SELECT 1 FROM information_schema.tables
-          WHERE table_schema = 'public' AND table_name = 'users'
-        ) THEN
-          ALTER TABLE users RENAME TO mg_users;
-        END IF;
-      END $$;
-    `);
-
     await p.query(`
     CREATE TABLE IF NOT EXISTS mg_game_history (
       id SERIAL PRIMARY KEY,
