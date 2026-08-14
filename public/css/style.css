@@ -1259,7 +1259,8 @@ input.input-error:focus {
   position: relative;
   z-index: 1;
   max-width: 380px;
-  padding: 22px 18px 16px;
+  /* Room for the corner back / share buttons pinned to the card top. */
+  padding: 56px 18px 16px;
   background: #161f33;
   border: 1px solid rgba(255, 255, 255, 0.10);
   box-shadow: 0 18px 48px rgba(0, 0, 0, 0.45);
@@ -1313,23 +1314,45 @@ input.input-error:focus {
   font-size: 22px;
 }
 .win-actions { display: flex; flex-direction: column; gap: 10px; margin-top: 16px; }
+/* Back / share sit on the card's top corners as round icon buttons. */
 .win-actions-secondary {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  right: 10px;
+  margin: 0;
   display: flex;
-  align-items: stretch;
-  gap: 10px;
+  justify-content: space-between;
+  gap: 0;
+  z-index: 3;
+  pointer-events: none;
 }
-.win-actions-secondary #btn-win-back {
-  flex: 1 1 auto;
-  min-width: 0;
+.win-actions-secondary > .btn,
+.win-actions-secondary > .icon-btn {
+  pointer-events: auto;
 }
-/* The arrow-only variant of "View board" belongs to Modern (see modern.css). */
-.win-back-icon { display: none; }
+#btn-win-back {
+  flex: 0 0 auto;
+  width: 40px;
+  height: 38px;
+  min-height: 0;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--card-border);
+  color: var(--text);
+}
+#btn-win-back .win-back-label { display: none; }
+#btn-win-back .win-back-icon { display: block; }
 .win-actions-secondary .win-share-btn {
   flex: 0 0 auto;
-  width: 48px;
-  height: auto;
-  min-height: 48px;
-  border-radius: 14px;
+  width: 40px;
+  height: 38px;
+  min-height: 0;
+  border-radius: 50%;
   background: rgba(255,255,255,0.08);
   border: 1px solid var(--card-border);
   color: var(--text);
@@ -1342,7 +1365,8 @@ input.input-error:focus {
   box-shadow: none;
   filter: none;
 }
-#win-overlay.show .win-actions {
+#win-overlay.show .win-actions,
+#win-overlay.show .win-actions-secondary {
   animation: winHeadIn 0.35s ease-out both;
   animation-delay: calc(0.55s + var(--rows, 3) * 90ms);
   opacity: 0;
@@ -1421,6 +1445,7 @@ input.input-error:focus {
   #win-overlay.show .overlay-card,
   #win-overlay.show .win-head,
   #win-overlay.show .win-actions,
+  #win-overlay.show .win-actions-secondary,
   #win-overlay.show .score-row,
   #win-overlay.show .win-extra,
   #win-overlay.show .trophy {

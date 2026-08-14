@@ -1086,46 +1086,12 @@ html[data-ui="modern"] #win-overlay > .overlay-card {
   border: 1px solid rgba(255, 209, 102, 0.35);
 }
 
-/* The secondary win actions move to the card corners as two round icon
-   buttons, so "View board" shows its arrow instead of its label. */
-html[data-ui="modern"] .win-actions-secondary {
-  position: absolute;
-  top: 10px;
-  left: 10px;
-  right: 10px;
-  display: flex;
-  justify-content: space-between;
-  gap: 0;
-  z-index: 3;
-  pointer-events: none;
-}
-html[data-ui="modern"] .win-actions-secondary > .btn,
-html[data-ui="modern"] .win-actions-secondary > .icon-btn {
-  pointer-events: auto;
-}
-html[data-ui="modern"] #btn-win-back {
-  flex: 0 0 auto;
-  width: 40px;
-  height: 38px;
-  min-height: 0;
-  padding: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  color: var(--text);
+/* Soft drop shadow on the corner buttons — Modern only. */
+html[data-ui="modern"] #btn-win-back,
+html[data-ui="modern"] .win-actions-secondary .win-share-btn {
   box-shadow:
     0 3px 0 rgba(0, 0, 0, 0.4),
     0 8px 18px rgba(0, 0, 0, 0.28);
-}
-html[data-ui="modern"] #btn-win-back .win-back-label { display: none; }
-html[data-ui="modern"] #btn-win-back .win-back-icon { display: block; }
-html[data-ui="modern"] .win-actions-secondary .win-share-btn {
-  width: 40px;
-  height: 38px;
-  min-height: 0;
 }
 
 html[data-ui="modern"] .score-row {

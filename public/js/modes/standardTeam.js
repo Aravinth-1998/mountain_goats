@@ -418,7 +418,8 @@
     $('win-sub').innerHTML = `${teamViz}
         <div class="team-breakdown-label win-extra" style="--i:${labelIdx}">${t('win.individualScores')}</div>
         <div class="scoreboard scoreboard-sm">${playerRows}</div>`;
-    document.querySelector('#win-overlay .win-actions').style.setProperty('--rows', String(rowIdx));
+    // Set on the card so both action rows inherit the same entrance delay.
+    document.querySelector('#win-overlay .overlay-card').style.setProperty('--rows', String(rowIdx));
   }
 
   GameModes.register({

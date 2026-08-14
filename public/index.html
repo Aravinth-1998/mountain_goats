@@ -456,24 +456,25 @@
       <div id="win-sub" class="muted"></div>
       <div class="win-actions">
         <button id="btn-home" class="btn btn-primary btn-block" data-i18n="game.backToLobby">Back to Lobby</button>
-        <div class="win-actions-secondary">
-          <button type="button" id="btn-win-back" class="btn btn-ghost" aria-label="View board" title="View board" data-i18n-aria-label="win.viewBoard" data-i18n-title="win.viewBoard">
-            <span class="win-back-label" data-i18n="win.viewBoard">View board</span>
-            <svg class="win-back-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <line x1="19" y1="12" x2="5" y2="12"/>
-              <polyline points="12 19 5 12 12 5"/>
-            </svg>
-          </button>
-          <button type="button" id="btn-win-share" class="icon-btn icon-btn--emoji win-share-btn" aria-label="Share result" title="Share" data-i18n-aria-label="win.shareAria" data-i18n-title="common.share">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <circle cx="18" cy="5" r="3"/>
-              <circle cx="6" cy="12" r="3"/>
-              <circle cx="18" cy="19" r="3"/>
-              <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
-              <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
-            </svg>
-          </button>
-        </div>
+      </div>
+      <!-- Direct child of the card: pinned to the card's top corners. -->
+      <div class="win-actions-secondary">
+        <button type="button" id="btn-win-back" class="btn btn-ghost" aria-label="View board" title="View board" data-i18n-aria-label="win.viewBoard" data-i18n-title="win.viewBoard">
+          <span class="win-back-label" data-i18n="win.viewBoard">View board</span>
+          <svg class="win-back-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <line x1="19" y1="12" x2="5" y2="12"/>
+            <polyline points="12 19 5 12 12 5"/>
+          </svg>
+        </button>
+        <button type="button" id="btn-win-share" class="icon-btn icon-btn--emoji win-share-btn" aria-label="Share result" title="Share" data-i18n-aria-label="win.shareAria" data-i18n-title="common.share">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="18" cy="5" r="3"/>
+            <circle cx="6" cy="12" r="3"/>
+            <circle cx="18" cy="19" r="3"/>
+            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
+            <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+          </svg>
+        </button>
       </div>
     </div>
   </div>

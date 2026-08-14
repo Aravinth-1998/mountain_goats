@@ -1609,7 +1609,7 @@
     const actions = card.querySelector('.win-actions');
     if (actions) actions.style.display = 'none';
 
-    const cornerBtns = card.querySelector('.win-corner-buttons');
+    const cornerBtns = card.querySelector('.win-actions-secondary');
     if (cornerBtns) cornerBtns.style.display = 'none';
 
     const animated = card.querySelectorAll(
@@ -1726,7 +1726,7 @@
       // Temporarily hide the action buttons for a cleaner screenshot
       const actions = overlayCard.querySelector('.win-actions');
       if (actions) actions.style.display = 'none';
-      const cornerBtns = overlayCard.querySelector('.win-corner-buttons');
+      const cornerBtns = overlayCard.querySelector('.win-actions-secondary');
       if (cornerBtns) cornerBtns.style.display = 'none';
 
       // Wait for webfonts to be ready — html2canvas snapshots synchronously

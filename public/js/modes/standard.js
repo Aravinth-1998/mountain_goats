@@ -356,7 +356,8 @@
 
     $('win-sub').innerHTML = `<div class="scoreboard">${rows}</div>
         ${tieNote}`;
-    document.querySelector('#win-overlay .win-actions').style.setProperty('--rows', String(sorted.length));
+    // Set on the card so both action rows inherit the same entrance delay.
+    document.querySelector('#win-overlay .overlay-card').style.setProperty('--rows', String(sorted.length));
   }
 
   GameModes.register({
