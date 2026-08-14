@@ -244,7 +244,11 @@
     "hapticsOn": "Vibrations activees",
     "hapticsOff": "Vibrations desactivees",
     "hapticsIosLimited": "Sur iPhone, les vibrations ne fonctionnent que pour les taps.",
-    "language": "Langue"
+    "language": "Langue",
+    "style": "Style",
+    "styleClassic": "Classique",
+    "styleModern": "Moderne",
+    "styleAria": "Style"
   },
   "leave": {
     "gameTitle": "Quitter la partie ?",

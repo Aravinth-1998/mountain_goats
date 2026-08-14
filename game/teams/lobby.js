@@ -4,6 +4,7 @@ const {
   TEAM_NAMES,
   TEAM_PALETTES,
   TEAM_CONFIGS,
+  GOAT_COLORS,
 } = require('../core/constants');
 const { getTeamOfPlayer } = require('./scoring');
 
@@ -79,7 +80,7 @@ function assignAllTeamColors(room, forceNew = false) {
 }
 
 function getAllowedColorsForPlayer(room, playerId) {
-  if (!room.teamMode || !room.teams) return PLAYER_COLORS;
+  if (!room.teamMode || !room.teams) return GOAT_COLORS;
   const team = getTeamOfPlayer(room, playerId);
   if (team) return getTeamPalette(team.id) || PLAYER_COLORS;
   const colors = [];

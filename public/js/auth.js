@@ -1162,9 +1162,9 @@
     isConfigured,
   };
 
-  window.MGUi = {
+  window.MGUi = Object.assign(window.MGUi || {}, {
     createInlineLoader,
-  };
+  });
 
   window.MGAuthBootstrapped = new Promise((resolve) => {
     resolveAuthBootstrapped = resolve;

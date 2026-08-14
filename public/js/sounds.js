@@ -1,5 +1,5 @@
 /**
- * Bundled sound effects for Mountain Goats (Kenney CC0 WAV clips).
+ * Sound effects for Mountain Goats.
  * Uses Web Audio API (predecoded buffers) for low-latency mobile playback.
  */
 (function () {
@@ -8,17 +8,17 @@
   const OTHER_VOLUME = 0.35;
 
   const CLIPS = {
-    ui_tap: '/audio/ui-tap.wav',
     dice_roll: '/audio/dice-roll.wav',
-    dice_adjust: '/audio/dice-adjust.wav',
-    summit: '/audio/summit.wav',
-    bump: '/audio/bump.wav',
-    bonus: '/audio/bonus.wav',
-    final_round: '/audio/final-round.wav',
-    your_turn: '/audio/your-turn.wav',
-    game_start: '/audio/game-start.wav',
-    game_end_win: '/audio/win.wav',
-    game_end_loss: '/audio/lose.wav',
+    your_turn: '/audio/my turn.mp3',
+    other_turn: '/audio/others-turn.mp3',
+    game_end_win: '/audio/gameover-i-win.mp3',
+    game_end_loss: '/audio/gameover-didntwin.mp3',
+    bonus_self: '/audio/when-i-get-a-bonus.mp3',
+    bonus_other: '/audio/when-someone-else-gets-a-bonus.mp3',
+    end_turn: '/audio/end-turn-button.mp3',
+    leave_click: '/audio/exit-leave-icon-click.mp3',
+    player_join: '/audio/when-player-joins-lobby.mp3',
+    mountain_closed: '/audio/when-second-mountain-is-closed.mp3',
   };
 
   let enabled = true;
@@ -209,44 +209,36 @@
   function play(event, options) {
     if (!event || !event.type) return;
     const opts = options || {};
-    const myId = opts.myId != null ? opts.myId : null;
     const selfVol = MASTER_VOLUME;
     const otherVol = MASTER_VOLUME * OTHER_VOLUME;
 
     switch (event.type) {
-      case 'ui_tap':
-        playClip(CLIPS.ui_tap, selfVol);
-        break;
       case 'dice_roll':
         playClip(CLIPS.dice_roll, event.self ? selfVol : otherVol);
-        break;
-      case 'dice_adjust':
-        if (event.self) playClip(CLIPS.dice_adjust, selfVol);
-        break;
-      case 'summit':
-        playClip(CLIPS.summit, event.self ? selfVol : otherVol);
-        break;
-      case 'bump':
-        if (event.victimId && myId && event.victimId === myId) {
-          playClip(CLIPS.bump, selfVol);
-        } else {
-          playClip(CLIPS.bump, otherVol);
-        }
-        break;
-      case 'bonus':
-        playClip(CLIPS.bonus, event.self ? selfVol : otherVol);
-        break;
-      case 'final_round':
-        playClip(CLIPS.final_round, selfVol);
         break;
       case 'your_turn':
         playClip(CLIPS.your_turn, selfVol);
         break;
-      case 'game_start':
-        playClip(CLIPS.game_start, selfVol);
+      case 'other_turn':
+        playClip(CLIPS.other_turn, otherVol);
         break;
       case 'game_end':
         playClip(opts.didWin ? CLIPS.game_end_win : CLIPS.game_end_loss, selfVol);
+        break;
+      case 'bonus':
+        playClip(event.self ? CLIPS.bonus_self : CLIPS.bonus_other, event.self ? selfVol : otherVol);
+        break;
+      case 'end_turn':
+        playClip(CLIPS.end_turn, selfVol);
+        break;
+      case 'leave_click':
+        playClip(CLIPS.leave_click, selfVol);
+        break;
+      case 'player_join':
+        playClip(CLIPS.player_join, otherVol);
+        break;
+      case 'mountain_closed':
+        playClip(CLIPS.mountain_closed, otherVol);
         break;
       default:
         break;
@@ -281,7 +273,6 @@
       button.addEventListener('click', () => {
         unlock();
         setEnabled(!enabled);
-        if (enabled) play({ type: 'ui_tap', self: true });
       });
     });
 

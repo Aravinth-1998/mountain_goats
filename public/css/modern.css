@@ -1,0 +1,1107 @@
+/* ============================================================
+   Mountain Goats — Modern UI theme
+   Scoped under html[data-ui="modern"] so Classic visuals are untouched.
+   ============================================================ */
+
+html[data-ui="modern"] {
+  --bg-0: #12082e;
+  --bg-1: #221353;
+  --card: rgba(255, 255, 255, 0.07);
+  --card-border: rgba(255, 255, 255, 0.14);
+  --text: #f6f2ff;
+  --muted: #c5b8ea;
+  --gold: #ffd166;
+  --green: #22e0a2;
+  --primary: #7c4dff;
+  --primary-2: #ff6b9d;
+  --danger: #ff5d6c;
+  --shadow: 0 18px 46px rgba(10, 4, 30, 0.55);
+  --radius: 20px;
+  --font-display: 'Baloo 2', 'Fredoka', sans-serif;
+  --font-script: 'Caveat', 'Comic Sans MS', cursive;
+}
+
+/* ---------- Typography: minimal modern font everywhere (incl. buttons) ---------- */
+html[data-ui="modern"] body,
+html[data-ui="modern"] input,
+html[data-ui="modern"] .mtok,
+html[data-ui="modern"] .swatch,
+html[data-ui="modern"] .cnum,
+html[data-ui="modern"] .pp-name,
+html[data-ui="modern"] .pp-chip,
+html[data-ui="modern"] .tg-name,
+html[data-ui="modern"] .tut-stat {
+  font-family: 'Inter', system-ui, sans-serif !important;
+}
+/* Buttons use the same playful display face as the title. */
+html[data-ui="modern"] button {
+  font-family: var(--font-display) !important;
+}
+/* Display headings keep the playful rounded display face. */
+html[data-ui="modern"] .brand h1,
+html[data-ui="modern"] .card h2,
+html[data-ui="modern"] .card h3,
+html[data-ui="modern"] .overlay-card h2,
+html[data-ui="modern"] .win-title {
+  font-family: var(--font-display) !important;
+}
+
+/* ---------- Background ---------- */
+html[data-ui="modern"] body {
+  background:
+    radial-gradient(1100px 720px at 50% -12%, #3c1d9a 0%, transparent 62%),
+    radial-gradient(820px 560px at 96% 6%, #c2266f 0%, transparent 56%),
+    radial-gradient(780px 540px at 2% 26%, #155cc6 0%, transparent 52%),
+    linear-gradient(180deg, #241254 0%, #150a33 55%, #0d0624 100%);
+  background-attachment: fixed;
+}
+
+html[data-ui="modern"] .bg-mountains {
+  background:
+    radial-gradient(900px 560px at 82% -6%, rgba(124, 77, 255, 0.28), transparent 60%),
+    radial-gradient(760px 520px at 12% 0%, rgba(255, 107, 157, 0.22), transparent 55%),
+    linear-gradient(180deg, rgba(18, 8, 46, 0.58), rgba(13, 6, 36, 0.8)),
+    url('/img/backgrounds/desktop.png');
+  background-size: auto, auto, auto, cover;
+  background-position: center;
+}
+
+/* ---------- Loading ---------- */
+html[data-ui="modern"] .loading-goat .goat-title-img {
+  width: 92px;
+  height: auto;
+  display: block;
+  margin: 0 auto;
+  filter: drop-shadow(0 10px 18px rgba(124, 77, 255, 0.45));
+}
+html[data-ui="modern"] .loading-dots span {
+  background: #9a6bff;
+}
+html[data-ui="modern"] .loading-dots span:nth-child(2) { background: #ff6b9d; }
+html[data-ui="modern"] .loading-dots span:nth-child(3) { background: #22e0a2; }
+
+/* ---------- Brand / Home ---------- */
+html[data-ui="modern"] .brand { margin-top: 0; }
+
+html[data-ui="modern"] .goat-emoji .goat-title-img {
+  width: 140px;
+  height: auto;
+  display: block;
+  margin: 0 auto;
+  filter: drop-shadow(0 14px 26px rgba(124, 77, 255, 0.5));
+}
+/* Title goat is alone on screen, starts very big, zooms in a touch then
+   settles at its spot; the rest of the title screen reveals after it lands. */
+html[data-ui="modern"] #screen-home .goat-emoji .goat-title-img {
+  animation: mg-title-land 1.15s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes mg-title-land {
+  0%   { opacity: 1; transform: scale(3.5); }
+  20%  { transform: scale(3.9); }
+  65%  { transform: scale(1.08); }
+  100% { opacity: 1; transform: scale(1); }
+}
+html[data-ui="modern"] #screen-home .brand h1,
+html[data-ui="modern"] #screen-home .brand .tagline,
+html[data-ui="modern"] #screen-home #online-count,
+html[data-ui="modern"] #screen-home .home-play-block,
+html[data-ui="modern"] #screen-home .home-util-row {
+  animation: mg-home-reveal 0.6s ease-out both;
+  animation-delay: 0.95s;
+}
+@keyframes mg-home-reveal {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+html[data-ui="modern"] .brand h1 {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 46px;
+  line-height: 1.05;
+  margin: 12px 0 4px;
+  background: linear-gradient(100deg, #ffffff 10%, #ffd166 45%, #ff6b9d 85%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  letter-spacing: 0.5px;
+  filter: drop-shadow(0 4px 16px rgba(255, 209, 102, 0.22));
+}
+
+html[data-ui="modern"] .tagline {
+  font-family: var(--font-script);
+  font-size: 23px;
+  line-height: 1.2;
+  color: #c5b8ea;
+}
+
+html[data-ui="modern"] .online-count {
+  color: #22E058FF;
+  font-weight: 700;
+  font-family: var(--font-display) !important;
+}
+html[data-ui="modern"] .online-count.is-pending { color: #c5b8ea; }
+
+/* ---------- Cards ---------- */
+html[data-ui="modern"] .card {
+  background: var(--card);
+  border: 1px solid var(--card-border);
+  border-radius: 22px;
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+/* ---------- Inputs ---------- */
+html[data-ui="modern"] input {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 16px;
+  color: var(--text);
+}
+html[data-ui="modern"] input:focus {
+  border-color: #9a6bff;
+  background: rgba(124, 77, 255, 0.12);
+}
+
+/* ---------- Updated CSS manually by Kabi 13.08.26 ---------- */
+/* ==========================================================================
+   BUTTON 33 PILL STYLE (CENTERED TEXT & COMPACT LAYOUT)
+   ========================================================================== */
+
+/* 1. Base Pill Styling & Compact Sizing */
+html[data-ui="modern"] .home-name-row #home-name {
+    max-width: 280px;
+    margin: 0 auto;
+    padding: 8px 16px;
+    font-size: 15px;
+    border-radius: 100px;
+    text-align: center; /* Center placeholder/input text */
+    font-family: var(--font-display) !important;
+}
+
+html[data-ui="modern"] .btn-primary,
+html[data-ui="modern"] .btn-join,
+html[data-ui="modern"] #btn-create,
+html[data-ui="modern"] #btn-goto-join,
+html[data-ui="modern"] #btn-join,
+html[data-ui="modern"] #btn-start,
+html[data-ui="modern"] #btn-play-tutorial,
+html[data-ui="modern"] #tut-btn-start {
+    border-radius: 100px !important;
+    border: 0 !important;
+    padding: 8px 22px !important;
+    font-size: 15px !important;
+    font-weight: 700 !important;
+    cursor: pointer;
+
+    /* Flexbox centering ensures perfect vertical + horizontal alignment */
+    display: inline-flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+    text-align: center !important;
+    line-height: 1.2 !important;
+
+    transition: all 250ms ease;
+    user-select: none;
+    touch-action: manipulation;
+    max-width: 280px;
+    width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+/* 1b. Join Room + Start Game: taller and full width */
+html[data-ui="modern"] #btn-join,
+html[data-ui="modern"] #btn-start {
+    max-width: none;
+    width: 100%;
+    height: auto !important;
+    min-height: 56px;
+    padding: 14px 24px !important;
+    font-size: 16px !important;
+}
+
+/* 2. Create / Play / Start Buttons (Mint Green Palette) */
+html[data-ui="modern"] .btn-primary,
+html[data-ui="modern"] #btn-create,
+html[data-ui="modern"] #btn-start,
+html[data-ui="modern"] #btn-play-tutorial,
+html[data-ui="modern"] #tut-btn-start {
+    background-color: #c2fbd7 !important;
+    color: #0e6231 !important;
+    box-shadow:
+            rgba(44, 187, 99, 0.25) 0 -20px 18px -14px inset,
+            rgba(44, 187, 99, 0.15) 0 1px 2px,
+            rgba(44, 187, 99, 0.15) 0 2px 4px,
+            rgba(44, 187, 99, 0.15) 0 4px 8px,
+            rgba(44, 187, 99, 0.15) 0 8px 16px !important;
+}
+
+html[data-ui="modern"] .btn-primary:hover,
+html[data-ui="modern"] #btn-create:hover,
+html[data-ui="modern"] #btn-start:hover,
+html[data-ui="modern"] #btn-play-tutorial:hover,
+html[data-ui="modern"] #tut-btn-start:hover {
+    transform: scale(1.04) !important;
+    box-shadow:
+            rgba(44, 187, 99, 0.35) 0 -20px 18px -14px inset,
+            rgba(44, 187, 99, 0.25) 0 1px 2px,
+            rgba(44, 187, 99, 0.25) 0 2px 4px,
+            rgba(44, 187, 99, 0.25) 0 4px 8px,
+            rgba(44, 187, 99, 0.25) 0 8px 16px !important;
+}
+
+/* 2b. Results button (finished controls): same shape as Back to Lobby but gold */
+html[data-ui="modern"] #btn-results {
+    background-color: #ffd166 !important;
+    background-image: linear-gradient(135deg, #ffe08a, #ffc94d) !important;
+    color: #4a3400 !important;
+    box-shadow:
+            rgba(255, 183, 60, 0.35) 0 -20px 18px -14px inset,
+            rgba(255, 183, 60, 0.18) 0 1px 2px,
+            rgba(255, 183, 60, 0.18) 0 2px 4px,
+            rgba(255, 183, 60, 0.18) 0 4px 8px,
+            rgba(255, 183, 60, 0.18) 0 8px 16px !important;
+}
+html[data-ui="modern"] #btn-results:hover {
+    transform: scale(1.04) !important;
+    box-shadow:
+            rgba(255, 183, 60, 0.45) 0 -20px 18px -14px inset,
+            rgba(255, 183, 60, 0.28) 0 1px 2px,
+            rgba(255, 183, 60, 0.28) 0 2px 4px,
+            rgba(255, 183, 60, 0.28) 0 4px 8px,
+            rgba(255, 183, 60, 0.28) 0 8px 16px !important;
+}
+
+/* 3. Join Buttons (Matching Cyan / Teal Palette) */
+html[data-ui="modern"] .btn-join,
+html[data-ui="modern"] #btn-goto-join,
+html[data-ui="modern"] #btn-join {
+    background-color: #c2f7fb !important;
+    color: #085a63 !important;
+    box-shadow:
+            rgba(21, 163, 179, 0.25) 0 -20px 18px -14px inset,
+            rgba(21, 163, 179, 0.15) 0 1px 2px,
+            rgba(21, 163, 179, 0.15) 0 2px 4px,
+            rgba(21, 163, 179, 0.15) 0 4px 8px,
+            rgba(21, 163, 179, 0.15) 0 8px 16px !important;
+}
+
+html[data-ui="modern"] .btn-join:hover,
+html[data-ui="modern"] #btn-goto-join:hover,
+html[data-ui="modern"] #btn-join:hover {
+    transform: scale(1.04);
+    box-shadow:
+            rgba(21, 163, 179, 0.35) 0 -20px 18px -14px inset,
+            rgba(21, 163, 179, 0.25) 0 1px 2px,
+            rgba(21, 163, 179, 0.25) 0 2px 4px,
+            rgba(21, 163, 179, 0.25) 0 4px 8px,
+            rgba(21, 163, 179, 0.25) 0 8px 16px !important;
+}
+
+/* 4. Click Feedback State */
+html[data-ui="modern"] .btn-primary:active,
+html[data-ui="modern"] .btn-join:active,
+html[data-ui="modern"] #btn-create:active,
+html[data-ui="modern"] #btn-goto-join:active,
+html[data-ui="modern"] #btn-join:active,
+html[data-ui="modern"] #btn-start:active,
+html[data-ui="modern"] #btn-play-tutorial:active,
+html[data-ui="modern"] #tut-btn-start:active {
+    transform: scale(0.98) !important;
+}
+
+/* 5. End Turn / Leave confirm buttons (Red Palette) */
+html[data-ui="modern"] #btn-endturn,
+html[data-ui="modern"] #tut-btn-endturn,
+html[data-ui="modern"] #btn-endturn-confirm,
+html[data-ui="modern"] #btn-leave-confirm,
+html[data-ui="modern"] #btn-leave-cancel {
+    border-radius: 100px !important;
+    border: 0 !important;
+    padding: 8px 22px !important;
+    font-size: 15px !important;
+    font-weight: 700 !important;
+    cursor: pointer;
+
+    display: inline-flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+    text-align: center !important;
+    line-height: 1.2 !important;
+
+    transition: all 250ms ease;
+    user-select: none;
+    touch-action: manipulation;
+    max-width: 280px;
+    width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+
+    background: #ffd7d7 !important;
+    color: #7a1520 !important;
+    box-shadow:
+            rgba(200, 35, 50, 0.28) 0 -20px 18px -14px inset,
+            rgba(200, 35, 50, 0.15) 0 1px 2px,
+            rgba(200, 35, 50, 0.15) 0 2px 4px,
+            rgba(200, 35, 50, 0.15) 0 4px 8px,
+            rgba(200, 35, 50, 0.15) 0 8px 16px !important;
+}
+
+html[data-ui="modern"] #btn-endturn:hover,
+html[data-ui="modern"] #tut-btn-endturn:hover,
+html[data-ui="modern"] #btn-endturn-confirm:hover,
+html[data-ui="modern"] #btn-leave-confirm:hover,
+html[data-ui="modern"] #btn-leave-cancel:hover {
+    transform: scale(1.04) !important;
+    box-shadow:
+            rgba(200, 35, 50, 0.4) 0 -20px 18px -14px inset,
+            rgba(200, 35, 50, 0.25) 0 1px 2px,
+            rgba(200, 35, 50, 0.25) 0 2px 4px,
+            rgba(200, 35, 50, 0.25) 0 4px 8px,
+            rgba(200, 35, 50, 0.25) 0 8px 16px !important;
+}
+
+html[data-ui="modern"] #btn-endturn:active,
+html[data-ui="modern"] #tut-btn-endturn:active,
+html[data-ui="modern"] #btn-endturn-confirm:active,
+html[data-ui="modern"] #btn-leave-confirm:active,
+html[data-ui="modern"] #btn-leave-cancel:active {
+    transform: scale(0.98) !important;
+}
+
+/* 5b. Roll / End Turn / overlay buttons: taller */
+html[data-ui="modern"] #btn-roll,
+html[data-ui="modern"] #tut-btn-roll,
+html[data-ui="modern"] #btn-endturn,
+html[data-ui="modern"] #tut-btn-endturn,
+html[data-ui="modern"] #btn-endturn-confirm,
+html[data-ui="modern"] #btn-endturn-cancel,
+html[data-ui="modern"] #btn-leave-confirm,
+html[data-ui="modern"] #btn-leave-cancel {
+    padding: 13px 24px !important;
+    min-height: 50px;
+}
+
+/* 6. "Stay" / "Keep Playing" buttons: neutral slate instead of the red leave palette */
+html[data-ui="modern"] #btn-leave-cancel,
+html[data-ui="modern"] #btn-endturn-cancel {
+    background: #dfe4f0 !important;
+    color: #33415e !important;
+    box-shadow:
+            rgba(90, 108, 150, 0.25) 0 -20px 18px -14px inset,
+            rgba(90, 108, 150, 0.15) 0 1px 2px,
+            rgba(90, 108, 150, 0.15) 0 2px 4px,
+            rgba(90, 108, 150, 0.15) 0 4px 8px,
+            rgba(90, 108, 150, 0.15) 0 8px 16px !important;
+}
+html[data-ui="modern"] #btn-leave-cancel:hover,
+html[data-ui="modern"] #btn-endturn-cancel:hover {
+    box-shadow:
+            rgba(90, 108, 150, 0.38) 0 -20px 18px -14px inset,
+            rgba(90, 108, 150, 0.25) 0 1px 2px,
+            rgba(90, 108, 150, 0.25) 0 2px 4px,
+            rgba(90, 108, 150, 0.25) 0 4px 8px,
+            rgba(90, 108, 150, 0.25) 0 8px 16px !important;
+}
+
+/* 7. Roll / End Turn: clearly greyed out until dice are rolled */
+html[data-ui="modern"] #btn-roll:disabled,
+html[data-ui="modern"] #tut-btn-roll:disabled,
+html[data-ui="modern"] #btn-endturn:disabled,
+html[data-ui="modern"] #tut-btn-endturn:disabled {
+    background: #ece3e6 !important;
+    color: #c0aab0 !important;
+    box-shadow: none !important;
+    opacity: 0.85;
+    cursor: not-allowed;
+    transform: none !important;
+    filter: none !important;
+}
+
+/* Play Tutorial button: a bit more height */
+html[data-ui="modern"] #btn-play-tutorial {
+    min-height: 50px;
+}
+
+
+/* ---------- Buttons (3D: hard bottom edge that sinks when pressed) ---------- */
+html[data-ui="modern"] .btn {
+  border-radius: 16px;
+  font-weight: 700;
+  box-shadow:
+    0 4px 0 rgba(10, 4, 30, 0.4),
+    0 12px 28px rgba(0, 0, 0, 0.35);
+}
+
+
+html[data-ui="modern"] .btn-ghost {
+  background: rgba(255, 255, 255, 0.09);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow:
+    0 4px 0 rgba(0, 0, 0, 0.4),
+    0 12px 28px rgba(0, 0, 0, 0.3);
+}
+
+html[data-ui="modern"] .btn-danger {
+  background: linear-gradient(135deg, #ff5d6c, #c0392b);
+  box-shadow:
+    0 4px 0 rgba(110, 18, 32, 0.95),
+    0 10px 24px rgba(255, 93, 108, 0.4);
+}
+
+html[data-ui="modern"] .icon-btn {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: var(--text);
+  border-radius: 14px;
+  box-shadow:
+    0 3px 0 rgba(0, 0, 0, 0.4),
+    0 8px 18px rgba(0, 0, 0, 0.28);
+}
+/* Circular icon buttons (settings gear, emoji utils) keep their round shape. */
+html[data-ui="modern"] .icon-btn--emoji,
+html[data-ui="modern"] .settings-toggle-btn {
+  border-radius: 50%;
+  box-shadow:
+    0 3px 0 rgba(0, 0, 0, 0.4),
+    0 8px 18px rgba(0, 0, 0, 0.28);
+}
+html[data-ui="modern"] .settings-toggle-btn { color: #ffd166; }
+
+/* Lobby topbar icon buttons get a clear hover lift. */
+html[data-ui="modern"] #screen-lobby .icon-btn--emoji:hover,
+html[data-ui="modern"] #screen-lobby .icon-btn--emoji:focus-visible {
+  transform: translateY(-2px);
+  background: rgba(255, 255, 255, 0.16);
+  border-color: rgba(255, 255, 255, 0.34);
+  box-shadow:
+    0 4px 0 rgba(0, 0, 0, 0.4),
+    0 10px 22px rgba(0, 0, 0, 0.32);
+}
+
+/* Title screen keys + lobby controls get the modern look too */
+html[data-ui="modern"] .home-play-block .home-key {
+  border-radius: 16px;
+  letter-spacing: 0.02em;
+}
+
+html[data-ui="modern"] .home-play-block .home-key--name {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.16);
+  border-radius: 16px;
+  box-shadow: none;
+}
+
+html[data-ui="modern"] #btn-addbot.btn-ghost {
+  background: rgba(154, 107, 255, 0.16);
+  border: 1px solid rgba(154, 107, 255, 0.5);
+  color: #c9b6ff;
+  box-shadow:
+    0 4px 0 rgba(60, 25, 130, 0.95),
+    0 12px 28px rgba(0, 0, 0, 0.3);
+}
+
+/* Kick button matches the modern lobby row style */
+html[data-ui="modern"] .kick-btn {
+  background: rgba(255, 93, 108, 0.16);
+  border: 1px solid rgba(255, 93, 108, 0.4);
+  color: #ffc9cf;
+  border-radius: 10px;
+}
+html[data-ui="modern"] .kick-btn:hover {
+  background: rgba(255, 93, 108, 0.32);
+  border-color: rgba(255, 93, 108, 0.6);
+}
+
+/* ---------- Button hover / press feedback ---------- */
+html[data-ui="modern"] button:not(:disabled) {
+  transition: transform 0.15s ease, box-shadow 0.2s ease, filter 0.2s ease, background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+html[data-ui="modern"] button:not(:disabled):where(:hover, :focus-visible) { filter: brightness(1.14); }
+html[data-ui="modern"] button:not(:disabled):where(:active) { transform: scale(0.96); filter: brightness(0.94); }
+html[data-ui="modern"] .btn:not(:disabled):where(:hover, :focus-visible) {
+  transform: translateY(-1px);
+  box-shadow:
+    0 5px 0 rgba(0, 0, 0, 0.35),
+    0 14px 30px rgba(0, 0, 0, 0.4);
+}
+html[data-ui="modern"] .btn:not(:disabled):where(:active) {
+  transform: translateY(3px) scale(0.98);
+  box-shadow:
+    0 1px 0 rgba(0, 0, 0, 0.35),
+    0 8px 18px rgba(0, 0, 0, 0.25);
+}
+html[data-ui="modern"] .icon-btn:not(:disabled):where(:active),
+html[data-ui="modern"] .icon-btn--emoji:not(:disabled):where(:active),
+html[data-ui="modern"] .settings-toggle-btn:not(:disabled):where(:active) {
+  transform: translateY(2px) scale(0.97);
+  box-shadow:
+    0 1px 0 rgba(0, 0, 0, 0.35),
+    0 5px 12px rgba(0, 0, 0, 0.22);
+}
+
+/* ---------- Topbar ---------- */
+html[data-ui="modern"] .room-pill {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: #e7defa;
+  border-radius: 999px;
+}
+html[data-ui="modern"] .room-pill svg { color: #9b8ec7; margin-left: 6px; }
+
+html[data-ui="modern"] .turn-banner {
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 14px;
+  color: var(--text);
+}
+html[data-ui="modern"] .turn-banner.my-turn {
+  background: linear-gradient(135deg, rgba(34, 224, 162, 0.28), rgba(124, 77, 255, 0.32));
+  border-color: rgba(34, 224, 162, 0.5);
+}
+html[data-ui="modern"] .turn-banner.final {
+  background: linear-gradient(135deg, rgba(255, 93, 108, 0.3), rgba(255, 209, 102, 0.3));
+  border-color: rgba(255, 209, 102, 0.55);
+}
+
+/* ---------- Lobby ---------- */
+html[data-ui="modern"] .player-list li,
+html[data-ui="modern"] .team-member {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  border-radius: 16px;
+}
+html[data-ui="modern"] .player-list li.lobby-you,
+html[data-ui="modern"] .team-member.lobby-you {
+  background: rgba(124, 77, 255, 0.14);
+  border-color: rgba(154, 107, 255, 0.45);
+  animation: mg-lobby-you-breathe 2.6s ease-in-out infinite;
+}
+@keyframes mg-lobby-you-breathe {
+  0%, 100% {
+    box-shadow: 0 0 0 1px rgba(154, 107, 255, 0.35);
+  }
+  50% {
+    box-shadow: 0 0 0 1px rgba(154, 107, 255, 0.8), 0 0 20px rgba(154, 107, 255, 0.4);
+  }
+}
+
+html[data-ui="modern"] .role-tag {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+}
+html[data-ui="modern"] .role-tag.host-tag {
+  background: rgba(255, 209, 102, 0.16);
+  border-color: rgba(255, 209, 102, 0.42);
+  color: #ffd166;
+}
+html[data-ui="modern"] .role-tag.bot-tag {
+  background: rgba(154, 107, 255, 0.18);
+  border-color: rgba(154, 107, 255, 0.45);
+  color: #c9b6ff;
+}
+
+html[data-ui="modern"] .badge.wins {
+  background: rgba(255, 209, 102, 0.16);
+  border: 1px solid rgba(255, 209, 102, 0.4);
+  color: #ffd166;
+}
+
+html[data-ui="modern"] .team-band {
+  border-radius: 18px;
+}
+html[data-ui="modern"] .team-band-header {
+  border-radius: 14px;
+}
+
+html[data-ui="modern"] .toggle-group {
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 12px;
+}
+html[data-ui="modern"] .toggle-btn.active {
+  background: linear-gradient(135deg, rgba(124, 77, 255, 0.5), rgba(255, 107, 157, 0.35));
+  color: #fff;
+}
+
+html[data-ui="modern"] .player-count-selector {
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 12px;
+}
+
+/* ---------- Join screen ---------- */
+html[data-ui="modern"] .code-input {
+  letter-spacing: 10px;
+  font-weight: 800;
+}
+html[data-ui="modern"] .public-room-card {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  border-radius: 16px;
+}
+
+/* ---------- Game: stats strip ---------- */
+html[data-ui="modern"] .pp {
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  border-radius: 16px;
+}
+html[data-ui="modern"] .pp.active {
+  background: linear-gradient(rgba(10, 6, 30, 0.42), rgba(10, 6, 30, 0.42)), var(--c, rgba(255, 255, 255, 0.07));
+  border-color: var(--c, rgba(255, 255, 255, 0.13));
+  color: #fff;
+  box-shadow: 0 0 0 2px rgba(255, 209, 102, 0.85), 0 10px 22px rgba(255, 209, 102, 0.28);
+}
+html[data-ui="modern"] .pp.active.is-light { color: #08101f; }
+html[data-ui="modern"] .pp.active .pp-name { color: currentColor; }
+html[data-ui="modern"] .pp.active .pp-score,
+html[data-ui="modern"] .pp.active .pp-bonus { color: currentColor; opacity: 0.95; }
+/* Running dashed outline on the active player panel — rounded dashes, tight gaps. */
+html[data-ui="modern"] .pp.active::after {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: inherit;
+  padding: 3px;
+  background: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='18'%20height='18'%3E%3Cg%20transform='rotate(45%209%209)'%3E%3Crect%20x='3'%20y='6'%20width='15'%20height='6'%20rx='2'%20fill='rgba(255,255,255,0.95)'/%3E%3C/g%3E%3C/svg%3E");
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+          mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+          mask-composite: exclude;
+  animation: run-outline 1.2s linear infinite;
+  pointer-events: none;
+}
+@keyframes run-outline {
+  from { background-position: 0 0; }
+  to   { background-position: 18px -18px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html[data-ui="modern"] .pp.active::after { animation: none; }
+}
+html[data-ui="modern"] .pp-chip {
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+}
+html[data-ui="modern"] .pp-chip.has {
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.28);
+}
+
+html[data-ui="modern"] .team-block {
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.05);
+}
+html[data-ui="modern"] .team-pp {
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 14px;
+}
+
+/* ---------- Bonus row ---------- */
+html[data-ui="modern"] .bonus-tok {
+  border-radius: 999px;
+  padding: 4px 11px;
+  background: linear-gradient(135deg, #d6c8ff, #a58cff);
+  color: #201044;
+  box-shadow: 0 4px 12px rgba(154, 107, 255, 0.45);
+}
+html[data-ui="modern"] .bonus-tok.claimed {
+  background: var(--c, #aab8c9);
+  color: #08101f;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3), inset 0 0 0 1px rgba(255, 255, 255, 0.4);
+}
+html[data-ui="modern"] .bonus-tok.gone {
+  background: rgba(255, 255, 255, 0.08);
+  color: #8d7fb5;
+  box-shadow: none;
+}
+
+/* ---------- Board: mountains ---------- */
+html[data-ui="modern"] .mcol { position: relative; border-radius: 12px; }
+
+html[data-ui="modern"] .mcol.target {
+  animation: none;
+  border-color: rgba(255, 209, 102, 0.9);
+  background: rgba(255, 209, 102, 0.1);
+}
+/* Target column uses the same running dashed ring as the active player panel. */
+html[data-ui="modern"] .mcol.target::after {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 15px;
+  padding: 3px;
+  background: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='18'%20height='18'%3E%3Cg%20transform='rotate(45%209%209)'%3E%3Crect%20x='3'%20y='6'%20width='15'%20height='6'%20rx='2'%20fill='rgba(255,209,102,0.95)'/%3E%3C/g%3E%3C/svg%3E");
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+          mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+          mask-composite: exclude;
+  animation: run-outline 1.2s linear infinite;
+  pointer-events: none;
+  z-index: 4;
+}
+
+html[data-ui="modern"] .mtok {
+  border-radius: 50%;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.4), inset 0 0 0 1.5px rgba(255, 255, 255, 0.5);
+}
+
+/* Cells: tile artwork placeholder behind a big subtle mountain number.
+   The goat cluster renders on top of both. */
+html[data-ui="modern"] .cell {
+  border-radius: 12px;
+  opacity: 1;
+  background-color: rgba(255, 255, 255, 0.06);
+  background-image: url('/img/tiles/5peak.png');
+  background-size: cover;
+  background-position: center;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.16);
+}
+html[data-ui="modern"] .cell.top {
+  box-shadow: inset 0 0 0 2.5px var(--gold), 0 0 14px rgba(255, 209, 102, 0.45);
+}
+/* Held column: keep the player's colour wash strictly inside the tiles,
+   not on the column gutters or border. */
+html[data-ui="modern"] .mcol.my-top:not(.target),
+html[data-ui="modern"] .mcol.held:not(.target) {
+  background: none;
+  border-color: transparent;
+}
+html[data-ui="modern"] .mcol.is-empty .cell {
+  background-color: rgba(255, 255, 255, 0.05);
+  background-image: url('/img/tiles/5base.png');
+  background-size: cover;
+  background-position: center;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+  opacity: 0.55;
+  filter: grayscale(0.35);
+}
+
+/* Big subtle mountain number behind the goats, but above the column wash */
+html[data-ui="modern"] .cell .cnum {
+  font-size: 30px;
+  font-weight: 1000;
+  color: rgba(255, 255, 255, 0.4);
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0);
+  line-height: 1;
+  letter-spacing: 0.04em;
+  z-index: 1;
+  pointer-events: none;
+}
+
+/* Goats sit on top of cells and numbers */
+html[data-ui="modern"] .goats {
+  z-index: 1;
+  gap: 1px;
+  padding: 2px;
+}
+
+/* ---------- Goat icons ---------- */
+html[data-ui="modern"] .goat {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  background: none;
+  border-radius: 0;
+  border: none;
+  box-shadow: none;
+  color: transparent;
+  font-size: 0;
+  line-height: 0;
+}
+html[data-ui="modern"] .goat .goat-img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  border-radius: 0;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.45));
+}
+html[data-ui="modern"] .goat.me { outline: none; }
+html[data-ui="modern"] .goat.me .goat-img {
+  filter: drop-shadow(0 0 0 2px rgba(255, 255, 255, 0.95)) drop-shadow(0 2px 3px rgba(0, 0, 0, 0.45));
+}
+html[data-ui="modern"] .goat.turn { z-index: 3; box-shadow: none; animation: none; }
+html[data-ui="modern"] .goat.turn .goat-img {
+  filter: drop-shadow(0 0 0 2px rgba(255, 209, 102, 0.92)) drop-shadow(0 0 10px rgba(255, 209, 102, 0.75));
+}
+
+/* Foot goats can be slightly smaller so many fit in one row */
+html[data-ui="modern"] .foot .goat { width: 22px; height: 22px; }
+
+/* ---------- Swatches (lobby / stats / win) ---------- */
+html[data-ui="modern"] .swatch.goat-swatch {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  border: none;
+  background: none;
+  box-shadow: none;
+  border-radius: 10px;
+  position: relative;
+  padding: 0;
+  text-shadow: none;
+}
+html[data-ui="modern"] .swatch.goat-swatch .goat-img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  border-radius: 0;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.4));
+}
+html[data-ui="modern"] .swatch.goat-swatch.me {
+  outline: 2px solid #fff;
+  outline-offset: 1px;
+}
+html[data-ui="modern"] .swatch.goat-swatch.sm {
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+}
+
+html[data-ui="modern"] .pp.active .swatch.goat-swatch .goat-img {
+  filter: drop-shadow(0 0 0 2px rgba(255, 209, 102, 0.9)) drop-shadow(0 0 10px rgba(255, 209, 102, 0.7));
+}
+
+html[data-ui="modern"] .swatch-edit {
+  background: #221353;
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  color: #fff;
+}
+
+/* ---------- Colour picker (Modern goats) ---------- */
+html[data-ui="modern"] .color-picker-pop {
+  background: rgba(30, 16, 66, 0.98);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 18px;
+}
+html[data-ui="modern"] .color-picker-grid {
+  grid-template-columns: repeat(5, 46px);
+  gap: 10px;
+}
+html[data-ui="modern"] .color-opt {
+  width: 46px;
+  height: 46px;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 12px;
+  box-shadow: none;
+  position: relative;
+}
+html[data-ui="modern"] .color-opt .goat-img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  border-radius: 0;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.4));
+}
+html[data-ui="modern"] .color-opt.current {
+  outline: 2px solid #fff;
+  outline-offset: 1px;
+}
+html[data-ui="modern"] .color-opt.taken {
+  opacity: 0.5;
+}
+html[data-ui="modern"] .color-opt-taken::before {
+  background: rgba(130, 130, 150, 0.16);
+  border-color: rgba(255, 255, 255, 0.35);
+}
+html[data-ui="modern"] .color-opt-taken::after {
+  background: rgba(255, 255, 255, 0.45);
+}
+
+/* ---------- Control dock ---------- */
+html[data-ui="modern"] #screen-game.active > .control-dock {
+  background: transparent;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+html[data-ui="modern"] #screen-game.active > .dice-row {
+  margin-top: 14px;
+  margin-bottom: 14px;
+}
+html[data-ui="modern"] #screen-game.active #play-controls {
+  margin-top: 14px;
+  margin-bottom: 14px;
+}
+html[data-ui="modern"] #screen-game.active > .bonus-row {
+  margin-top: 14px;
+}
+
+html[data-ui="modern"] .turn-timer {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 16px;
+}
+
+html[data-ui="modern"] .die {
+  border-radius: 16px;
+  background: linear-gradient(145deg, #ffffff, #e9e2ff);
+  color: #24115e;
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.45), inset 0 0 0 1px rgba(124, 77, 255, 0.25);
+}
+html[data-ui="modern"] .die.sel {
+  outline: 3px solid var(--gold);
+  outline-offset: 1px;
+  box-shadow: 0 12px 26px rgba(255, 209, 102, 0.55);
+}
+html[data-ui="modern"] .reface {
+  background: linear-gradient(135deg, #7c4dff, #a35bff);
+}
+
+html[data-ui="modern"] .sel-sum.ok { color: #ffd166; }
+
+html[data-ui="modern"] .game-hint.auto-end { color: #ffd166; }
+
+/* ---------- Overlays ---------- */
+html[data-ui="modern"] .overlay {
+  background: rgba(10, 4, 30, 0.85);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+}
+/* Opaque menus need no backdrop blur in modern. */
+html[data-ui="modern"] .settings-locale-menu {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+html[data-ui="modern"] #screen-home .stats-backdrop {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+html[data-ui="modern"] .overlay-card {
+  background: rgba(30, 17, 66, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 26px;
+  box-shadow: 0 24px 60px rgba(6, 2, 20, 0.6);
+}
+
+html[data-ui="modern"] .howto-close {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: var(--text);
+}
+
+html[data-ui="modern"] .rules-tab {
+  color: var(--muted);
+}
+html[data-ui="modern"] .rules-tab.is-active {
+  background: rgba(124, 77, 255, 0.35);
+  color: #fff;
+}
+
+html[data-ui="modern"] #win-overlay > .overlay-card {
+  background: linear-gradient(180deg, #2b1672 0%, #1a0d45 100%);
+  border: 1px solid rgba(255, 209, 102, 0.35);
+}
+
+html[data-ui="modern"] .score-row {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+}
+html[data-ui="modern"] .score-row.win {
+  background: rgba(255, 209, 102, 0.14);
+  border-color: rgba(255, 209, 102, 0.45);
+  color: #ffd166;
+}
+
+html[data-ui="modern"] .end-reason {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+}
+
+html[data-ui="modern"] .leaderboard-row {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+}
+html[data-ui="modern"] .leaderboard-row.rank-1 {
+  background: rgba(255, 209, 102, 0.13);
+  border-color: rgba(255, 209, 102, 0.4);
+}
+
+/* Settings overlay */
+html[data-ui="modern"] #settings-overlay .settings-card {
+  max-width: 340px;
+}
+
+/* ---------- Tutorial ---------- */
+html[data-ui="modern"] #screen-tutorial.active > .topbar {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+}
+html[data-ui="modern"] .tut-panel .overlay-card {
+  background: rgba(30, 17, 66, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+}
+html[data-ui="modern"] .tut-stat {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.06);
+}
+html[data-ui="modern"] .tut-stat-dot {
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+
+/* ---------- Toast ---------- */
+html[data-ui="modern"] .toast {
+  background: rgba(36, 20, 84, 0.97);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 14px;
+}
+
+/* ---------- Reduce motion ---------- */
+@media (prefers-reduced-motion: reduce) {
+  html[data-ui="modern"] .goat.turn .goat-img,
+  html[data-ui="modern"] .pp.active .swatch.goat-swatch .goat-img {
+    animation: none;
+  }
+  html[data-ui="modern"] #screen-home .goat-emoji .goat-title-img,
+  html[data-ui="modern"] #screen-home .brand h1,
+  html[data-ui="modern"] #screen-home .brand .tagline,
+  html[data-ui="modern"] #screen-home #online-count,
+  html[data-ui="modern"] #screen-home .home-play-block,
+  html[data-ui="modern"] #screen-home .home-util-row {
+    animation: none;
+  }
+  html[data-ui="modern"] .mcol.target::after { animation: none; }
+}
+
+/* ---------- Responsive: mobile background art ---------- */
+@media (max-width: 640px) {
+  html[data-ui="modern"] .bg-mountains {
+    background:
+      radial-gradient(720px 480px at 82% -6%, rgba(124, 77, 255, 0.26), transparent 60%),
+      radial-gradient(620px 460px at 12% 0%, rgba(255, 107, 157, 0.2), transparent 55%),
+      linear-gradient(180deg, rgba(18, 8, 46, 0.58), rgba(13, 6, 36, 0.8)),
+      url('/img/backgrounds/mobile.png');
+    background-size: auto, auto, auto, cover;
+    background-position: center;
+  }
+}
+
+/* ---------- Responsive: smaller phones ---------- */
+@media (max-width: 400px) {
+  html[data-ui="modern"] .color-picker-grid {
+    grid-template-columns: repeat(5, 42px);
+  }
+  html[data-ui="modern"] .color-opt {
+    width: 42px;
+    height: 42px;
+  }
+  html[data-ui="modern"] .goat {
+    width: 21px;
+    height: 21px;
+  }
+  html[data-ui="modern"] .foot .goat {
+    width: 20px;
+    height: 20px;
+  }
+}

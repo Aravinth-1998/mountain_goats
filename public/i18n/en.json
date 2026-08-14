@@ -244,7 +244,11 @@
     "hapticsOn": "Haptics on",
     "hapticsOff": "Haptics off",
     "hapticsIosLimited": "On iPhone, haptics work for taps only.",
-    "language": "Language"
+    "language": "Language",
+    "style": "Style",
+    "styleClassic": "Classic",
+    "styleModern": "Modern",
+    "styleAria": "Style"
   },
   "leave": {
     "gameTitle": "Leave the game?",

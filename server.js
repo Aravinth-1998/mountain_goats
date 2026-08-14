@@ -45,6 +45,7 @@ const {
   NUM_DICE,
   MAX_PLAYERS,
   PLAYER_COLORS,
+  GOAT_COLORS,
   TEAM_PALETTES,
   BOT_NAME_POOLS,
 } = core.constants;
@@ -809,7 +810,7 @@ function publicState(room) {
     adjustable: room.adjustable,
     rolled: room.rolled,
     mountains: room.mountains, // {value, height, color, fullStack, chips}
-    playerColors: PLAYER_COLORS,
+    playerColors: GOAT_COLORS,
     modeId: resolveModeIdFromState(room),
     ...getModeForRoom(room).extraPublicState(room),
     players: room.players.map((p) => {

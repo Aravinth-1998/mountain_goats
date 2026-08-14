@@ -10,7 +10,7 @@ const MOUNTAIN_DEFS = [
 const BONUS_DEFS = [15, 12, 9, 6];
 const NUM_DICE = 4;
 const MAX_PLAYERS = 10;
-// 5 red + 5 blue + 5 green + 5 other (no white/black/gold/silver).
+// 5 red + 5 blue + 5 green + 7 other (incl. white/yellow goat art).
 const PLAYER_COLORS = [
   // Red (dark -> light)
   '#9d0208',
@@ -36,6 +36,8 @@ const PLAYER_COLORS = [
   '#ec4899', // magenta
   '#92400e', // brown
   '#7c3aed', // violet
+  '#f8fafc', // white
+  '#facc15', // yellow
 ];
 const BOT_NAME_POOLS = [
   ['Zorro', 'Zenith'],
@@ -49,6 +51,21 @@ const BOT_NAME_POOLS = [
   ['Raven', 'Rogue'],
 ];
 
+// 10 vibrant goat colours — one per distinct goat image, all valid
+// PLAYER_COLORS hexes. No two entries share the same goat artwork.
+// Mirrors public/js/ui.js GOAT_COLORS.
+const GOAT_COLORS = [
+  '#e63946', // red
+  '#1d4ed8', // blue
+  '#22c55e', // green
+  '#e67e22', // orange
+  '#a855f7', // purple
+  '#ec4899', // pink
+  '#06d6a0', // cyan
+  '#92400e', // brown
+  '#f8fafc', // white
+  '#facc15', // yellow
+];
 const TEAM_COLORS = ['#e63946', '#4f7cff', '#06d6a0'];
 const TEAM_NAMES = ['Red', 'Blue', 'Green'];
 const PLAYER_COLOR_GROUPS = [
@@ -77,6 +94,7 @@ module.exports = {
   MAX_PLAYERS,
   PLAYER_COLORS,
   PLAYER_COLOR_GROUPS,
+  GOAT_COLORS,
   BOT_NAME_POOLS,
   TEAM_COLORS,
   TEAM_NAMES,

@@ -80,6 +80,18 @@ function parseLogEntry(text, players, myId) {
     return { type: 'game_end', self: false };
   }
 
+  match = text.match(/^(.+?) joined\.$/);
+  if (match) {
+    const actorId = playerIdByName(match[1], players);
+    return { type: 'player_join', actorId, self: actorId === myId };
+  }
+
+  match = text.match(/^(.+?) was added\.$/);
+  if (match) {
+    const actorId = playerIdByName(match[1], players);
+    return { type: 'player_join', actorId, self: actorId === myId };
+  }
+
   return null;
 }
 
@@ -112,6 +124,8 @@ function deriveFeedbackEvents(prev, next, myId) {
 
   if (prev.currentPlayerId !== next.currentPlayerId && next.currentPlayerId === myId) {
     events.push({ type: 'your_turn', self: true });
+  } else if (prev.currentPlayerId !== next.currentPlayerId && !next.finished && next.currentPlayerId) {
+    events.push({ type: 'other_turn', self: false });
   }
 
   if (!hasLogType('final_round') && !prev.lastRound && next.lastRound) {
@@ -120,6 +134,11 @@ function deriveFeedbackEvents(prev, next, myId) {
 
   if (!hasLogType('game_end') && !prev.finished && next.finished) {
     events.push({ type: 'game_end', self: false });
+  }
+
+  const closedCount = (s) => (s.mountains || []).filter((m) => m.chips <= 0).length;
+  if (closedCount(prev) < 2 && closedCount(next) >= 2) {
+    events.push({ type: 'mountain_closed', self: false });
   }
 
   return events;

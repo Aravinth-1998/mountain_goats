@@ -5,6 +5,7 @@ const {
   TEAM_NAMES,
   TEAM_PALETTES,
   PLAYER_COLORS,
+  GOAT_COLORS,
 } = require('../../game/core/constants');
 const {
   getValidTeamConfigs,
@@ -135,7 +136,7 @@ test('getAllowedColorsForPlayer returns union of palettes when player has no tea
   assert.deepEqual(allowed, expected);
 });
 
-test('getAllowedColorsForPlayer returns all player colors when not in team mode', () => {
+test('getAllowedColorsForPlayer returns curated goat colors when not in team mode', () => {
   const room = makeRoom({ playerCount: 2, teamMode: false });
-  assert.deepEqual(getAllowedColorsForPlayer(room, 'p0'), PLAYER_COLORS);
+  assert.deepEqual(getAllowedColorsForPlayer(room, 'p0'), GOAT_COLORS);
 });

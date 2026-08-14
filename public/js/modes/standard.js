@@ -199,6 +199,10 @@
     state.players.forEach((p, idx) => {
       const panel = document.createElement('div');
       panel.className = 'pp' + (idx === state.currentIndex ? ' active' : '') + (p.connected ? '' : ' off');
+      panel.style.setProperty('--c', p.color);
+      if (window.MGUi && typeof window.MGUi.isLightColor === 'function' && window.MGUi.isLightColor(p.color)) {
+        panel.classList.add('is-light');
+      }
       const pos = p.pos || [];
       const collected = p.collected || [];
       let chips = '';

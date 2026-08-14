@@ -410,8 +410,12 @@
       g.className = 'goat'
         + (p.id === YOU_ID ? ' me' : '')
         + (p.id === turnId ? ' turn' : '');
-      g.style.background = p.color;
-      g.textContent = p.name.charAt(0).toUpperCase();
+      if (window.MGUi && typeof window.MGUi.isModern === 'function' && window.MGUi.isModern()) {
+        g.innerHTML = MGUi.goatImgHtml(p.color, p.name);
+      } else if (window.MGUi) {
+        g.style.background = p.color;
+        g.textContent = String(p.name.charAt(0)).toUpperCase();
+      }
       g.title = p.name;
       wrap.appendChild(g);
     });
@@ -481,6 +485,19 @@
       if (m.chips <= 0) col.classList.add('is-empty');
       if (glowMountains) col.classList.add('tut-mountain-glow');
       if (glowTokens || (glowFirstToken && mi === MI_10)) col.classList.add('tut-token-glow');
+      const me = you();
+      const topHolder = state.players.find((pl) => (pl.pos || [])[mi] === m.height);
+      if (topHolder && topHolder.color) {
+        col.classList.add('held');
+        const myTop = me && me.color && (me.pos || [])[mi] === m.height;
+        if (myTop) {
+          col.classList.add('my-top');
+        }
+        if (window.MGUi && typeof MGUi.hexToRgba === 'function') {
+          // 2x overlay strength on the column whose top cell the player occupies.
+          col.style.setProperty('--myc-wash', MGUi.hexToRgba(topHolder.color, myTop ? 0.64 : 0.32));
+        }
+      }
       if (targetMi === mi) {
         const key = 'mountain-' + m.value;
         col.classList.add('target');
@@ -914,6 +931,7 @@
 
   function onRoll() {
     if (activeTarget() !== 'roll') return;
+    if (window.MGSounds) window.MGSounds.play({ type: 'dice_roll', self: true });
     const area = $('tut-dice-area');
     if (area) {
       area.classList.add('rolling');
@@ -970,6 +988,7 @@
       return;
     }
     if (activeTarget() !== 'endturn') return;
+    if (window.MGSounds) window.MGSounds.play({ type: 'end_turn', self: true });
     if (stepId === 'autoEnd') {
       finishAutoEnd();
     }

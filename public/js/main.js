@@ -171,6 +171,7 @@
   /** @type {number|null} Die index with an open re-face picker, or null. */
   let refacePickerIndex = null;
   let selSig = '';
+  let lastBoardSig = null;
   let autoEndTimer = null; // timer for auto-ending turn when no groups possible
   let turnTimerLocalInterval = null;
   let colorPickerEl = null;
@@ -210,6 +211,8 @@
     '#ec4899', // magenta
     '#92400e', // brown
     '#7c3aed', // violet
+    '#f8fafc', // white
+    '#facc15', // yellow
   ];
 
   const screens = {
@@ -541,15 +544,19 @@
     const markMe = !(options && options.markMe === false);
     const cls = 'swatch'
       + (sizeClass ? ' ' + sizeClass : '')
+      + (window.MGUi && window.MGUi.isModern() ? ' goat-swatch' : '')
       + (markMe && p.id === myId ? ' me' : '');
-    return `<span class="${cls}" style="background:${p.color}">${escapeHtml(p.name.charAt(0).toUpperCase())}</span>`;
+    if (window.MGUi && window.MGUi.isModern()) {
+      return `<span class="${cls}" style="background:${p.color}" title="${escapeHtml(p.name)}">${window.MGUi.goatImgHtml(p.color, p.name, playerTeamId(p))}</span>`;
+    }
+    return `<span class="${cls}" style="background:${p.color}" title="${escapeHtml(p.name)}">${escapeHtml(p.name.charAt(0).toUpperCase())}</span>`;
   }
   function lobbyPlayerEndIconHtml(p) {
     if (p.id === state.hostId) {
-      return `<span class="host-icon" title="${escapeHtml(t('lobby.hostTitle'))}">👑</span>`;
+      return `<span class="role-tag host-tag" title="${escapeHtml(t('lobby.hostTitle'))}">${escapeHtml(t('lobby.hostTitle'))}</span>`;
     }
     if (p.isBot) {
-      return `<span class="player-type-icon bot" title="${escapeHtml(t('lobby.botTitle'))}">🤖</span>`;
+      return `<span class="role-tag bot-tag" title="${escapeHtml(t('lobby.botTitle'))}">${escapeHtml(t('lobby.botTitle'))}</span>`;
     }
     return '';
   }
@@ -562,13 +569,17 @@
       ? (p.id === myId ? t('lobby.changeColourSelf') : t('lobby.changeColourOther', { name: p.name }))
       : '';
     const pen = clickable
-      ? '<span class="swatch-edit" aria-hidden="true">&#9999;&#65039;</span>'
+      ? `<span class="swatch-edit" aria-hidden="true">${window.MGUi ? window.MGUi.PENCIL_ICON_SVG : ''}</span>`
       : '';
-    return `<span class="swatch${p.id === myId ? ' me' : ''}${clickable}" style="background:${p.color}"${clickable ? ` role="button" tabindex="0" title="${escapeHtml(title)}"` : ''}>${escapeHtml(p.name.charAt(0).toUpperCase())}${pen}</span>`;
+    const cls = `swatch${p.id === myId ? ' me' : ''}${clickable}`;
+    if (window.MGUi && window.MGUi.isModern()) {
+      return `<span class="${cls} goat-swatch" style="background:${p.color}"${clickable ? ` role="button" tabindex="0" title="${escapeHtml(title)}"` : ''}>${window.MGUi.goatImgHtml(p.color, p.name, playerTeamId(p))}${pen}</span>`;
+    }
+    return `<span class="${cls}" style="background:${p.color}"${clickable ? ` role="button" tabindex="0" title="${escapeHtml(title)}"` : ''}>${escapeHtml(p.name.charAt(0).toUpperCase())}${pen}</span>`;
   }
   function lobbyWinsBadgeHtml(p) {
     if (typeof p.totalWins === 'number' && p.totalWins > 0) {
-      return `<span class="badge wins" title="${escapeHtml(tPlural('lobby.winsTitle', p.totalWins, { n: p.totalWins }))}">&#127942; ${p.totalWins}</span>`;
+      return `<span class="badge wins" title="${escapeHtml(tPlural('lobby.winsTitle', p.totalWins, { n: p.totalWins }))}">${escapeHtml(tPlural('lobby.winsBadge', p.totalWins, { n: p.totalWins }))}</span>`;
     }
     return '';
   }
@@ -577,7 +588,7 @@
   }
   function lobbyPlayerRowHtml(p, badgeHtml) {
     const badge = badgeHtml || '';
-    return `<div class="player-main">${lobbySwatchHtml(p)}<span class="player-name">${escapeHtml(p.name)}</span></div><div class="player-end">${badge}${lobbyPlayerEndIconHtml(p)}</div>`;
+    return `<div class="player-main">${lobbySwatchHtml(p)}<span class="player-name">${escapeHtml(p.name)}</span>${lobbyPlayerEndIconHtml(p)}</div><div class="player-end">${badge}</div>`;
   }
   /** @returns {object} Active client mode module for current state. */
   function currentMode() {
@@ -585,6 +596,11 @@
   }
   function getPlayerColors(p) {
     return currentMode().getPlayerColors(state, p, PLAYER_COLORS);
+  }
+  function playerTeamId(p) {
+    if (!state || !state.teams || !p) return null;
+    const team = state.teams.find((t) => t.members.includes(p.id));
+    return team && typeof team.id === 'number' ? team.id : null;
   }
   function closeColorPicker() {
     if (colorPickerEl) {
@@ -644,25 +660,43 @@
   function openColorPicker(anchor, p) {
     closeTeamPicker();
     closeColorPicker();
+    const modern = window.MGUi && typeof window.MGUi.isModern === 'function' && window.MGUi.isModern();
     const usedByOthers = new Set(state.players.filter((pl) => pl.id !== p.id).map((pl) => pl.color));
+    const usedGoats = modern && !state.teamMode
+      ? new Set(
+          state.players
+            .filter((pl) => pl.id !== p.id && pl.color)
+            .map((pl) => window.MGUi.goatImgUrl(pl.color))
+        )
+      : new Set();
+    const palette = getPlayerColors(p);
+    const teamId = playerTeamId(p);
+    const colors = modern
+      ? window.MGUi.modernPickerColors(palette, teamId != null)
+      : palette;
     const pop = document.createElement('div');
     pop.className = 'color-picker-pop';
     pop.dataset.playerId = p.id;
     const grid = document.createElement('div');
     grid.className = 'color-picker-grid';
-    getPlayerColors(p).forEach((color) => {
+    colors.forEach((color) => {
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'color-opt';
       btn.style.background = color;
       btn.dataset.color = color;
-      const taken = usedByOthers.has(color);
+      const taken = usedByOthers.has(color) || usedGoats.has(window.MGUi.goatImgUrl(color));
       if (taken) {
         btn.classList.add('taken');
         btn.disabled = true;
-        btn.innerHTML = '<span class="color-opt-x">X</span>';
+        if (modern) {
+          btn.innerHTML = `${window.MGUi.goatImgHtml(color, null, teamId)}<span class="color-opt-taken" aria-hidden="true"></span>`;
+        } else {
+          btn.innerHTML = '<span class="color-opt-x">X</span>';
+        }
       } else {
         if (p.color === color) btn.classList.add('current');
+        if (modern && window.MGUi) btn.innerHTML = window.MGUi.goatImgHtml(color, null, teamId);
         const pickColor = (e) => {
           e.preventDefault();
           e.stopPropagation();
@@ -886,6 +920,13 @@
         if ($('screen-game') && $('screen-game').classList.contains('active')) renderGame();
       } catch (e) { /* ignore refresh glitches */ }
     }
+  });
+  document.addEventListener('mg:stylechange', () => {
+    if (!state) return;
+    try {
+      if ($('screen-lobby') && $('screen-lobby').classList.contains('active')) renderLobby();
+      if ($('screen-game') && $('screen-game').classList.contains('active')) renderGame();
+    } catch (e) { /* ignore refresh glitches */ }
   });
   // ===================== HOW TO PLAY / OVERLAYS =====================
   document.querySelectorAll('.rules-toggle-btn').forEach((btn) => {
@@ -1128,7 +1169,7 @@
     errorEl.textContent = '';
     if (headerEl) headerEl.hidden = true;
     list.innerHTML = '';
-    const loader = window.MGUi && window.MGUi.createInlineLoader(t('leaderboard.loading'));
+    const loader = window.MGUi && typeof window.MGUi.createInlineLoader === 'function' && window.MGUi.createInlineLoader(t('leaderboard.loading'));
     if (loader) {
       list.appendChild(loader);
     } else {
@@ -1210,6 +1251,11 @@
 
   $('btn-play-tutorial').addEventListener('click', () => {
     if (!window.MGTutorial) return;
+    if (window.MGUi && window.MGUi.isModern()) {
+      window.MGUi.setUiStyle(window.MGUi.UI_CLASSIC);
+      if (typeof window.MGUi.applyThemeDom === 'function') window.MGUi.applyThemeDom();
+      document.dispatchEvent(new CustomEvent('mg:stylechange', { detail: { style: window.MGUi.UI_CLASSIC } }));
+    }
     setHowtoOverlayOpen(false);
     window.MGTutorial.start({
       showScreen: show,
@@ -1425,16 +1471,25 @@
   $('btn-3teams').addEventListener('click', () => socket.emit('setTeamConfig', { numTeams: 3 }));
 
   // Leave buttons open the confirm popup
-  $('lobby-leave').addEventListener('click', () => askLeave(false));
-  $('game-leave').addEventListener('click', () => askLeave(true));
+  $('lobby-leave').addEventListener('click', () => {
+    if (window.MGSounds) window.MGSounds.play({ type: 'leave_click', self: true });
+    askLeave(false);
+  });
+  $('game-leave').addEventListener('click', () => {
+    if (window.MGSounds) window.MGSounds.play({ type: 'leave_click', self: true });
+    askLeave(true);
+  });
 
   // Room code copy on tap
   $('lobby-pill').addEventListener('click', copyRoomCode);
   $('lobby-share').addEventListener('click', shareRoom);
 
   // Leave confirm popup
-  $('btn-leave-cancel').addEventListener('click', () => $('leave-overlay').classList.remove('show'));
+  $('btn-leave-cancel').addEventListener('click', () => {
+    $('leave-overlay').classList.remove('show');
+  });
   $('btn-leave-confirm').addEventListener('click', () => {
+    if (window.MGSounds) window.MGSounds.play({ type: 'leave_click', self: true });
     $('leave-overlay').classList.remove('show');
     leaveToHome();
   });
@@ -1478,6 +1533,9 @@
 
     const actions = card.querySelector('.win-actions');
     if (actions) actions.style.display = 'none';
+
+    const cornerBtns = card.querySelector('.win-corner-buttons');
+    if (cornerBtns) cornerBtns.style.display = 'none';
 
     const animated = card.querySelectorAll(
       '.win-head, .trophy, .score-row, .win-extra, .overlay-card, .win-rival-side, .win-pod, .win-bar-track'
@@ -1593,6 +1651,8 @@
       // Temporarily hide the action buttons for a cleaner screenshot
       const actions = overlayCard.querySelector('.win-actions');
       if (actions) actions.style.display = 'none';
+      const cornerBtns = overlayCard.querySelector('.win-corner-buttons');
+      if (cornerBtns) cornerBtns.style.display = 'none';
 
       // Wait for webfonts to be ready — html2canvas snapshots synchronously
       // and if Fredoka/Inter haven't finished loading, the capture shows
@@ -1609,6 +1669,7 @@
         onclone: (clonedDoc) => prepareWinCardClone(clonedDoc),
       })).then((canvas) => {
         if (actions) actions.style.display = '';
+        if (cornerBtns) cornerBtns.style.display = '';
         canvas.toBlob((blob) => {
           if (!blob) {
             // Fallback: share text only
@@ -1633,6 +1694,7 @@
         }, 'image/png');
       }).catch(() => {
         if (actions) actions.style.display = '';
+        if (cornerBtns) cornerBtns.style.display = '';
         shareTextOnly(text);
       });
     } else {
@@ -2023,7 +2085,7 @@
   $('btn-endturn').addEventListener('click', () => {
     if (window.MGSounds) {
       window.MGSounds.unlock();
-      window.MGSounds.play({ type: 'ui_tap', self: true });
+      window.MGSounds.play({ type: 'end_turn', self: true });
     }
     if (window.MGHaptics) window.MGHaptics.trigger({ type: 'ui_tap', self: true });
     if (isMyTurn() && state.rolled && anyGroupPossible()) {
@@ -2035,6 +2097,7 @@
   });
   $('btn-endturn-confirm').addEventListener('click', () => {
     $('endturn-overlay').classList.remove('show');
+    if (window.MGSounds) window.MGSounds.play({ type: 'end_turn', self: true });
     socket.emit('endTurn');
   });
   $('btn-endturn-cancel').addEventListener('click', () => {
@@ -2043,7 +2106,7 @@
   $('btn-game-lobby').addEventListener('click', () => {
     backToLobbyFromBoard();
   });
-  $('btn-view-board').addEventListener('click', () => {
+  $('btn-win-back').addEventListener('click', () => {
     viewBoardFromScorecard();
   });
   $('btn-results').addEventListener('click', () => {
@@ -2761,8 +2824,21 @@
 
   function renderBoard() {
     const board = $('board');
+    const sig = boardSignature();
+    if (sig === lastBoardSig) {
+      // Nothing about the board changed (e.g. a die was clicked) — just move the
+      // target highlight without rebuilding (and re-rendering) every goat.
+      updateTargetHighlight(board);
+      return;
+    }
+    lastBoardSig = sig;
+    const prevGoats = snapshotGoats(board);
+    const reduceMotion = !!(window.matchMedia
+      && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
     board.innerHTML = '';
     const tMi = targetMountain();
+    const me = state.players.find((pl) => pl.id === myId);
+    const myColor = me ? me.color : null;
 
     state.mountains.forEach((m, mi) => {
       const col = document.createElement('div');
@@ -2770,6 +2846,18 @@
       const isTarget = isMyTurn() && state.rolled && mi === tMi;
       if (isTarget) col.classList.add('target');
       if (m.chips <= 0) col.classList.add('is-empty');
+      const topHolder = state.players.find((pl) => (pl.pos || [])[mi] === m.height);
+      if (topHolder && topHolder.color) {
+        col.classList.add('held');
+        const myTop = me && myColor && (me.pos || [])[mi] === m.height;
+        if (myTop) {
+          col.classList.add('my-top');
+        }
+        if (window.MGUi && typeof window.MGUi.hexToRgba === 'function') {
+          // 2x overlay strength on the column whose top cell the player occupies.
+          col.style.setProperty('--myc-wash', window.MGUi.hexToRgba(topHolder.color, myTop ? 0.64 : 0.32));
+        }
+      }
       const paint = mountainColumnColor(m, mi);
       const trackPaint = m.chips > 0 ? paint : m.color;
 
@@ -2791,7 +2879,7 @@
         cell.style.setProperty('--c', trackPaint);
         cell.innerHTML = `<span class="cnum">${m.value}</span>`;
         const here = state.players.filter((pl) => (pl.pos || [])[mi] === p);
-        if (here.length) cell.appendChild(goatCluster(here));
+        if (here.length) cell.appendChild(goatCluster(here, mi, p));
         wrap.appendChild(cell);
         track.appendChild(wrap);
       }
@@ -2801,20 +2889,106 @@
       const foot = document.createElement('div');
       foot.className = 'foot';
       const footGoats = state.players.filter((pl) => (pl.pos || [])[mi] === 0);
-      if (footGoats.length) foot.appendChild(goatCluster(footGoats));
+      if (footGoats.length) foot.appendChild(goatCluster(footGoats, mi, 0));
       col.appendChild(foot);
 
-      if (isTarget) {
-        col.addEventListener('click', () => {
-          socket.emit('moveGroup', { indices: [...selected], mountainIndex: mi });
-          selected.clear();
-        });
-      }
+      col.addEventListener('click', () => {
+        if (!col.classList.contains('target')) return;
+        socket.emit('moveGroup', { indices: [...selected], mountainIndex: mi });
+        selected.clear();
+      });
       board.appendChild(col);
+    });
+    animateClimbingGoats(board, prevGoats, reduceMotion);
+  }
+
+  /**
+   * Fingerprint of the board-relevant game state. When unchanged the board DOM
+   * can stay put (dice selection only needs the target highlight updated).
+   *
+   * @returns {string}
+   */
+  function boardSignature() {
+    if (!state) return '';
+    return JSON.stringify([
+      state.code,
+      state.started,
+      state.rolled,
+      state.finished,
+      state.currentPlayerId,
+      state.currentIndex,
+      state.mountains.map((m) => [m.value, m.chips, m.color, m.height]),
+      state.players.map((p) => [p.id, p.color, p.pos]),
+    ]);
+  }
+
+  /**
+   * Move the clickable target highlight between columns without rebuilding the
+   * board (used when only the dice selection changed).
+   *
+   * @param {Element} board Board element.
+   * @returns {void}
+   */
+  function updateTargetHighlight(board) {
+    const tMi = targetMountain();
+    board.querySelectorAll('.mcol').forEach((col, mi) => {
+      col.classList.toggle('target', !!(isMyTurn() && state.rolled && mi === tMi));
     });
   }
 
-  function goatCluster(players) {
+  /**
+   * Capture each goat's position key and CSS rect before the board is redrawn.
+   *
+   * @param {Element} board Board element.
+   * @returns {Map<string, {pos: string, rect: DOMRect}>}
+   */
+  function snapshotGoats(board) {
+    const map = new Map();
+    if (!board) return map;
+    board.querySelectorAll('.goat').forEach((g) => {
+      const pid = g.dataset.pid;
+      if (!pid) return;
+      map.set(pid, { pos: g.dataset.pos || '', rect: g.getBoundingClientRect() });
+    });
+    return map;
+  }
+
+  /**
+   * Slide only the local player's goats whose cell position changed since the
+   * last render, so they appear to climb. Opponents' goats do not animate.
+   * Modern UI only.
+   *
+   * @param {Element} board Board element.
+   * @param {Map<string, {pos: string, rect: DOMRect}>} prevGoats Previous goat data.
+   * @param {boolean} reduceMotion Respect prefers-reduced-motion.
+   * @returns {void}
+   */
+  function animateClimbingGoats(board, prevGoats, reduceMotion) {
+    if (reduceMotion
+      || !prevGoats.size
+      || !window.MGUi
+      || typeof window.MGUi.isModern !== 'function'
+      || !window.MGUi.isModern()) return;
+    board.querySelectorAll('.goat.me').forEach((g) => {
+      const pid = g.dataset.pid;
+      const prev = pid ? prevGoats.get(pid) : null;
+      if (!prev || !g.animate) return;
+      if (prev.pos === g.dataset.pos) return;
+      const now = g.getBoundingClientRect();
+      const dx = prev.rect.left - now.left;
+      const dy = prev.rect.top - now.top;
+      if (Math.abs(dx) + Math.abs(dy) < 2) return;
+      g.animate(
+        [
+          { transform: `translate(${dx}px, ${dy}px)` },
+          { transform: 'translate(0, 0)' },
+        ],
+        { duration: 420, easing: 'cubic-bezier(0.22, 0.9, 0.35, 1)' }
+      );
+    });
+  }
+
+  function goatCluster(players, mi, pos) {
     const wrap = document.createElement('div');
     wrap.className = 'goats';
     const turnId = state && state.started && !state.finished ? state.currentPlayerId : null;
@@ -2823,9 +2997,15 @@
       g.className = 'goat'
         + (p.id === myId ? ' me' : '')
         + (turnId && p.id === turnId ? ' turn' : '');
-      g.style.background = p.color;
-      g.textContent = p.name.charAt(0).toUpperCase();
+      g.dataset.pid = p.id;
+      if (typeof mi === 'number') g.dataset.pos = mi + ':' + pos;
       g.title = p.name;
+      if (window.MGUi && typeof window.MGUi.isModern === 'function' && window.MGUi.isModern()) {
+        g.innerHTML = window.MGUi.goatImgHtml(p.color, p.name, playerTeamId(p));
+      } else if (window.MGUi) {
+        g.style.background = p.color;
+        g.textContent = String(p.name.charAt(0)).toUpperCase();
+      }
       wrap.appendChild(g);
     });
     return wrap;
