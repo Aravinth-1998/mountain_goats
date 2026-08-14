@@ -131,8 +131,43 @@ async function init() {
   if (!p) return false;
 
   try {
+    // Rename legacy tables to mg_-prefixed names (idempotent: skips if already renamed).
     await p.query(`
-    CREATE TABLE IF NOT EXISTS game_history (
+      DO $$
+      BEGIN
+        IF EXISTS (
+          SELECT 1 FROM information_schema.tables
+          WHERE table_schema = 'public' AND table_name = 'game_history'
+        ) THEN
+          ALTER TABLE game_history RENAME TO mg_game_history;
+        END IF;
+      END $$;
+    `);
+    await p.query(`
+      DO $$
+      BEGIN
+        IF EXISTS (
+          SELECT 1 FROM pg_indexes
+          WHERE schemaname = 'public' AND indexname = 'idx_game_history_ended_at'
+        ) THEN
+          ALTER INDEX idx_game_history_ended_at RENAME TO idx_mg_game_history_ended_at;
+        END IF;
+      END $$;
+    `);
+    await p.query(`
+      DO $$
+      BEGIN
+        IF EXISTS (
+          SELECT 1 FROM information_schema.tables
+          WHERE table_schema = 'public' AND table_name = 'users'
+        ) THEN
+          ALTER TABLE users RENAME TO mg_users;
+        END IF;
+      END $$;
+    `);
+
+    await p.query(`
+    CREATE TABLE IF NOT EXISTS mg_game_history (
       id SERIAL PRIMARY KEY,
       code VARCHAR(16) NOT NULL,
       ended_at BIGINT NOT NULL,
@@ -150,11 +185,11 @@ async function init() {
     )
   `);
     await p.query(`
-    CREATE INDEX IF NOT EXISTS idx_game_history_ended_at
-    ON game_history (ended_at DESC)
+    CREATE INDEX IF NOT EXISTS idx_mg_game_history_ended_at
+    ON mg_game_history (ended_at DESC)
   `);
     await p.query(`
-    CREATE TABLE IF NOT EXISTS users (
+    CREATE TABLE IF NOT EXISTS mg_users (
       id UUID PRIMARY KEY,
       display_name VARCHAR(64) NOT NULL DEFAULT '',
       gaming_name VARCHAR(16),
@@ -164,32 +199,32 @@ async function init() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
-    await p.query('ALTER TABLE game_history ADD COLUMN IF NOT EXISTS mode VARCHAR(32)');
+    await p.query('ALTER TABLE mg_game_history ADD COLUMN IF NOT EXISTS mode VARCHAR(32)');
     await p.query(`
-      UPDATE game_history
+      UPDATE mg_game_history
       SET mode = CASE WHEN team_mode THEN 'standardTeam' ELSE 'standard' END
       WHERE mode IS NULL OR mode = 'team'
     `);
-    await p.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS gaming_name VARCHAR(16)');
-    await p.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS google_name VARCHAR(64)');
-    await p.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS matches_played INT NOT NULL DEFAULT 0');
-    await p.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS matches_won INT NOT NULL DEFAULT 0');
-    await p.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS matches_lost INT NOT NULL DEFAULT 0');
-    await p.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS win_streak INT NOT NULL DEFAULT 0');
-    await p.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS best_win_streak INT NOT NULL DEFAULT 0');
-    await p.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS standard_matches_played INT NOT NULL DEFAULT 0');
-    await p.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS standard_matches_won INT NOT NULL DEFAULT 0');
-    await p.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS standard_matches_lost INT NOT NULL DEFAULT 0');
-    await p.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS team_matches_played INT NOT NULL DEFAULT 0');
-    await p.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS team_matches_won INT NOT NULL DEFAULT 0');
-    await p.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS team_matches_lost INT NOT NULL DEFAULT 0');
-    await p.query(`ALTER TABLE users ALTER COLUMN display_name SET DEFAULT ''`);
+    await p.query('ALTER TABLE mg_users ADD COLUMN IF NOT EXISTS gaming_name VARCHAR(16)');
+    await p.query('ALTER TABLE mg_users ADD COLUMN IF NOT EXISTS google_name VARCHAR(64)');
+    await p.query('ALTER TABLE mg_users ADD COLUMN IF NOT EXISTS matches_played INT NOT NULL DEFAULT 0');
+    await p.query('ALTER TABLE mg_users ADD COLUMN IF NOT EXISTS matches_won INT NOT NULL DEFAULT 0');
+    await p.query('ALTER TABLE mg_users ADD COLUMN IF NOT EXISTS matches_lost INT NOT NULL DEFAULT 0');
+    await p.query('ALTER TABLE mg_users ADD COLUMN IF NOT EXISTS win_streak INT NOT NULL DEFAULT 0');
+    await p.query('ALTER TABLE mg_users ADD COLUMN IF NOT EXISTS best_win_streak INT NOT NULL DEFAULT 0');
+    await p.query('ALTER TABLE mg_users ADD COLUMN IF NOT EXISTS standard_matches_played INT NOT NULL DEFAULT 0');
+    await p.query('ALTER TABLE mg_users ADD COLUMN IF NOT EXISTS standard_matches_won INT NOT NULL DEFAULT 0');
+    await p.query('ALTER TABLE mg_users ADD COLUMN IF NOT EXISTS standard_matches_lost INT NOT NULL DEFAULT 0');
+    await p.query('ALTER TABLE mg_users ADD COLUMN IF NOT EXISTS team_matches_played INT NOT NULL DEFAULT 0');
+    await p.query('ALTER TABLE mg_users ADD COLUMN IF NOT EXISTS team_matches_won INT NOT NULL DEFAULT 0');
+    await p.query('ALTER TABLE mg_users ADD COLUMN IF NOT EXISTS team_matches_lost INT NOT NULL DEFAULT 0');
+    await p.query(`ALTER TABLE mg_users ALTER COLUMN display_name SET DEFAULT ''`);
     await p.query(`
-      UPDATE users SET display_name = COALESCE(NULLIF(display_name, ''), google_name, '')
+      UPDATE mg_users SET display_name = COALESCE(NULLIF(display_name, ''), google_name, '')
       WHERE display_name IS NULL OR display_name = ''
     `);
     await p.query(`
-      UPDATE users SET gaming_name = LEFT(display_name, 16)
+      UPDATE mg_users SET gaming_name = LEFT(display_name, 16)
       WHERE gaming_name IS NULL AND display_name IS NOT NULL AND display_name <> ''
     `);
     connected = true;
@@ -228,7 +263,7 @@ async function pruneGameHistory(retentionMs) {
   const p = getPool();
   if (!p) return;
   const cutoff = Date.now() - retentionMs;
-  await p.query('DELETE FROM game_history WHERE ended_at < $1', [cutoff]);
+  await p.query('DELETE FROM mg_game_history WHERE ended_at < $1', [cutoff]);
 }
 
 /**
@@ -246,7 +281,7 @@ async function loadGameHistory(retentionMs) {
   const result = await p.query(
     `SELECT code, ended_at, started_at, duration_ms, player_count, end_reason,
             abandoned, team_mode, mode, winner, winner_team, players, teams
-     FROM game_history
+     FROM mg_game_history
      WHERE ended_at >= $1
      ORDER BY ended_at DESC`,
     [cutoff]
@@ -265,7 +300,7 @@ async function saveGameHistory(entry) {
   if (!p) return;
 
   await p.query(
-    `INSERT INTO game_history (
+    `INSERT INTO mg_game_history (
       code, ended_at, started_at, duration_ms, player_count, end_reason,
       abandoned, team_mode, mode, winner, winner_team, players, teams
     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
@@ -303,7 +338,7 @@ async function upsertAuthUser(user) {
   const googleName = String(user.googleName || '').trim().slice(0, 64) || 'Player';
 
   const result = await p.query(
-    `INSERT INTO users (id, display_name, google_name, avatar_url, last_seen_at)
+    `INSERT INTO mg_users (id, display_name, google_name, avatar_url, last_seen_at)
      VALUES ($1, $2, $2, $3, NOW())
      ON CONFLICT (id) DO UPDATE SET
        google_name = EXCLUDED.google_name,
@@ -316,7 +351,7 @@ async function upsertAuthUser(user) {
   const isNew = Boolean(result.rows[0] && result.rows[0].is_new);
   if (!isNew) return { isNew: false, memberNumber: null };
 
-  const countResult = await p.query('SELECT COUNT(*)::int AS total FROM users');
+  const countResult = await p.query('SELECT COUNT(*)::int AS total FROM mg_users');
   const memberNumber = countResult.rows[0] ? Number(countResult.rows[0].total) : null;
 
   return { isNew: true, memberNumber };
@@ -334,7 +369,7 @@ async function getGamingName(userId) {
 
   const result = await p.query(
     `SELECT gaming_name, display_name
-     FROM users WHERE id = $1`,
+     FROM mg_users WHERE id = $1`,
     [userId]
   );
   if (!result.rows.length) return null;
@@ -362,7 +397,7 @@ async function saveGamingName(userId, gamingName) {
   if (!name) return;
 
   await p.query(
-    `INSERT INTO users (id, display_name, gaming_name, last_seen_at)
+    `INSERT INTO mg_users (id, display_name, gaming_name, last_seen_at)
      VALUES ($1, $2, $2, NOW())
      ON CONFLICT (id) DO UPDATE SET
        gaming_name = EXCLUDED.gaming_name,
@@ -413,7 +448,7 @@ async function ensureAuthUserRows(userIds) {
   const uniqueIds = [...new Set(userIds.filter(Boolean))];
   for (const userId of uniqueIds) {
     await p.query(
-      `INSERT INTO users (id, display_name, last_seen_at)
+      `INSERT INTO mg_users (id, display_name, last_seen_at)
        VALUES ($1, '', NOW())
        ON CONFLICT (id) DO NOTHING`,
       [userId]
@@ -442,7 +477,7 @@ async function recordMatchStats(updates) {
   });
 
   const result = await p.query(
-    `UPDATE users AS u SET
+    `UPDATE mg_users AS u SET
        matches_played = u.matches_played + 1,
        matches_won = u.matches_won + CASE WHEN v.won THEN 1 ELSE 0 END,
        matches_lost = u.matches_lost + CASE WHEN v.won THEN 0 ELSE 1 END,
@@ -487,7 +522,7 @@ async function getMatchStats(userId) {
             win_streak, best_win_streak,
             standard_matches_played, standard_matches_won, standard_matches_lost,
             team_matches_played, team_matches_won, team_matches_lost
-     FROM users
+     FROM mg_users
      WHERE id = $1`,
     [userId]
   );
@@ -525,7 +560,7 @@ async function getLeaderboard(limit = 10) {
   const result = await p.query(
     `SELECT id, gaming_name, display_name, google_name, avatar_url,
             matches_won, matches_played
-     FROM users
+     FROM mg_users
      WHERE matches_played > 0
      ORDER BY matches_won DESC, matches_played ASC,
               COALESCE(NULLIF(gaming_name, ''), NULLIF(display_name, ''), NULLIF(google_name, ''), 'Player') ASC
