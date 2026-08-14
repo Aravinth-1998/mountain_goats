@@ -195,10 +195,10 @@
    * @returns {void}
    */
   function renderStats(strip, ctx) {
-    const { state, escapeHtml, playerCoinHtml } = ctx;
+    const { state, escapeHtml, playerCoinHtml, myId } = ctx;
     state.players.forEach((p, idx) => {
       const panel = document.createElement('div');
-      panel.className = 'pp' + (idx === state.currentIndex ? ' active' : '') + (p.connected ? '' : ' off');
+      panel.className = 'pp' + (p.id === myId && idx === state.currentIndex ? ' active' : '') + (p.connected ? '' : ' off');
       panel.style.setProperty('--c', p.color);
       if (window.MGUi && typeof window.MGUi.isLightColor === 'function' && window.MGUi.isLightColor(p.color)) {
         panel.classList.add('is-light');

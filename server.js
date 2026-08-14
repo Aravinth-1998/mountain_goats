@@ -1086,7 +1086,7 @@ function rollDiceForTurn(room) {
   applyOnesRule(room);
 }
 
-function scheduleBot(room, delay = 850) {
+function scheduleBot(room, delay = 1500) {
   if (!shouldBotPlay(room)) return;
   if (!hasHuman(room)) return; // pause if no humans are watching
   if (room.botTimer) clearTimeout(room.botTimer);

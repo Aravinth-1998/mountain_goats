@@ -190,7 +190,7 @@
    * @returns {void}
    */
   function renderStats(strip, ctx) {
-    const { state, escapeHtml, playerCoinHtml } = ctx;
+    const { state, escapeHtml, playerCoinHtml, myId } = ctx;
     if (!state.teams) return;
 
     const teamOrder = state.teams.map(() => []);
@@ -202,7 +202,7 @@
     function buildPlayerPanel(p) {
       const idx = state.players.indexOf(p);
       const panel = document.createElement('div');
-      panel.className = 'pp team-pp' + (idx === state.currentIndex ? ' active' : '') + (p.connected ? '' : ' off');
+      panel.className = 'pp team-pp' + (p.id === myId && idx === state.currentIndex ? ' active' : '') + (p.connected ? '' : ' off');
       panel.style.setProperty('--c', p.color);
       if (window.MGUi && typeof window.MGUi.isLightColor === 'function' && window.MGUi.isLightColor(p.color)) {
         panel.classList.add('is-light');

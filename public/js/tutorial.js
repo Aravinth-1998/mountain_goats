@@ -485,17 +485,12 @@
       if (m.chips <= 0) col.classList.add('is-empty');
       if (glowMountains) col.classList.add('tut-mountain-glow');
       if (glowTokens || (glowFirstToken && mi === MI_10)) col.classList.add('tut-token-glow');
-      const me = you();
       const topHolder = state.players.find((pl) => (pl.pos || [])[mi] === m.height);
       if (topHolder && topHolder.color) {
         col.classList.add('held');
-        const myTop = me && me.color && (me.pos || [])[mi] === m.height;
-        if (myTop) {
-          col.classList.add('my-top');
-        }
         if (window.MGUi && typeof MGUi.hexToRgba === 'function') {
-          // 2x overlay strength on the column whose top cell the player occupies.
-          col.style.setProperty('--myc-wash', MGUi.hexToRgba(topHolder.color, myTop ? 0.64 : 0.32));
+          // Uniform player colour wash on the held column — same intensity for every player.
+          col.style.setProperty('--myc-wash', MGUi.hexToRgba(topHolder.color, 0.28));
         }
       }
       if (targetMi === mi) {

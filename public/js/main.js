@@ -2783,7 +2783,7 @@
   function renderStats() {
     const strip = $('stats-strip');
     strip.innerHTML = '';
-    currentMode().renderStats(strip, { state, escapeHtml, playerCoinHtml });
+    currentMode().renderStats(strip, { state, escapeHtml, playerCoinHtml, myId });
   }
 
   function renderBonusRow() {
@@ -2837,8 +2837,6 @@
       && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
     board.innerHTML = '';
     const tMi = targetMountain();
-    const me = state.players.find((pl) => pl.id === myId);
-    const myColor = me ? me.color : null;
 
     state.mountains.forEach((m, mi) => {
       const col = document.createElement('div');
@@ -2849,13 +2847,9 @@
       const topHolder = state.players.find((pl) => (pl.pos || [])[mi] === m.height);
       if (topHolder && topHolder.color) {
         col.classList.add('held');
-        const myTop = me && myColor && (me.pos || [])[mi] === m.height;
-        if (myTop) {
-          col.classList.add('my-top');
-        }
         if (window.MGUi && typeof window.MGUi.hexToRgba === 'function') {
-          // 2x overlay strength on the column whose top cell the player occupies.
-          col.style.setProperty('--myc-wash', window.MGUi.hexToRgba(topHolder.color, myTop ? 0.64 : 0.32));
+          // Uniform player/team colour wash on the held column — same intensity for every player.
+          col.style.setProperty('--myc-wash', window.MGUi.hexToRgba(mountainColumnColor(m, mi), 0.28));
         }
       }
       const paint = mountainColumnColor(m, mi);
@@ -2954,8 +2948,9 @@
   }
 
   /**
-   * Slide only the local player's goats whose cell position changed since the
-   * last render, so they appear to climb. Opponents' goats do not animate.
+   * Hop only the local player's goats whose cell position changed since the
+   * last render, so the placed goat hops up from the tile it just left.
+   * Opponents' goats do not animate. Pure vertical hop — no sideways spread.
    * Modern UI only.
    *
    * @param {Element} board Board element.
@@ -2975,15 +2970,17 @@
       if (!prev || !g.animate) return;
       if (prev.pos === g.dataset.pos) return;
       const now = g.getBoundingClientRect();
-      const dx = prev.rect.left - now.left;
       const dy = prev.rect.top - now.top;
-      if (Math.abs(dx) + Math.abs(dy) < 2) return;
+      if (Math.abs(dy) < 2) return;
+      const dir = dy >= 0 ? 1 : -1;
       g.animate(
         [
-          { transform: `translate(${dx}px, ${dy}px)` },
-          { transform: 'translate(0, 0)' },
+          { transform: 'translateY(' + dy + 'px)' },
+          { transform: 'translateY(0)', offset: 0.6 },
+          { transform: 'translateY(' + (-8 * dir) + 'px)', offset: 0.8 },
+          { transform: 'translateY(0)' },
         ],
-        { duration: 420, easing: 'cubic-bezier(0.22, 0.9, 0.35, 1)' }
+        { duration: 450, easing: 'cubic-bezier(0.2, 0.7, 0.2, 1)' }
       );
     });
   }
