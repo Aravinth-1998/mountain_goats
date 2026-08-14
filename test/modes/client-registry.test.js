@@ -5,6 +5,34 @@ const path = require('path');
 const vm = require('vm');
 
 /**
+ * Load the English i18n catalog and build a minimal t() translator
+ * so mode scripts produce real translated strings instead of raw keys.
+ */
+function buildTranslator() {
+  const catalog = JSON.parse(
+    fs.readFileSync(path.join(__dirname, '../../public/i18n/en.json'), 'utf8')
+  );
+  function lookup(obj, key) {
+    if (!obj || !key) return undefined;
+    const parts = key.split('.');
+    let cur = obj;
+    for (const p of parts) {
+      if (cur == null || typeof cur !== 'object') return undefined;
+      cur = cur[p];
+    }
+    return typeof cur === 'string' ? cur : undefined;
+  }
+  return function t(key, vars) {
+    let raw = lookup(catalog, key);
+    if (raw == null) return key;
+    if (!vars) return raw;
+    return raw.replace(/\{(\w+)\}/g, (_, name) => (
+      vars[name] != null ? String(vars[name]) : `{${name}}`
+    ));
+  };
+}
+
+/**
  * Load client mode scripts into an isolated sandbox.
  *
  * @returns {object} Sandbox with GameModes.
@@ -13,6 +41,7 @@ function loadClientModes() {
   const sandbox = { console, window: {} };
   sandbox.globalThis = sandbox;
   sandbox.window = sandbox;
+  sandbox.t = buildTranslator();
   const root = path.join(__dirname, '../../public/js/modes');
   for (const file of ['index.js', 'standard.js', 'standardTeam.js']) {
     const code = fs.readFileSync(path.join(root, file), 'utf8');
@@ -68,8 +97,8 @@ test('client didPlayerWin for standard and standardTeam', () => {
 
 test('client roomsListLabel and shareLines', () => {
   const GameModes = loadClientModes();
-  assert.equal(GameModes.getMode('standard').roomsListLabel({}), '🎯 Solo');
-  assert.equal(GameModes.getMode('standardTeam').roomsListLabel({}), '👥 Team');
+  assert.equal(GameModes.getMode('standard').roomsListLabel({}), 'Solo');
+  assert.equal(GameModes.getMode('standardTeam').roomsListLabel({}), 'Team');
 
   const stdShare = GameModes.getMode('standard').shareLines({
     players: [
