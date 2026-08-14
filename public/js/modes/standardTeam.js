@@ -203,10 +203,9 @@
    * @returns {void}
    */
   function renderStats(strip, ctx) {
-    const { state, escapeHtml, playerCoinHtml, myId } = ctx;
+    const { state, escapeHtml, playerCoinHtml } = ctx;
     if (!state.teams) return;
 
-    const selfOnlyTurn = themeHas('activeTurnSelfOnly');
     const panelColor = themeHas('panelPlayerColor');
     const teamOrder = state.teams.map(() => []);
     state.players.forEach((p) => {
@@ -216,7 +215,7 @@
 
     function buildPlayerPanel(p) {
       const idx = state.players.indexOf(p);
-      const isActive = idx === state.currentIndex && (!selfOnlyTurn || p.id === myId);
+      const isActive = idx === state.currentIndex;
       const panel = document.createElement('div');
       panel.className = 'pp team-pp' + (isActive ? ' active' : '') + (p.connected ? '' : ' off');
       if (panelColor) {

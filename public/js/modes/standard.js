@@ -208,11 +208,10 @@
    * @returns {void}
    */
   function renderStats(strip, ctx) {
-    const { state, escapeHtml, playerCoinHtml, myId } = ctx;
-    const selfOnlyTurn = themeHas('activeTurnSelfOnly');
+    const { state, escapeHtml, playerCoinHtml } = ctx;
     const panelColor = themeHas('panelPlayerColor');
     state.players.forEach((p, idx) => {
-      const isActive = idx === state.currentIndex && (!selfOnlyTurn || p.id === myId);
+      const isActive = idx === state.currentIndex;
       const panel = document.createElement('div');
       panel.className = 'pp' + (isActive ? ' active' : '') + (p.connected ? '' : ' off');
       if (panelColor) {

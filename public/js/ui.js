@@ -34,8 +34,6 @@
     climbAnimation: false,
     // Stats panels carry the player colour (and a light-colour text hook).
     panelPlayerColor: false,
-    // Highlight the active stats panel only when it is the local player.
-    activeTurnSelfOnly: false,
     // Colour picker is limited to the curated artwork palette.
     curatedColorPicker: false,
   };
@@ -570,7 +568,6 @@
       heldWash: true,
       climbAnimation: true,
       panelPlayerColor: true,
-      activeTurnSelfOnly: true,
       curatedColorPicker: true,
     },
     icons: {
