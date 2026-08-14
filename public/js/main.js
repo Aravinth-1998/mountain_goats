@@ -261,8 +261,6 @@
     '#ec4899', // magenta
     '#92400e', // brown
     '#7c3aed', // violet
-    '#f8fafc', // white
-    '#facc15', // yellow
   ];
 
   const screens = {
@@ -3010,18 +3008,33 @@
   }
 
   /**
+   * Identity of a goat across board redraws. Every player owns one goat per
+   * mountain, so the player id on its own is not unique and has to be paired
+   * with the mountain index held in the goat's cell position key.
+   *
+   * @param {Element} goatElement Goat element.
+   * @returns {string} Track key, or '' when the element carries no player id.
+   */
+  function goatTrackKey(goatElement) {
+    const playerId = goatElement.dataset.pid;
+    if (!playerId) return '';
+    const cellPosition = goatElement.dataset.pos || '';
+    return playerId + '@' + cellPosition.split(':')[0];
+  }
+
+  /**
    * Capture each goat's position key and CSS rect before the board is redrawn.
    *
    * @param {Element} board Board element.
-   * @returns {Map<string, {pos: string, rect: DOMRect}>}
+   * @returns {Map<string, {pos: string, rect: DOMRect}>} Keyed by track key.
    */
   function snapshotGoats(board) {
     const map = new Map();
     if (!board) return map;
     board.querySelectorAll('.goat').forEach((g) => {
-      const pid = g.dataset.pid;
-      if (!pid) return;
-      map.set(pid, { pos: g.dataset.pos || '', rect: g.getBoundingClientRect() });
+      const trackKey = goatTrackKey(g);
+      if (!trackKey) return;
+      map.set(trackKey, { pos: g.dataset.pos || '', rect: g.getBoundingClientRect() });
     });
     return map;
   }
@@ -3040,8 +3053,8 @@
   function animateClimbingGoats(board, prevGoats, reduceMotion) {
     if (reduceMotion || !prevGoats.size || !themeHas('climbAnimation')) return;
     board.querySelectorAll('.goat.me').forEach((g) => {
-      const pid = g.dataset.pid;
-      const prev = pid ? prevGoats.get(pid) : null;
+      const trackKey = goatTrackKey(g);
+      const prev = trackKey ? prevGoats.get(trackKey) : null;
       if (!prev || !g.animate) return;
       if (prev.pos === g.dataset.pos) return;
       const now = g.getBoundingClientRect();
