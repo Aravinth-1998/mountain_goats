@@ -30,6 +30,20 @@
   }
 
   /**
+   * Bot marker for the active theme: a "BOT" pill tag (Modern) or the
+   * classic robot emoji.
+   *
+   * @param {string} [label] Localized tag text.
+   * @returns {string} HTML string.
+   */
+  function botTagHtml(label) {
+    if (root.MGUi && typeof root.MGUi.botTagHtml === 'function') {
+      return root.MGUi.botTagHtml(label);
+    }
+    return '🤖';
+  }
+
+  /**
    * Winner slots in standard mode: 1 for 2-4 players, 2 for 5-7, 3 for 8-10.
    *
    * @param {number} playerCount Number of players.
@@ -334,7 +348,7 @@
       const prefix = scoreRankPrefixHtml(i, winnerSlots);
       const isWinner = i < winnerSlots;
       return `<div class="score-row${isWinner ? ' win' : ''}" style="--i:${i}">
-          <span class="sb-left">${prefix} ${escapeHtml(p.name)}${p.isBot ? ' 🤖' : ''}</span>
+          <span class="sb-left">${prefix} ${escapeHtml(p.name)}${p.isBot ? ' ' + botTagHtml(t('lobby.botTitle')) : ''}</span>
           ${winScoreRightHtml(p.score, p.bonusPoints)}
         </div>`;
     }).join('');

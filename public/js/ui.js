@@ -262,6 +262,22 @@
   }
 
   /**
+   * Bot marker markup for the active theme: a "BOT" pill tag when the theme
+   * enables role tags (Modern), otherwise the classic robot emoji.
+   *
+   * @param {string} [label] Localized tag text (e.g. the lobby bot title).
+   * @returns {string} HTML string (classic returns a bare emoji).
+   */
+  function botTagHtml(label) {
+    if (!hasFeature('roleTags')) return '&#129302;';
+    const text = String(label || 'BOT')
+      .replace(/[&<>"']/g, (c) => (
+        { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+      ));
+    return `<span class="role-tag bot-tag">${text}</span>`;
+  }
+
+  /**
    * Apply a theme to the document without touching the persisted preference.
    *
    * @param {string} [id] Theme id (defaults to the active theme).
@@ -597,6 +613,7 @@
     themeFeatures,
     hasFeature,
     icon,
+    botTagHtml,
     applyTheme,
     syncTheme,
     setTheme,

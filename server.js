@@ -91,6 +91,10 @@ const {
 const { shouldBotPlay } = aiPkg.botPolicy;
 const { getModeForRoom, setRoomMode, hasMode, resolveModeIdFromState, getMode, modeUsesTeams } = modesPkg;
 
+// Pause before the first turn when a Modern-UI client is present, so the
+// on-screen "3…2…1…Climb!" countdown finishes before bots or humans act.
+const START_GRACE_MS = 4800;
+
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
@@ -600,6 +604,9 @@ function createRoom(options = {}) {
     teamMode: false,
     teams: null, // array of {id, name, color, members:[playerId...]}
     winnerTeamId: null,
+    // Start-countdown grace (Modern UI): gameplay is frozen until it elapses.
+    startGraceUntil: null,
+    startGraceTimer: null,
   };
   rooms[code] = room;
   return room;
@@ -613,9 +620,10 @@ function createRoom(options = {}) {
  * @param {string} name Display name.
  * @param {boolean} [isBot=false] Whether the player is a bot.
  * @param {string|null} [authUserId=null] Signed-in user id.
+ * @param {string} [ui='classic'] Client UI mode ('modern' | 'classic').
  * @returns {object}
  */
-function addPlayer(room, socketId, name, isBot = false, authUserId = null) {
+function addPlayer(room, socketId, name, isBot = false, authUserId = null, ui = 'classic') {
   const color = pickJoinColor(room);
   const player = {
     id: socketId,
@@ -623,6 +631,7 @@ function addPlayer(room, socketId, name, isBot = false, authUserId = null) {
     color,
     isBot,
     authUserId: authUserId || null,
+    ui: String(ui || 'classic') === 'modern' ? 'modern' : 'classic',
     pos: MOUNTAIN_DEFS.map(() => 0), // goat position per mountain (0 = foot)
     collected: MOUNTAIN_DEFS.map(() => 0), // Point Tokens collected per mountain
     bonus: [], // Bonus Token values claimed
@@ -783,6 +792,58 @@ function addBot(room) {
 
 function hasHuman(room) {
   return room.players.some((p) => !p.isBot && p.connected);
+}
+
+/**
+ * Whether any connected human player uses the Modern UI. Drives the
+ * start-of-game countdown grace period.
+ *
+ * @param {object} room Active room.
+ * @returns {boolean}
+ */
+function roomUsesModern(room) {
+  return room.players.some((p) => p.connected && !p.isBot && p.ui === 'modern');
+}
+
+/**
+ * Whether the start-of-game countdown is still in effect.
+ *
+ * @param {object} room Active room.
+ * @returns {boolean}
+ */
+function isStartGrace(room) {
+  return !!(room.startGraceUntil && Date.now() < room.startGraceUntil);
+}
+
+/**
+ * Cancel the start-of-game grace (room cleanup, play-again, etc).
+ *
+ * @param {object} room Active room.
+ * @returns {void}
+ */
+function clearStartGrace(room) {
+  if (room.startGraceTimer) {
+    clearTimeout(room.startGraceTimer);
+    room.startGraceTimer = null;
+  }
+  room.startGraceUntil = null;
+}
+
+/**
+ * Kick off the current player's turn: arm the turn timer and schedule the
+ * next bot action. Used both normally and once the start-countdown grace ends.
+ *
+ * @param {object} room Active room.
+ * @returns {void}
+ */
+function beginTurnFlow(room) {
+  if (!room || room.finished) return;
+  armTurnTimer(room);
+  setImmediate(() => {
+    if (!room.finished && shouldBotPlay(room) && !room.botTimer) {
+      scheduleBot(room);
+    }
+  });
 }
 
 function publicState(room) {
@@ -1086,6 +1147,7 @@ function rollDiceForTurn(room) {
 }
 
 function scheduleBot(room, delay = 850) {
+  if (isStartGrace(room)) return; // wait for the start-countdown to finish
   if (!shouldBotPlay(room)) return;
   if (!hasHuman(room)) return; // pause if no humans are watching
   if (room.botTimer) clearTimeout(room.botTimer);
@@ -1097,6 +1159,7 @@ function scheduleBot(room, delay = 850) {
 
 function botAct(room) {
   try {
+    if (isStartGrace(room)) return;
     if (!room || !room.started || room.finished) return;
     const cur = room.players[room.currentIndex];
     if (!cur) return;
@@ -1305,7 +1368,8 @@ io.on('connection', (socket) => {
     if (!name) return cb && cb({ errorKey: 'errors.nameRequired', error: 'Please enter your name.' });
     const room = createRoom({ isPublic, maxPlayers });
     socket.join(room.code);
-    const player = addPlayer(room, socket.id, name, false, socket.authUserId);
+    const ui = socket.handshake.auth && socket.handshake.auth.ui;
+    const player = addPlayer(room, socket.id, name, false, socket.authUserId, ui);
     pushLog(room, `${name} created the room.`);
     cb && cb({ ok: true, code: room.code, youId: player.id });
     broadcast(room);
@@ -1337,6 +1401,8 @@ io.on('connection', (socket) => {
       existing.id = socket.id;
       existing.connected = true;
       if (name) existing.name = name;
+      const ui = socket.handshake.auth && socket.handshake.auth.ui;
+      if (ui) existing.ui = String(ui) === 'modern' ? 'modern' : 'classic';
       if (socket.authUserId && !existing.authUserId) {
         existing.authUserId = socket.authUserId;
       }
@@ -1399,7 +1465,8 @@ io.on('connection', (socket) => {
       return cb && cb({ errorKey: 'errors.nameTaken', error: 'Name already taken in this room.' });
     }
     socket.join(room.code);
-    const player = addPlayer(room, socket.id, name, false, socket.authUserId);
+    const ui = socket.handshake.auth && socket.handshake.auth.ui;
+    const player = addPlayer(room, socket.id, name, false, socket.authUserId, ui);
     getModeForRoom(room).onPlayerJoined(room, player);
     pushLog(room, `${name} joined.`);
     cb && cb({ ok: true, code: room.code, youId: player.id });
@@ -1420,6 +1487,14 @@ io.on('connection', (socket) => {
     getModeForRoom(room).onPlayerJoined(room, bot);
     pushLog(room, `${bot.name} was added.`);
     broadcast(room);
+  }));
+
+  socket.on('setUi', safeHandler('setUi', (ui) => {
+    const room = findRoomBySocket(socket.id);
+    if (!room) return;
+    const player = room.players.find((p) => p.id === socket.id && !p.isBot);
+    if (!player) return;
+    player.ui = String(ui || 'classic') === 'modern' ? 'modern' : 'classic';
   }));
 
   socket.on('setPlayerColor', safeHandler('setPlayerColor', ({ color, playerId }, cb) => {
@@ -1627,14 +1702,29 @@ io.on('connection', (socket) => {
     room.startedAt = Date.now();
     pushLog(room, getModeForRoom(room).startLogMessage(room));
     startWatchdog(room);
-    armTurnTimer(room);
+
+    // When any Modern-UI client is present, hold the first turn until the
+    // "3…2…1…Climb!" countdown overlay finishes so nobody acts beneath it.
+    if (roomUsesModern(room)) {
+      room.startGraceUntil = Date.now() + START_GRACE_MS;
+      room.startGraceTimer = setTimeout(() => {
+        room.startGraceTimer = null;
+        if (!rooms[room.code] || rooms[room.code] !== room || !room.started || room.finished) return;
+        room.startGraceUntil = null;
+        beginTurnFlow(room);
+      }, START_GRACE_MS);
+    } else {
+      clearStartGrace(room);
+      beginTurnFlow(room);
+    }
+
     broadcast(room);
-    scheduleBot(room);
   }));
 
   socket.on('rollDice', safeHandler('rollDice', () => {
     const room = findRoomBySocket(socket.id);
     if (!room || !room.started || room.finished || room.autoPlayTurn) return;
+    if (isStartGrace(room)) return;
     const current = room.players[room.currentIndex];
     if (!current || current.id !== socket.id || room.rolled) return;
 
@@ -1648,6 +1738,7 @@ io.on('connection', (socket) => {
   socket.on('adjustDie', safeHandler('adjustDie', ({ index, value }) => {
     const room = findRoomBySocket(socket.id);
     if (!room || !room.started || room.finished || !room.rolled || room.autoPlayTurn) return;
+    if (isStartGrace(room)) return;
     const current = room.players[room.currentIndex];
     if (!current || current.id !== socket.id) return;
     if (!applyAdjustDie(room, index, value)) return;
@@ -1658,6 +1749,7 @@ io.on('connection', (socket) => {
   socket.on('moveGroup', safeHandler('moveGroup', ({ indices, mountainIndex }) => {
     const room = findRoomBySocket(socket.id);
     if (!room || !room.started || room.finished || !room.rolled || room.autoPlayTurn) return;
+    if (isStartGrace(room)) return;
     const current = room.players[room.currentIndex];
     if (!current || current.id !== socket.id) return;
     if (!isDistinctIntArray(indices, { min: 0, max: room.dice.length - 1, minLength: 1, maxLength: room.dice.length })) return;
@@ -1687,6 +1779,7 @@ io.on('connection', (socket) => {
   socket.on('endTurn', safeHandler('endTurn', () => {
     const room = findRoomBySocket(socket.id);
     if (!room || !room.started || room.finished || room.autoPlayTurn) return;
+    if (isStartGrace(room)) return;
     const current = room.players[room.currentIndex];
     if (!current || current.id !== socket.id || !room.rolled) return;
     advanceTurn(room);
@@ -1702,6 +1795,7 @@ io.on('connection', (socket) => {
     room.log = [];
     if (room.watchdog) { clearInterval(room.watchdog); room.watchdog = null; }
     if (room.botTimer) { clearTimeout(room.botTimer); room.botTimer = null; }
+    clearStartGrace(room);
     clearTurnTimer(room);
     room.autoPlayTurn = false;
     pushLog(room, 'Back to lobby — start when ready! 🐐');
