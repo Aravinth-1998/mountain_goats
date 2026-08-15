@@ -909,9 +909,13 @@ html[data-ui="modern"] .goat.me { outline: none; }
 html[data-ui="modern"] .goat.me .goat-img {
   filter: drop-shadow(0 0 0 2px rgba(255, 255, 255, 0.95)) drop-shadow(0 2px 3px rgba(0, 0, 0, 0.45));
 }
-html[data-ui="modern"] .goat.turn { z-index: 3; box-shadow: none; animation: none; }
+html[data-ui="modern"] .goat.turn { z-index: 3; box-shadow: none; animation: mg-goat-turn-glow 1.4s ease-in-out infinite; }
 html[data-ui="modern"] .goat.turn .goat-img {
-  filter: drop-shadow(0 0 0 2px rgba(255, 209, 102, 0.92)) drop-shadow(0 0 10px rgba(255, 209, 102, 0.75));
+  filter: drop-shadow(0 0 0 transparent);
+}
+@keyframes mg-goat-turn-glow {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.18); }
 }
 
 /* Foot goats can be slightly smaller so many fit in one row */
@@ -1174,6 +1178,9 @@ html[data-ui="modern"] .toast {
 
 /* ---------- Reduce motion ---------- */
 @media (prefers-reduced-motion: reduce) {
+  html[data-ui="modern"] .goat.turn {
+    animation: none;
+  }
   html[data-ui="modern"] .goat.turn .goat-img,
   html[data-ui="modern"] .pp.active .swatch.goat-swatch .goat-img {
     animation: none;
