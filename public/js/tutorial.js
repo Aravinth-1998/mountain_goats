@@ -18,16 +18,13 @@
   const RIVAL_ID = 'tut-rival';
 
   /**
-   * Whether the active theme enables a feature. False when ui.js is missing,
-   * which keeps the baseline Classic markup.
+   * Tutorial always uses Classic visuals and feature flags, regardless of the
+   * user's selected theme.
    *
-   * @param {string} feature Feature name from the ui.js theme registry.
    * @returns {boolean}
    */
-  function themeHas(feature) {
-    return !!(window.MGUi
-      && typeof window.MGUi.hasFeature === 'function'
-      && window.MGUi.hasFeature(feature));
+  function themeHas() {
+    return false;
   }
 
   /** @type {ReturnType<typeof setTimeout>|null} */
@@ -1105,7 +1102,38 @@
     hidePanels();
     const wrap = $('tut-inline-continue-wrap');
     if (wrap) wrap.hidden = true;
+    restoreThemeAfterTutorial();
     if (typeof onExitHome === 'function') onExitHome();
+  }
+
+  /**
+   * Pin the document to Classic for the tutorial without changing the saved
+   * preference.
+   *
+   * @returns {void}
+   */
+  function forceClassicForTutorial() {
+    if (!window.MGUi || typeof window.MGUi.applyTheme !== 'function') return;
+    window.MGUi.applyTheme(window.MGUi.UI_CLASSIC || 'classic');
+    if (typeof window.MGUi.applyThemeDom === 'function') window.MGUi.applyThemeDom();
+  }
+
+  /**
+   * Re-apply the user's saved theme after leaving the tutorial.
+   *
+   * @returns {void}
+   */
+  function restoreThemeAfterTutorial() {
+    if (!window.MGUi) return;
+    const id = typeof window.MGUi.syncTheme === 'function'
+      ? window.MGUi.syncTheme()
+      : (typeof window.MGUi.applyTheme === 'function'
+        ? window.MGUi.applyTheme(window.MGUi.UI_CLASSIC || 'classic')
+        : null);
+    if (typeof window.MGUi.applyThemeDom === 'function') window.MGUi.applyThemeDom();
+    if (id != null && typeof window.MGUi.emitThemeChange === 'function') {
+      window.MGUi.emitThemeChange(id);
+    }
   }
 
   /**
@@ -1117,6 +1145,7 @@
     clearAutoEndTimers();
     autoEndNext = null;
     onExitHome = api && api.goHome ? api.goHome : null;
+    forceClassicForTutorial();
     state = createState();
     syncPlayerNames();
     selected.clear();
@@ -1128,6 +1157,14 @@
   document.addEventListener('mg:localechange', () => {
     if (!state) return;
     syncPlayerNames();
+    render();
+  });
+
+  // Keep the tutorial on Classic if the user flips the theme mid-session
+  // (e.g. from Settings). Preference is still saved; exit restores it.
+  document.addEventListener('mg:stylechange', () => {
+    if (!state) return;
+    forceClassicForTutorial();
     render();
   });
 
