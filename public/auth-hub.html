@@ -9,8 +9,14 @@
 <body>
 <!--
   Venom Games shared auth hub.
-  Games embed this page as a hidden <iframe>.
+  Games embed this page as a hidden <iframe allow="storage-access">.
   Cross-origin session sharing is done via window.postMessage.
+
+  Chrome 115+ Third-Party Storage Partitioning would silo this iframe's
+  localStorage from the first-party MG context.  We work around it with
+  the Storage Access API: requestStorageAccess() grants the iframe access
+  to its UNPARTITIONED storage (same bucket as the MG top-level page).
+  Chrome auto-grants this when the user has previously visited MG directly.
 
   Supported messages (sent TO this iframe):
     { type: 'VG_SET_SESSION', session: { access_token, refresh_token } }
@@ -43,6 +49,18 @@
 
   var STORAGE_KEY = 'vg_shared_session';
 
+  /* ── Storage Access API ────────────────────────────────────────── */
+  // Resolves once unpartitioned storage access is confirmed (or times out).
+  var _accessReady = (function () {
+    if (!document.requestStorageAccess) return Promise.resolve();
+    return document.hasStorageAccess().then(function (has) {
+      if (has) return;
+      return document.requestStorageAccess();
+    }).catch(function () {
+      // Denied or unsupported — fall back to partitioned storage.
+    });
+  }());
+
   /* ── Storage helpers ───────────────────────────────────────────── */
   function load() {
     try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null'); }
@@ -69,29 +87,38 @@
     var msg = e.data;
     if (!msg || typeof msg !== 'object') return;
 
-    switch (msg.type) {
-      case 'VG_SET_SESSION':
-        if (msg.session && msg.session.access_token && msg.session.refresh_token) {
-          save(msg.session);
-        }
-        e.source.postMessage({ type: 'VG_SESSION_SET' }, e.origin);
-        break;
+    // Wait for storage access before touching localStorage.
+    var src    = e.source;
+    var origin = e.origin;
+    _accessReady.then(function () {
+      switch (msg.type) {
+        case 'VG_SET_SESSION':
+          if (msg.session && msg.session.access_token && msg.session.refresh_token) {
+            save(msg.session);
+          }
+          src.postMessage({ type: 'VG_SESSION_SET' }, origin);
+          break;
 
-      case 'VG_GET_SESSION':
-        e.source.postMessage({ type: 'VG_SESSION_RESULT', session: load() }, e.origin);
-        break;
+        case 'VG_GET_SESSION':
+          src.postMessage({ type: 'VG_SESSION_RESULT', session: load() }, origin);
+          break;
 
-      case 'VG_CLEAR_SESSION':
-        clear();
-        e.source.postMessage({ type: 'VG_SESSION_CLEARED' }, e.origin);
-        break;
-    }
+        case 'VG_CLEAR_SESSION':
+          clear();
+          src.postMessage({ type: 'VG_SESSION_CLEARED' }, origin);
+          break;
+      }
+    });
   });
 
   /* ── Signal ready ──────────────────────────────────────────────── */
-  if (window.parent !== window) {
-    window.parent.postMessage({ type: 'VG_HUB_READY' }, '*');
-  }
+  // Signal only after storage access is resolved so the parent knows
+  // the hub is ready to serve accurate results.
+  _accessReady.then(function () {
+    if (window.parent !== window) {
+      window.parent.postMessage({ type: 'VG_HUB_READY' }, '*');
+    }
+  });
 })();
 </script>
 </body>

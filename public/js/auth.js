@@ -1039,6 +1039,7 @@
       frame.src = HUB_SRC;
       frame.setAttribute('aria-hidden', 'true');
       frame.setAttribute('tabindex', '-1');
+      frame.setAttribute('allow', 'storage-access');   // needed for Chrome storage partitioning bypass
       frame.style.cssText = 'position:absolute;width:0;height:0;border:0;visibility:hidden;';
       document.body.appendChild(frame);
       _hubFrame = frame;
