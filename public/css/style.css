@@ -109,7 +109,7 @@ html.mg-rejoining #screen-loading {
 /* Loading screen */
 .loading-center {
   display: flex; flex-direction: column; align-items: center;
-  justify-content: center; height: 100%; gap: 18px;
+  justify-content: center; flex: 1; gap: 18px;
 }
 .loading-goat { font-size: 68px; animation: loadbob 1.1s ease-in-out infinite; }
 @keyframes loadbob { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-16px)} }
@@ -1145,8 +1145,31 @@ input.input-error:focus {
   background: #fff; color: #0b1220;
   display: flex; align-items: center; justify-content: center;
   font-size: 30px; font-weight: 800;
-  box-shadow: 0 8px 18px rgba(0,0,0,0.4);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.3), 0 10px 22px rgba(0,0,0,0.38);
   cursor: pointer; transition: transform .08s;
+}
+/* Glossy shine sweep + inner bevel give the dice a light 3D body. */
+.die::before,
+.die::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+}
+.die::before {
+  z-index: 2;
+  background:
+    radial-gradient(120% 90% at 20% 12%, rgba(255,255,255,0.6), rgba(255,255,255,0) 42%),
+    linear-gradient(135deg, rgba(255,255,255,0.32), rgba(255,255,255,0) 52%);
+}
+.die::after {
+  z-index: 1;
+  box-shadow:
+    inset 0 1px 2px rgba(255,255,255,0.75),
+    inset 0 -2px 5px rgba(0,0,0,0.28),
+    inset 2px 0 3px rgba(0,0,0,0.06),
+    inset -2px 0 3px rgba(0,0,0,0.08);
 }
 /* iOS: invisible switch cover so the finger hits a real checkbox[switch] */
 .mg-haptic-host {
@@ -1169,8 +1192,28 @@ input.input-error:focus {
   pointer-events: none;
 }
 .die.used { opacity: 0.3; cursor: default; }
-.die.sel { outline: 3px solid var(--gold); outline-offset: 1px; transform: translateY(-4px); box-shadow: 0 10px 22px rgba(255,209,102,0.5); }
+.die.sel { outline: 3px solid var(--gold); outline-offset: 1px; transform: translateY(-4px); box-shadow: 0 4px 10px rgba(0,0,0,0.35), 0 14px 26px rgba(255,209,102,0.55); }
 @keyframes shake { 0%,100%{transform:translateY(0) rotate(0)} 25%{transform:translateY(-8px) rotate(-12deg)} 75%{transform:translateY(-4px) rotate(12deg)} }
+/* Dice face style + colour (customised in Settings). */
+.die-face { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; }
+.die-pips { display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr); padding: 9px; box-sizing: border-box; }
+.die-pips .pip { align-self: center; justify-self: center; width: 8px; height: 8px; border-radius: 50%; background: currentColor; box-shadow: inset 0 1px 1.5px rgba(0,0,0,0.35), 0 1px 0 rgba(255,255,255,0.5); }
+.die-num { line-height: 1; }
+.die-num.ancient { font-family: 'MedievalSharp', 'Times New Roman', serif; font-size: 42px; font-weight: 400; }
+.reface-face .die-pips { padding: 5px; }
+.reface-face .die-pips .pip { width: 4px; height: 4px; box-shadow: none; }
+.reface-face .die-num.ancient { font-size: 19px; font-weight: 400; }
+
+html[data-dice-color="white"] .die { background: #fff; color: #0b1220; }
+html[data-dice-color="black"] .die { background: #1a1830; color: #fff; }
+html[data-dice-color="red"] .die { background: linear-gradient(145deg, #ff5f6d, #c72e3e); color: #fff; }
+html[data-dice-color="cyan"] .die { background: linear-gradient(145deg, #43e5ff, #00a3c4); color: #08101f; }
+html[data-dice-color="pink"] .die { background: linear-gradient(145deg, #ffc2d9, #f475a8); color: #08101f; }
+/* Dice look/colour options are Modern-only: Classic always stays default white with numbers. */
+html[data-ui="classic"] .die { background: #fff; color: #0b1220; }
+html[data-ui="classic"] .settings-row--dice { display: none; }
+/* Tutorial stays Classic: white dice with black numbers whatever the dice prefs. */
+#screen-tutorial .die { background: #fff; color: #0b1220; }
 .reface {
   position: absolute; top: -8px; right: -8px;
   width: 28px; height: 28px; border-radius: 50%;
@@ -2114,6 +2157,37 @@ input.input-error:focus {
   z-index: 2;
   overflow: visible;
 }
+/* Dice customisation settings */
+.settings-row--dice { align-items: flex-start; }
+.dice-settings { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.dice-setting-block { display: flex; flex-direction: column; gap: 6px; align-items: flex-end; }
+.dice-setting-title { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
+.toggle-group--3 { width: 224px; }
+.dice-color-row { display: flex; gap: 8px; }
+.dice-color-btn {
+  width: 30px; height: 30px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid var(--card-border);
+  background: transparent;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform .12s, box-shadow .12s, border-color .12s;
+}
+.dice-color-btn:hover { transform: translateY(-1px); }
+.dice-color-btn:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.dice-color-btn.active { box-shadow: 0 0 0 2px var(--gold); border-color: transparent; }
+.dice-color-swatch {
+  width: 20px; height: 20px; border-radius: 50%; display: block;
+  box-shadow: inset 0 1px 2px rgba(255,255,255,0.4), inset 0 -1px 2px rgba(0,0,0,0.25);
+}
+.dice-color-swatch--white { background: #fff; }
+.dice-color-swatch--black { background: #1a1830; }
+.dice-color-swatch--red { background: linear-gradient(135deg, #ff5f6d, #c72e3e); }
+.dice-color-swatch--cyan { background: linear-gradient(135deg, #43e5ff, #00a3c4); }
+.dice-color-swatch--pink { background: linear-gradient(135deg, #ffc2d9, #f475a8); }
 .settings-locale {
   position: relative;
   flex-shrink: 0;

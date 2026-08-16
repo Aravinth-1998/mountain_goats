@@ -1489,7 +1489,7 @@ io.on('connection', (socket) => {
     broadcast(room);
   }));
 
-  socket.on('setUi', safeHandler('setUi', (ui) => {
+  socket.on('setUi', safeHandler('setUi', ({ ui }) => {
     const room = findRoomBySocket(socket.id);
     if (!room) return;
     const player = room.players.find((p) => p.id === socket.id && !p.isBot);

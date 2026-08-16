@@ -35,7 +35,7 @@
   // countdown grace period to rooms that actually render it.
   document.addEventListener('mg:stylechange', (e) => {
     const theme = e && e.detail && (e.detail.style || e.detail.theme);
-    if (theme && socket.connected) socket.emit('setUi', theme);
+    if (theme && socket.connected) socket.emit('setUi', { ui: theme });
   });
 
   if (window.MgI18n) await window.MgI18n.ready;
@@ -1031,6 +1031,13 @@
     try {
       if ($('screen-lobby') && $('screen-lobby').classList.contains('active')) renderLobby();
       if ($('screen-game') && $('screen-game').classList.contains('active')) renderGame();
+    } catch (e) { /* ignore refresh glitches */ }
+  });
+  // Refresh the dice row when the player changes dice look in Settings.
+  document.addEventListener('mg:dicechange', () => {
+    if (!state) return;
+    try {
+      if ($('screen-game') && $('screen-game').classList.contains('active')) renderDice();
     } catch (e) { /* ignore refresh glitches */ }
   });
   // ===================== HOW TO PLAY / OVERLAYS =====================
@@ -2875,8 +2882,22 @@
     if (!isMyTurn() || !state.rolled) selected.clear();
   }
 
+  /**
+   * Goat avatar chip for the turn banner (Modern only).
+   *
+   * @param {object} player The player whose turn it is.
+   * @returns {string} HTML or '' when goat artwork is unavailable.
+   */
+  function turnBannerAvatar(player) {
+    if (window.MGUi && typeof window.MGUi.goatImgHtml === 'function') {
+      return '<span class="tb-goat">' + window.MGUi.goatImgHtml(player.color, player.name, playerTeamId(player)) + '</span>';
+    }
+    return '';
+  }
+
   function renderTurnBanner() {
     const banner = $('turn-banner');
+    const modern = activeThemeId() === 'modern';
     if (state && state.finished) {
       banner.textContent = t('game.gameOver');
       banner.classList.remove('my-turn');
@@ -2886,8 +2907,10 @@
     const cur = state.players[state.currentIndex];
     if (!cur) { banner.textContent = '—'; return; }
     const finalTag = state.lastRound ? ('🔔 ' + t('game.finalPrefix')) : '';
+    const avatar = modern ? turnBannerAvatar(cur) : '';
     if (isMyTurn()) {
-      banner.textContent = finalTag + t('game.yourTurn');
+      if (modern) banner.innerHTML = avatar + escapeHtml(finalTag + t('game.yourTurn'));
+      else banner.textContent = finalTag + t('game.yourTurn');
       banner.classList.add('my-turn');
       banner.classList.remove('final');
     } else if (!cur.connected && !cur.isBot) {
@@ -2895,7 +2918,7 @@
       banner.classList.remove('my-turn');
       banner.classList.toggle('final', !!state.lastRound);
     } else {
-      banner.innerHTML = escapeHtml(finalTag + t('game.theirTurn', { name: cur.name }))
+      banner.innerHTML = avatar + escapeHtml(finalTag + t('game.theirTurn', { name: cur.name }))
         + (cur.isBot ? ' ' + botTagHtml(t('lobby.botTitle')) : '');
       banner.classList.remove('my-turn');
       banner.classList.toggle('final', !!state.lastRound);
@@ -3099,9 +3122,9 @@
   }
 
   /**
-   * Hop only the local player's goats whose cell position changed since the
-   * last render, so the placed goat hops up from the tile it just left.
-   * Opponents' goats do not animate. Pure vertical hop, no sideways spread.
+   * Hop every goat whose cell position changed since the last render, so it
+   * hops up from the tile it just left (local player and opponents alike).
+   * Pure vertical hop, no sideways spread.
    * Only for themes with the climbAnimation feature.
    *
    * @param {Element} board Board element.
@@ -3111,7 +3134,7 @@
    */
   function animateClimbingGoats(board, prevGoats, reduceMotion) {
     if (reduceMotion || !prevGoats.size || !themeHas('climbAnimation')) return;
-    board.querySelectorAll('.goat.me').forEach((g) => {
+    board.querySelectorAll('.goat').forEach((g) => {
       const trackKey = goatTrackKey(g);
       const prev = trackKey ? prevGoats.get(trackKey) : null;
       if (!prev || !g.animate) return;
@@ -3155,6 +3178,36 @@
     return wrap;
   }
 
+  /**
+   * Inner HTML for a die face, honouring the active dice style
+   * (numbers / classic pips / ancient script digit).
+   *
+   * @param {number} value Face value 1-6.
+   * @returns {string}
+   */
+  function diceFaceHtml(value) {
+    if (window.MGUi && typeof window.MGUi.diceFaceHtml === 'function') {
+      return window.MGUi.diceFaceHtml(value);
+    }
+    return String(value);
+  }
+
+  const DICE_ROLL_IMG = {
+    black: 'diceroll-white.png',
+    red: 'diceroll-white.png',
+    white: 'diceroll-black.png',
+    cyan: 'diceroll-black.png',
+    pink: 'diceroll-black.png',
+  };
+
+  function rollImgForDiceColor() {
+    let color = 'white';
+    if (window.MGUi && typeof window.MGUi.getDiceColor === 'function') {
+      color = window.MGUi.getDiceColor();
+    }
+    return DICE_ROLL_IMG[color] || 'diceroll-black.png';
+  }
+
   function renderDice() {
     const area = $('dice-area');
     if (!area) return;
@@ -3170,8 +3223,17 @@
     if (!state.rolled || !state.dice) {
       for (let i = 0; i < (state.numDice || 4); i++) {
         const d = document.createElement('div');
-        d.className = 'die';
-        d.textContent = '🎲';
+        d.className = 'die die-placeholder';
+        if (activeThemeId() === 'modern') {
+          const img = document.createElement('img');
+          img.className = 'die-roll-img';
+          img.src = '/img/dice/' + rollImgForDiceColor();
+          img.alt = '';
+          img.draggable = false;
+          d.appendChild(img);
+        } else {
+          d.textContent = '🎲';
+        }
         area.appendChild(d);
       }
       if (window.MGHaptics && typeof window.MGHaptics.syncDiceOverlays === 'function') {
@@ -3191,7 +3253,8 @@
       d.className = 'die'
         + (state.diceUsed[i] ? ' used' : '')
         + (selected.has(i) ? ' sel' : '');
-      d.textContent = v;
+      d.innerHTML = diceFaceHtml(v);
+      d.setAttribute('aria-label', String(v));
       if (mine && !state.diceUsed[i]) {
         d.addEventListener('click', () => {
           if (refacePickerIndex != null) {
@@ -3243,7 +3306,7 @@
         const opt = document.createElement('button');
         opt.type = 'button';
         opt.className = 'reface-face' + (face === current ? ' is-current' : '');
-        opt.textContent = String(face);
+        opt.innerHTML = diceFaceHtml(face);
         opt.setAttribute('role', 'option');
         opt.setAttribute('aria-label', t('dice.faceAria', { n: face }));
         opt.addEventListener('click', (e) => {

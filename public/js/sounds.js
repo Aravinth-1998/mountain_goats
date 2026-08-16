@@ -23,7 +23,7 @@
     end_turn: '/audio/end-turn-button.mp3',
     leave_click: '/audio/exit-leave-icon-click.mp3',
     player_join: '/audio/when-player-joins-lobby.mp3',
-    mountain_closed: '/audio/when-second-mountain-is-closed.mp3',
+    mountain_closed: '/audio/when-third-mountain-is-closed.mp3',
   };
 
   let enabled = true;

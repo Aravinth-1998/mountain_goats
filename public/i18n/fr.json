@@ -248,7 +248,20 @@
     "style": "Style",
     "styleClassic": "Classique",
     "styleModern": "Moderne",
-    "styleAria": "Style"
+    "styleAria": "Style",
+    "dice": "Des",
+    "diceStyle": "Style",
+    "diceStyleAria": "Style des des",
+    "diceStyleNumbers": "Chiffres",
+    "diceStyleClassic": "Classique",
+    "diceStyleAncient": "Antique",
+    "diceColor": "Couleur",
+    "diceColorAria": "Couleur des des",
+    "diceColorWhite": "Blanc",
+    "diceColorBlack": "Noir",
+    "diceColorRed": "Rouge",
+    "diceColorCyan": "Cyan",
+    "diceColorPink": "Rose"
   },
   "leave": {
     "gameTitle": "Quitter la partie ?",

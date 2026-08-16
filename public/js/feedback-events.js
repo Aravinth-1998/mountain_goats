@@ -137,7 +137,7 @@ function deriveFeedbackEvents(prev, next, myId) {
   }
 
   const closedCount = (s) => (s.mountains || []).filter((m) => m.chips <= 0).length;
-  if (closedCount(prev) < 2 && closedCount(next) >= 2) {
+  if (closedCount(prev) < 3 && closedCount(next) >= 3) {
     events.push({ type: 'mountain_closed', self: false });
   }
 

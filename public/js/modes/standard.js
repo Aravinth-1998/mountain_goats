@@ -245,7 +245,7 @@
       panel.innerHTML = `
           <div class="pp-head">
             ${playerCoinHtml(p, 'sm')}
-            <span class="pp-name">${escapeHtml(p.name)}</span>
+            <span class="pp-name">${escapeHtml(p.name)}${p.isBot ? ' ' + botTagHtml(t('lobby.botTitle')) : ''}</span>
             ${bonusTag}<span class="pp-score">⭐ ${p.score || 0}</span>
           </div>
           <div class="pp-mtns">${chips}</div>`;
