@@ -1018,6 +1018,85 @@
     }
   }
 
+  /* ── Venom Games Auth Hub ──────────────────────────────────────────
+   * A hidden <iframe> served from /auth-hub.html on Flip7's domain acts as
+   * a shared session store.  Any game that embeds the same URL can read
+   * and write sessions via postMessage, enabling automatic cross-game
+   * sign-in without touching the other game's codebase.
+   * ─────────────────────────────────────────────────────────────────── */
+  const _vgLocal   = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+  const HUB_ORIGIN = _vgLocal ? 'http://localhost:3003' : 'https://flip7-6eif.onrender.com';
+  const HUB_SRC    = HUB_ORIGIN + '/auth-hub.html';
+  const HUB_READY_MS = 3000;
+  const HUB_MSG_MS   = 2000;
+
+  let _hubFrame  = null;
+  let _hubReady  = false;
+
+  /** Inject the hub iframe and wait for VG_HUB_READY (or timeout). */
+  function _initHub() {
+    return new Promise((resolve) => {
+      const frame = document.createElement('iframe');
+      frame.src = HUB_SRC;
+      frame.setAttribute('aria-hidden', 'true');
+      frame.setAttribute('tabindex', '-1');
+      frame.style.cssText = 'position:absolute;width:0;height:0;border:0;visibility:hidden;';
+      document.body.appendChild(frame);
+      _hubFrame = frame;
+
+      const timer = setTimeout(() => {
+        console.warn('[auth] hub ready timeout');
+        resolve(false);
+      }, HUB_READY_MS);
+
+      function onReady(e) {
+        if (e.source !== frame.contentWindow) return;
+        if (!e.data || e.data.type !== 'VG_HUB_READY') return;
+        clearTimeout(timer);
+        window.removeEventListener('message', onReady);
+        _hubReady = true;
+        resolve(true);
+      }
+      window.addEventListener('message', onReady);
+    });
+  }
+
+  /** Send one message to the hub and wait for its reply. */
+  function _hubMsg(msg, replyType) {
+    return new Promise((resolve) => {
+      if (!_hubReady || !_hubFrame || !_hubFrame.contentWindow) { resolve(null); return; }
+
+      const timer = setTimeout(() => {
+        window.removeEventListener('message', onReply);
+        resolve(null);
+      }, HUB_MSG_MS);
+
+      function onReply(e) {
+        if (e.source !== _hubFrame.contentWindow) return;
+        if (!e.data || e.data.type !== replyType) return;
+        clearTimeout(timer);
+        window.removeEventListener('message', onReply);
+        resolve(e.data);
+      }
+      window.addEventListener('message', onReply);
+      _hubFrame.contentWindow.postMessage(msg, HUB_ORIGIN);
+    });
+  }
+
+  async function _hubGetSession() {
+    const r = await _hubMsg({ type: 'VG_GET_SESSION' }, 'VG_SESSION_RESULT');
+    return (r && r.session) ? r.session : null;
+  }
+
+  function _hubSetSession(session) {
+    if (!session || !session.access_token || !session.refresh_token) return;
+    _hubMsg({ type: 'VG_SET_SESSION', session }, 'VG_SESSION_SET');
+  }
+
+  function _hubClearSession() {
+    _hubMsg({ type: 'VG_CLEAR_SESSION' }, 'VG_SESSION_CLEARED');
+  }
+
   /**
    * Initialize Supabase client and session listeners.
    *
@@ -1048,6 +1127,12 @@
 
       supabaseClient.auth.onAuthStateChange((event, session) => {
         applySessionFast(session, event);
+        // Keep the hub in sync with every auth state change
+        if (event === 'SIGNED_IN' && session) {
+          _hubSetSession(session);
+        } else if (event === 'SIGNED_OUT') {
+          _hubClearSession();
+        }
         if (profile.isSignedIn) {
           const sessionUser = session && session.user ? session.user : null;
           enrichSession(sessionUser, event).catch((err) => {
@@ -1055,6 +1140,30 @@
           });
         }
       });
+
+      // Start the hub iframe — wait for it before syncing sessions
+      await _initHub();
+
+      // Sync with the shared hub
+      try {
+        const { data: { session: localSession } } = await supabaseClient.auth.getSession();
+        if (localSession) {
+          // Already signed in locally — push to hub so other games can import it
+          _hubSetSession(localSession);
+        } else {
+          // No local session — try importing one from another game via the hub
+          const hubSession = await _hubGetSession();
+          if (hubSession && hubSession.access_token && hubSession.refresh_token) {
+            console.log('[auth] importing session from Venom Games auth hub');
+            await supabaseClient.auth.setSession({
+              access_token:  hubSession.access_token,
+              refresh_token: hubSession.refresh_token,
+            });
+          }
+        }
+      } catch (hubErr) {
+        console.warn('[auth] hub session import failed:', hubErr.message);
+      }
 
       const { data: { session } } = await supabaseClient.auth.getSession();
       applySessionFast(session, 'INIT');
