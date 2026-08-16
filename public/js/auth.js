@@ -1097,6 +1097,28 @@
     _hubMsg({ type: 'VG_CLEAR_SESSION' }, 'VG_SESSION_CLEARED');
   }
 
+  /* ── Cross-game first-party session store ──────────────────────────
+   * Chrome storage partitioning prevents the hub iframe from sharing
+   * localStorage across origins.  Instead, each game writes its own
+   * session to its first-party localStorage under vg_shared_session.
+   * cross-auth.html reads this (unpartitioned) and passes tokens back
+   * via a redirect URL hash — the same pattern Supabase uses for OAuth.
+   * ─────────────────────────────────────────────────────────────────── */
+  function _saveCrossAuthSession(session) {
+    if (!session || !session.access_token || !session.refresh_token) return;
+    try {
+      localStorage.setItem('vg_shared_session', JSON.stringify({
+        access_token:  session.access_token,
+        refresh_token: session.refresh_token,
+        saved_at:      Date.now(),
+      }));
+    } catch (e) {}
+  }
+
+  function _clearCrossAuthSession() {
+    try { localStorage.removeItem('vg_shared_session'); } catch (e) {}
+  }
+
   /**
    * Initialize Supabase client and session listeners.
    *
@@ -1127,11 +1149,16 @@
 
       supabaseClient.auth.onAuthStateChange((event, session) => {
         applySessionFast(session, event);
-        // Keep the hub in sync with every auth state change
+        // Keep hub + first-party store in sync
         if (event === 'SIGNED_IN' && session) {
           _hubSetSession(session);
+          _saveCrossAuthSession(session);
+        } else if (event === 'TOKEN_REFRESHED' && session) {
+          _hubSetSession(session);
+          _saveCrossAuthSession(session);
         } else if (event === 'SIGNED_OUT') {
           _hubClearSession();
+          _clearCrossAuthSession();
         }
         if (profile.isSignedIn) {
           const sessionUser = session && session.user ? session.user : null;
@@ -1141,28 +1168,42 @@
         }
       });
 
+      // ── Cross-game bridge: read tokens passed via redirect from F7 ──
+      const _vgHash = new URLSearchParams(window.location.hash.slice(1));
+      const _vgAt   = _vgHash.get('vg_at');
+      const _vgRt   = _vgHash.get('vg_rt');
+      if (_vgAt && _vgRt) {
+        // Remove tokens from URL so they don't linger in browser history
+        history.replaceState(null, '', window.location.pathname + window.location.search);
+      }
+
       // Start the hub iframe — wait for it before syncing sessions
       await _initHub();
 
-      // Sync with the shared hub
+      // Sync session: bridge redirect > local session > cross-auth redirect
       try {
         const { data: { session: localSession } } = await supabaseClient.auth.getSession();
-        if (localSession) {
-          // Already signed in locally — push to hub so other games can import it
+        if (_vgAt && _vgRt && !localSession) {
+          // Incoming cross-game bridge — apply tokens from F7's redirect
+          console.log('[auth] importing session from cross-game bridge');
+          await supabaseClient.auth.setSession({ access_token: _vgAt, refresh_token: _vgRt });
+        } else if (localSession) {
           _hubSetSession(localSession);
+          _saveCrossAuthSession(localSession);
         } else {
-          // No local session — try importing one from another game via the hub
-          const hubSession = await _hubGetSession();
-          if (hubSession && hubSession.access_token && hubSession.refresh_token) {
-            console.log('[auth] importing session from Venom Games auth hub');
-            await supabaseClient.auth.setSession({
-              access_token:  hubSession.access_token,
-              refresh_token: hubSession.refresh_token,
-            });
+          // No local session — redirect to F7's cross-auth.html (once per page session)
+          if (!sessionStorage.getItem('vg_bridge_tried')) {
+            sessionStorage.setItem('vg_bridge_tried', '1');
+            const _isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+            const _crossBase = _isLocal ? 'http://localhost:3003' : 'https://flip7-6eif.onrender.com';
+            finishAuthBootstrap();
+            finishAuthReady();
+            window.location.replace(_crossBase + '/cross-auth.html?redirect_to=' + encodeURIComponent(window.location.href));
+            return;
           }
         }
-      } catch (hubErr) {
-        console.warn('[auth] hub session import failed:', hubErr.message);
+      } catch (syncErr) {
+        console.warn('[auth] session sync failed:', syncErr.message);
       }
 
       const { data: { session } } = await supabaseClient.auth.getSession();
