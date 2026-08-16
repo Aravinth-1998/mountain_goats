@@ -1024,9 +1024,8 @@
    * and write sessions via postMessage, enabling automatic cross-game
    * sign-in without touching the other game's codebase.
    * ─────────────────────────────────────────────────────────────────── */
-  const _vgLocal   = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-  const HUB_ORIGIN = _vgLocal ? 'http://localhost:3003' : 'https://flip7-6eif.onrender.com';
-  const HUB_SRC    = HUB_ORIGIN + '/auth-hub.html';
+  const HUB_SRC    = '/auth-hub.html';
+  const HUB_ORIGIN = window.location.origin;   // hub is same-origin as MG
   const HUB_READY_MS = 3000;
   const HUB_MSG_MS   = 2000;
 

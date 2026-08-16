@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="robots" content="noindex,nofollow">
+  <title>Venom Games – Auth Hub</title>
+  <style>html,body{margin:0;padding:0;background:transparent}</style>
+</head>
+<body>
+<!--
+  Venom Games shared auth hub.
+  Games embed this page as a hidden <iframe>.
+  Cross-origin session sharing is done via window.postMessage.
+
+  Supported messages (sent TO this iframe):
+    { type: 'VG_SET_SESSION', session: { access_token, refresh_token } }
+    { type: 'VG_GET_SESSION' }
+    { type: 'VG_CLEAR_SESSION' }
+
+  Responses (posted BACK to the sender):
+    { type: 'VG_SESSION_SET' }
+    { type: 'VG_SESSION_RESULT', session: <object|null> }
+    { type: 'VG_SESSION_CLEARED' }
+
+  On load, the hub also broadcasts VG_HUB_READY to parent.
+
+  To add a new game: append its prod origin and dev localhost to TRUSTED below.
+-->
+<script>
+(function () {
+  'use strict';
+
+  /* ── Trusted game origins ──────────────────────────────────────── */
+  var TRUSTED = [
+    'https://mountain-goats.onrender.com',
+    'https://flip7-6eif.onrender.com',
+    'http://localhost:3000',
+    'http://localhost:3003',
+    // Add new games here:
+    // 'https://new-game.onrender.com',
+    // 'http://localhost:3001',
+  ];
+
+  var STORAGE_KEY = 'vg_shared_session';
+
+  /* ── Storage helpers ───────────────────────────────────────────── */
+  function load() {
+    try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null'); }
+    catch (e) { return null; }
+  }
+
+  function save(session) {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        access_token:  session.access_token,
+        refresh_token: session.refresh_token,
+        saved_at:      Date.now(),
+      }));
+    } catch (e) { /* storage full or blocked */ }
+  }
+
+  function clear() {
+    try { localStorage.removeItem(STORAGE_KEY); } catch (e) { /* ignore */ }
+  }
+
+  /* ── Message handler ───────────────────────────────────────────── */
+  window.addEventListener('message', function (e) {
+    if (TRUSTED.indexOf(e.origin) === -1) return;
+    var msg = e.data;
+    if (!msg || typeof msg !== 'object') return;
+
+    switch (msg.type) {
+      case 'VG_SET_SESSION':
+        if (msg.session && msg.session.access_token && msg.session.refresh_token) {
+          save(msg.session);
+        }
+        e.source.postMessage({ type: 'VG_SESSION_SET' }, e.origin);
+        break;
+
+      case 'VG_GET_SESSION':
+        e.source.postMessage({ type: 'VG_SESSION_RESULT', session: load() }, e.origin);
+        break;
+
+      case 'VG_CLEAR_SESSION':
+        clear();
+        e.source.postMessage({ type: 'VG_SESSION_CLEARED' }, e.origin);
+        break;
+    }
+  });
+
+  /* ── Signal ready ──────────────────────────────────────────────── */
+  if (window.parent !== window) {
+    window.parent.postMessage({ type: 'VG_HUB_READY' }, '*');
+  }
+})();
+</script>
+</body>
+</html>
