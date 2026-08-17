@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="robots" content="noindex,nofollow">
+  <title>Venom Games – Cross Auth</title>
+  <style>
+    html, body { margin: 0; padding: 0; background: #0a0a0a; color: #fff;
+      font-family: sans-serif; display: flex; align-items: center;
+      justify-content: center; height: 100vh; }
+  </style>
+</head>
+<body>
+<p>Connecting…</p>
+<!--
+  Venom Games cross-auth bridge.
+
+  This page runs as a FIRST-PARTY page on this game's domain, so it has
+  unrestricted access to localStorage (no Chrome storage partitioning).
+
+  Flow:
+    1. Another game redirects here with ?redirect_to=<url>
+    2. This page reads vg_shared_session from its first-party localStorage
+    3. If a session is found, it redirects back with #vg_at=...&vg_rt=...
+    4. The other game applies the session via supabase.auth.setSession()
+
+  Tokens are passed in the URL hash (not query string) so they are not
+  sent to any server in request logs, matching how Supabase itself handles
+  OAuth callbacks.
+-->
+<script>
+(function () {
+  var params      = new URLSearchParams(window.location.search);
+  var redirectTo  = params.get('redirect_to');
+
+  // Validate redirect_to to prevent open redirect attacks
+  var ALLOWED = [
+    'https://flip7-6eif.onrender.com',
+    'https://mountain-goats.onrender.com',
+    'http://localhost:3000',
+    'http://localhost:3003',
+  ];
+  var isAllowed = redirectTo && ALLOWED.some(function (o) {
+    return redirectTo.indexOf(o) === 0;
+  });
+  if (!isAllowed) {
+    document.querySelector('p').textContent = 'Invalid redirect.';
+    return;
+  }
+
+  // Read session from this game's first-party (unpartitioned) localStorage
+  var session = null;
+  try {
+    var raw = localStorage.getItem('vg_shared_session');
+    if (raw) {
+      var parsed = JSON.parse(raw);
+      if (parsed && parsed.access_token && parsed.refresh_token) {
+        session = parsed;
+      }
+    }
+  } catch (e) {}
+
+  if (session) {
+    var sep  = redirectTo.indexOf('#') === -1 ? '#' : '&';
+    var hash = 'vg_at=' + encodeURIComponent(session.access_token) +
+               '&vg_rt=' + encodeURIComponent(session.refresh_token);
+    window.location.replace(redirectTo + sep + hash);
+  } else {
+    // No session here — send them back without tokens
+    window.location.replace(redirectTo);
+  }
+}());
+</script>
+</body>
+</html>
