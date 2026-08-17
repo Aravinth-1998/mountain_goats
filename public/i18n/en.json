@@ -248,7 +248,20 @@
     "style": "Style",
     "styleClassic": "Classic",
     "styleModern": "Modern",
-    "styleAria": "Style"
+    "styleAria": "Style",
+    "dice": "Dice",
+    "diceStyle": "Style",
+    "diceStyleAria": "Dice style",
+    "diceStyleNumbers": "Numbers",
+    "diceStyleClassic": "Classic",
+    "diceStyleAncient": "Ancient",
+    "diceColor": "Color",
+    "diceColorAria": "Dice color",
+    "diceColorWhite": "White",
+    "diceColorBlack": "Black",
+    "diceColorRed": "Red",
+    "diceColorCyan": "Cyan",
+    "diceColorPink": "Pink"
   },
   "leave": {
     "gameTitle": "Leave the game?",

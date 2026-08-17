@@ -11,19 +11,19 @@
     ui_tap: '/audio/ui-tap.wav',
     dice_roll: '/audio/dice-roll.wav',
     dice_adjust: '/audio/dice-adjust.wav',
-    summit: '/audio/summit.wav',
+    summit: '/audio/when-someone-climbed-the-top-cell.mp3',
     bump: '/audio/bump.wav',
-    bonus: '/audio/bonus.wav',
+    bonus: '/audio/when-i-get-a-bonus.mp3',
     final_round: '/audio/final-round.wav',
-    your_turn: '/audio/your-turn.wav',
+    your_turn: '/audio/my-turn.mp3',
     game_start: '/audio/game-start.wav',
-    game_end_win: '/audio/win.wav',
-    game_end_loss: '/audio/lose.wav',
+    game_end_win: '/audio/gameover-i-win.mp3',
+    game_end_loss: '/audio/gameover-didntwin.mp3',
     other_turn: '/audio/others-turn.mp3',
     end_turn: '/audio/end-turn-button.mp3',
     leave_click: '/audio/exit-leave-icon-click.mp3',
     player_join: '/audio/when-player-joins-lobby.mp3',
-    mountain_closed: '/audio/when-second-mountain-is-closed.mp3',
+    mountain_closed: '/audio/when-third-mountain-is-closed.mp3',
   };
 
   let enabled = true;
@@ -147,6 +147,72 @@
   }
 
   /**
+   * Whether the Modern UI is applied.
+   *
+   * @returns {boolean}
+   */
+  function isModernUi() {
+    const docEl = document.documentElement;
+    return !!(docEl && docEl.getAttribute('data-ui') === 'modern');
+  }
+
+  /**
+   * Schedule a single synthesized tone on an AudioContext.
+   *
+   * @param {AudioContext} ctx Shared Web Audio context.
+   * @param {number} at Absolute context time to start (seconds).
+   * @param {number} freq Start frequency in Hz.
+   * @param {number} [endFreq] End frequency for a sweep (Hz).
+   * @param {number} dur Tone duration (seconds).
+   * @param {OscillatorType} type Oscillator waveform.
+   * @param {number} vol Peak gain 0–1.
+   * @returns {void}
+   */
+  function synthTone(ctx, at, freq, endFreq, dur, type, vol) {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = type || 'sine';
+    osc.frequency.setValueAtTime(freq, at);
+    if (endFreq && endFreq !== freq) {
+      osc.frequency.exponentialRampToValueAtTime(endFreq, at + dur);
+    }
+    gain.gain.setValueAtTime(0, at);
+    gain.gain.linearRampToValueAtTime(vol, at + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, at + dur);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(at);
+    osc.stop(at + dur + 0.05);
+  }
+
+  /**
+   * Synthesized "3…2…1…Climb!" jingle used in place of game-start.wav in the
+   * Modern UI. Matches the timing of the on-screen countdown (see start-countdown.js).
+   *
+   * @returns {void}
+   */
+  function playCountdown() {
+    if (!isActive()) return;
+    const ctx = getAudioContext();
+    if (!ctx) return;
+    if (ctx.state === 'suspended') {
+      ctx.resume().catch(() => {});
+    }
+    const t0 = ctx.currentTime + 0.06;
+    const beep = (at, freq, endFreq) => synthTone(ctx, t0 + at, freq, endFreq, 0.28, 'triangle', 0.5);
+    beep(0.0, 587.33, 493.88); // "3"  D5 -> B4
+    beep(0.9, 659.25, 554.37); // "2"  E5 -> C#5
+    beep(1.8, 783.99, 659.25); // "1"  G5 -> E5
+    // "Climb!" — cheerful rising music-box arpeggio then a sparkle.
+    const climbStart = t0 + 2.7;
+    [1046.5, 1318.51, 1567.98, 2093.0].forEach((freq, i) => {
+      synthTone(ctx, climbStart + i * 0.11, freq, freq, 0.3, 'sine', 0.5);
+    });
+    synthTone(ctx, climbStart + 0.44, 2093.0, 3135.96, 0.5, 'sine', 0.42);
+    synthTone(ctx, climbStart + 0.8, 1567.98, 1567.98, 0.35, 'sine', 0.28);
+  }
+
+  /**
    * Resume AudioContext and ensure buffers are decoded (mobile gesture unlock).
    *
    * @returns {void}
@@ -248,7 +314,11 @@
         playClip(CLIPS.your_turn, selfVol);
         break;
       case 'game_start':
-        playClip(CLIPS.game_start, selfVol);
+        if (isModernUi()) {
+          playCountdown();
+        } else {
+          playClip(CLIPS.game_start, selfVol);
+        }
         break;
       case 'other_turn':
         playClip(CLIPS.other_turn, otherVol);
@@ -322,6 +392,7 @@
     init,
     unlock,
     play,
+    playCountdown,
     setEnabled,
     getEnabled,
   };

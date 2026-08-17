@@ -9,10 +9,10 @@
   <link rel="apple-touch-icon" href="/img/goat_title.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Caveat:wght@500;600;700&family=Fredoka:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
-  <noscript><link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Caveat:wght@500;600;700&family=Fredoka:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" /></noscript>
-  <link rel="stylesheet" href="/css/style.css?v=20260814g" />
-  <link rel="stylesheet" href="/css/modern.css?v=20260814g" />
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Caveat:wght@500;600;700&family=Fredoka:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=MedievalSharp&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
+  <noscript><link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Caveat:wght@500;600;700&family=Fredoka:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=MedievalSharp&display=swap" rel="stylesheet" /></noscript>
+  <link rel="stylesheet" href="/css/style.css?v=20260816k" />
+  <link rel="stylesheet" href="/css/modern.css?v=20260816j" />
   <script>
     try {
       if (localStorage.getItem('mg_code')) {
@@ -582,6 +582,39 @@
             <button type="button" id="settings-style-modern" class="toggle-btn" data-i18n="settings.styleModern">Modern</button>
           </div>
         </div>
+        <div class="settings-row settings-row--dice">
+          <span class="settings-label" data-i18n="settings.dice">Dice</span>
+          <div class="dice-settings">
+            <div class="dice-setting-block">
+              <span class="dice-setting-title" data-i18n="settings.diceStyle">Style</span>
+              <div class="toggle-group toggle-group--3" id="settings-dice-style" role="group" aria-label="Dice style" data-i18n-aria-label="settings.diceStyleAria">
+                <button type="button" id="settings-dice-style-numbers" class="toggle-btn" data-i18n="settings.diceStyleNumbers">Numbers</button>
+                <button type="button" id="settings-dice-style-classic" class="toggle-btn" data-i18n="settings.diceStyleClassic">Classic</button>
+                <button type="button" id="settings-dice-style-ancient" class="toggle-btn" data-i18n="settings.diceStyleAncient">Ancient</button>
+              </div>
+            </div>
+            <div class="dice-setting-block">
+              <span class="dice-setting-title" data-i18n="settings.diceColor">Color</span>
+              <div class="dice-color-row" id="settings-dice-color" role="group" aria-label="Dice color" data-i18n-aria-label="settings.diceColorAria">
+                <button type="button" id="settings-dice-color-white" class="dice-color-btn" data-i18n-aria-label="settings.diceColorWhite" data-i18n-title="settings.diceColorWhite" title="White" aria-label="White">
+                  <span class="dice-color-swatch dice-color-swatch--white" aria-hidden="true"></span>
+                </button>
+                <button type="button" id="settings-dice-color-black" class="dice-color-btn" data-i18n-aria-label="settings.diceColorBlack" data-i18n-title="settings.diceColorBlack" title="Black" aria-label="Black">
+                  <span class="dice-color-swatch dice-color-swatch--black" aria-hidden="true"></span>
+                </button>
+                <button type="button" id="settings-dice-color-red" class="dice-color-btn" data-i18n-aria-label="settings.diceColorRed" data-i18n-title="settings.diceColorRed" title="Red" aria-label="Red">
+                  <span class="dice-color-swatch dice-color-swatch--red" aria-hidden="true"></span>
+                </button>
+                <button type="button" id="settings-dice-color-cyan" class="dice-color-btn" data-i18n-aria-label="settings.diceColorCyan" data-i18n-title="settings.diceColorCyan" title="Cyan" aria-label="Cyan">
+                  <span class="dice-color-swatch dice-color-swatch--cyan" aria-hidden="true"></span>
+                </button>
+                <button type="button" id="settings-dice-color-pink" class="dice-color-btn" data-i18n-aria-label="settings.diceColorPink" data-i18n-title="settings.diceColorPink" title="Pink" aria-label="Pink">
+                  <span class="dice-color-swatch dice-color-swatch--pink" aria-hidden="true"></span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
         <div class="settings-row settings-row--locale">
           <span class="settings-label" data-i18n="settings.language">Language</span>
           <div class="settings-locale" id="settings-locale">
@@ -623,17 +656,18 @@
   <script src="/socket.io/socket.io.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <script src="/js/i18n.js?v=20260807y"></script>
-  <script src="/js/ui.js?v=20260814e"></script>
+  <script src="/js/ui.js?v=20260816k"></script>
   <script src="/js/auth.js?v=20260808b"></script>
-  <script src="/js/feedback-events.js"></script>
+  <script src="/js/feedback-events.js?v=20260816a"></script>
   <script src="/js/tactus.js?v=20260808e"></script>
-  <script src="/js/haptics.js?v=20260808e"></script>
-  <script src="/js/sounds.js?v=20260814e"></script>
-  <script src="/js/tutorial.js?v=20260815a"></script>
+  <script src="/js/haptics.js?v=20260816i"></script>
+  <script src="/js/sounds.js?v=20260816b"></script>
+  <script src="/js/start-countdown.js?v=20260816a"></script>
+  <script src="/js/tutorial.js?v=20260816i"></script>
   <script src="/js/modes/index.js"></script>
-  <script src="/js/modes/standard.js?v=20260814f"></script>
-  <script src="/js/modes/standardTeam.js?v=20260814f"></script>
-  <script src="/js/main.js?v=20260814g"></script>
+  <script src="/js/modes/standard.js?v=20260816b"></script>
+  <script src="/js/modes/standardTeam.js?v=20260816b"></script>
+  <script src="/js/main.js?v=20260816i"></script>
 </body>
 </html>
 

@@ -248,7 +248,20 @@
     "style": "Stil",
     "styleClassic": "Klassisch",
     "styleModern": "Modern",
-    "styleAria": "Stil"
+    "styleAria": "Stil",
+    "dice": "Wurfel",
+    "diceStyle": "Stil",
+    "diceStyleAria": "Wurfelstil",
+    "diceStyleNumbers": "Zahlen",
+    "diceStyleClassic": "Klassisch",
+    "diceStyleAncient": "Antik",
+    "diceColor": "Farbe",
+    "diceColorAria": "Wurzelfarbe",
+    "diceColorWhite": "Weiss",
+    "diceColorBlack": "Schwarz",
+    "diceColorRed": "Rot",
+    "diceColorCyan": "Cyan",
+    "diceColorPink": "Pink"
   },
   "leave": {
     "gameTitle": "Spiel verlassen?",

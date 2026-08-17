@@ -18,14 +18,24 @@
   }
 
   const presenceId = getPresenceId();
+  const initialUi = (window.MGUi && typeof window.MGUi.getTheme === 'function')
+    ? window.MGUi.getTheme()
+    : (document.documentElement.getAttribute('data-ui') || 'classic');
   const socket = io({
     closeOnBeforeunload: true,
-    auth: { token: '', presenceId },
+    auth: { token: '', presenceId, ui: initialUi },
     transports: ['websocket'],
     upgrade: false,
     reconnectionDelay: 500,
     reconnectionDelayMax: 5000,
     reconnectionAttempts: Infinity,
+  });
+
+  // Keep the server informed of the UI mode so it can gate the start
+  // countdown grace period to rooms that actually render it.
+  document.addEventListener('mg:stylechange', (e) => {
+    const theme = e && e.detail && (e.detail.style || e.detail.theme);
+    if (theme && socket.connected) socket.emit('setUi', { ui: theme });
   });
 
   if (window.MgI18n) await window.MgI18n.ready;
@@ -82,6 +92,20 @@
       if (html) return html;
     }
     return CLASSIC_ICONS[name] || '';
+  }
+
+  /**
+   * Bot marker for the active theme: a "BOT" pill tag (Modern) or the
+   * classic robot emoji.
+   *
+   * @param {string} [label] Localized tag text.
+   * @returns {string} HTML string.
+   */
+  function botTagHtml(label) {
+    if (window.MGUi && typeof window.MGUi.botTagHtml === 'function') {
+      return window.MGUi.botTagHtml(label);
+    }
+    return '&#129302;';
   }
 
   /**
@@ -233,6 +257,7 @@
   let winCountUpFrames = [];
   let pendingMatchStats = null;
   let pendingSelfDiceRollAt = 0;
+  let pendingSelfTurnJerk = false;
 
   const MAX_PLAYERS = 10;
 
@@ -1008,6 +1033,13 @@
       if ($('screen-game') && $('screen-game').classList.contains('active')) renderGame();
     } catch (e) { /* ignore refresh glitches */ }
   });
+  // Refresh the dice row when the player changes dice look in Settings.
+  document.addEventListener('mg:dicechange', () => {
+    if (!state) return;
+    try {
+      if ($('screen-game') && $('screen-game').classList.contains('active')) renderDice();
+    } catch (e) { /* ignore refresh glitches */ }
+  });
   // ===================== HOW TO PLAY / OVERLAYS =====================
   document.querySelectorAll('.rules-toggle-btn').forEach((btn) => {
     btn.addEventListener('click', () => {
@@ -1564,7 +1596,6 @@
     $('leave-overlay').classList.remove('show');
   });
   $('btn-leave-confirm').addEventListener('click', () => {
-    if (window.MGSounds) window.MGSounds.play({ type: 'leave_click', self: true });
     $('leave-overlay').classList.remove('show');
     leaveToHome();
   });
@@ -1581,8 +1612,18 @@
   function copyRoomCode() {
     if (!state) return;
     const code = state.code;
+    const flashCopied = () => {
+      toast(t('toast.roomCodeCopied', { code }));
+      const pill = $('lobby-pill');
+      if (!pill) return;
+      pill.classList.remove('is-copied');
+      void pill.offsetWidth; // restart the copy animation
+      pill.classList.add('is-copied');
+      clearTimeout(pill._mgCopiedTimer);
+      pill._mgCopiedTimer = setTimeout(() => pill.classList.remove('is-copied'), 1500);
+    };
     if (navigator.clipboard) {
-      navigator.clipboard.writeText(code).then(() => toast(t('toast.roomCodeCopied', { code })));
+      navigator.clipboard.writeText(code).then(flashCopied);
     } else {
       toast(t('toast.roomCode', { code }));
     }
@@ -2257,7 +2298,14 @@
     const wasFinished = !!(state && state.finished);
     const prevCode = state && state.code;
     if (state && s && typeof deriveFeedbackEvents === 'function') {
-      const events = deriveFeedbackEvents(state, s, myId).filter((event) => {
+      const rawEvents = deriveFeedbackEvents(state, s, myId);
+      const gameJustStarted = rawEvents.some((event) => event.type === 'game_start');
+      const events = rawEvents.filter((event) => {
+        // A turn cue in the very first broadcast would collide with the
+        // "3…2…1…Climb!" countdown, so drop it; the board already shows it.
+        if (gameJustStarted && (event.type === 'your_turn' || event.type === 'other_turn')) {
+          return false;
+        }
         if (event.type === 'dice_roll' && event.self && Date.now() - pendingSelfDiceRollAt < 900) {
           return false;
         }
@@ -2268,7 +2316,14 @@
         if (window.MGHaptics) window.MGHaptics.trigger(event, ctx);
         if (window.MGSounds) window.MGSounds.play(event, ctx);
       });
+      if (gameJustStarted && window.MGStartCountdown) {
+        window.MGStartCountdown.run();
+      }
     }
+    // One-shot "my turn just started" jerk for the Modern stats panel.
+    const nextMyTurn = !!(s && s.started && !s.finished && s.currentPlayerId === myId);
+    const prevMyTurn = !!(state && state.started && !state.finished && state.currentPlayerId === myId);
+    if (nextMyTurn && !prevMyTurn) pendingSelfTurnJerk = true;
     state = s;
 
     if (prevCode && s && prevCode !== s.code) {
@@ -2827,8 +2882,22 @@
     if (!isMyTurn() || !state.rolled) selected.clear();
   }
 
+  /**
+   * Goat avatar chip for the turn banner (Modern only).
+   *
+   * @param {object} player The player whose turn it is.
+   * @returns {string} HTML or '' when goat artwork is unavailable.
+   */
+  function turnBannerAvatar(player) {
+    if (window.MGUi && typeof window.MGUi.goatImgHtml === 'function') {
+      return '<span class="tb-goat">' + window.MGUi.goatImgHtml(player.color, player.name, playerTeamId(player)) + '</span>';
+    }
+    return '';
+  }
+
   function renderTurnBanner() {
     const banner = $('turn-banner');
+    const modern = activeThemeId() === 'modern';
     if (state && state.finished) {
       banner.textContent = t('game.gameOver');
       banner.classList.remove('my-turn');
@@ -2838,8 +2907,10 @@
     const cur = state.players[state.currentIndex];
     if (!cur) { banner.textContent = '—'; return; }
     const finalTag = state.lastRound ? ('🔔 ' + t('game.finalPrefix')) : '';
+    const avatar = modern ? turnBannerAvatar(cur) : '';
     if (isMyTurn()) {
-      banner.textContent = finalTag + t('game.yourTurn');
+      if (modern) banner.innerHTML = avatar + escapeHtml(finalTag + t('game.yourTurn'));
+      else banner.textContent = finalTag + t('game.yourTurn');
       banner.classList.add('my-turn');
       banner.classList.remove('final');
     } else if (!cur.connected && !cur.isBot) {
@@ -2847,9 +2918,8 @@
       banner.classList.remove('my-turn');
       banner.classList.toggle('final', !!state.lastRound);
     } else {
-      banner.textContent = finalTag + t('game.theirTurn', {
-        name: cur.name + (cur.isBot ? ' 🤖' : ''),
-      });
+      banner.innerHTML = avatar + escapeHtml(finalTag + t('game.theirTurn', { name: cur.name }))
+        + (cur.isBot ? ' ' + botTagHtml(t('lobby.botTitle')) : '');
       banner.classList.remove('my-turn');
       banner.classList.toggle('final', !!state.lastRound);
     }
@@ -2859,6 +2929,15 @@
     const strip = $('stats-strip');
     strip.innerHTML = '';
     currentMode().renderStats(strip, { state, escapeHtml, playerCoinHtml, myId });
+    if (pendingSelfTurnJerk && isMyTurn()) {
+      pendingSelfTurnJerk = false;
+      const selfPanel = strip.querySelector('.pp.active.active-self');
+      if (selfPanel) {
+        selfPanel.classList.remove('jerk');
+        void selfPanel.offsetWidth; // restart the animation cleanly
+        selfPanel.classList.add('jerk');
+      }
+    }
   }
 
   function renderBonusRow() {
@@ -2912,6 +2991,9 @@
       && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
     board.innerHTML = '';
     const tMi = targetMountain();
+    const washAlpha = (window.MGUi && typeof window.MGUi.getTheme === 'function' && window.MGUi.getTheme() === 'modern')
+      ? 0.56
+      : 0.28;
 
     state.mountains.forEach((m, mi) => {
       const col = document.createElement('div');
@@ -2924,7 +3006,7 @@
         if (topHolder && topHolder.color) {
           // Uniform player/team colour wash on the held column - same intensity for every player.
           col.classList.add('held');
-          col.style.setProperty('--myc-wash', window.MGUi.hexToRgba(mountainColumnColor(m, mi), 0.28));
+          col.style.setProperty('--myc-wash', window.MGUi.hexToRgba(mountainColumnColor(m, mi), washAlpha));
         }
       }
       const paint = mountainColumnColor(m, mi);
@@ -2934,7 +3016,7 @@
       const head = document.createElement('div');
       head.className = 'mhead';
       head.innerHTML = `<span class="mtok${m.chips > 0 ? '' : ' empty'}" style="--c:${paint}">${m.value}</span>
-        <span class="mleft">${m.chips > 0 ? '×' + m.chips : t('board.empty')}</span>`;
+        <span class="mleft">${m.chips > 0 ? '×' + m.chips : (activeThemeId() === 'modern' ? ' ' : t('board.empty'))}</span>`;
       col.appendChild(head);
 
       // climbing track: top space (pos=height) down to bottom (pos=1)
@@ -3040,9 +3122,9 @@
   }
 
   /**
-   * Hop only the local player's goats whose cell position changed since the
-   * last render, so the placed goat hops up from the tile it just left.
-   * Opponents' goats do not animate. Pure vertical hop, no sideways spread.
+   * Hop every goat whose cell position changed since the last render, so it
+   * hops up from the tile it just left (local player and opponents alike).
+   * Pure vertical hop, no sideways spread.
    * Only for themes with the climbAnimation feature.
    *
    * @param {Element} board Board element.
@@ -3052,7 +3134,7 @@
    */
   function animateClimbingGoats(board, prevGoats, reduceMotion) {
     if (reduceMotion || !prevGoats.size || !themeHas('climbAnimation')) return;
-    board.querySelectorAll('.goat.me').forEach((g) => {
+    board.querySelectorAll('.goat').forEach((g) => {
       const trackKey = goatTrackKey(g);
       const prev = trackKey ? prevGoats.get(trackKey) : null;
       if (!prev || !g.animate) return;
@@ -3096,6 +3178,36 @@
     return wrap;
   }
 
+  /**
+   * Inner HTML for a die face, honouring the active dice style
+   * (numbers / classic pips / ancient script digit).
+   *
+   * @param {number} value Face value 1-6.
+   * @returns {string}
+   */
+  function diceFaceHtml(value) {
+    if (window.MGUi && typeof window.MGUi.diceFaceHtml === 'function') {
+      return window.MGUi.diceFaceHtml(value);
+    }
+    return String(value);
+  }
+
+  const DICE_ROLL_IMG = {
+    black: 'diceroll-white.png',
+    red: 'diceroll-white.png',
+    white: 'diceroll-black.png',
+    cyan: 'diceroll-black.png',
+    pink: 'diceroll-black.png',
+  };
+
+  function rollImgForDiceColor() {
+    let color = 'white';
+    if (window.MGUi && typeof window.MGUi.getDiceColor === 'function') {
+      color = window.MGUi.getDiceColor();
+    }
+    return DICE_ROLL_IMG[color] || 'diceroll-black.png';
+  }
+
   function renderDice() {
     const area = $('dice-area');
     if (!area) return;
@@ -3111,8 +3223,17 @@
     if (!state.rolled || !state.dice) {
       for (let i = 0; i < (state.numDice || 4); i++) {
         const d = document.createElement('div');
-        d.className = 'die';
-        d.textContent = '🎲';
+        d.className = 'die die-placeholder';
+        if (activeThemeId() === 'modern') {
+          const img = document.createElement('img');
+          img.className = 'die-roll-img';
+          img.src = '/img/dice/' + rollImgForDiceColor();
+          img.alt = '';
+          img.draggable = false;
+          d.appendChild(img);
+        } else {
+          d.textContent = '🎲';
+        }
         area.appendChild(d);
       }
       if (window.MGHaptics && typeof window.MGHaptics.syncDiceOverlays === 'function') {
@@ -3132,7 +3253,8 @@
       d.className = 'die'
         + (state.diceUsed[i] ? ' used' : '')
         + (selected.has(i) ? ' sel' : '');
-      d.textContent = v;
+      d.innerHTML = diceFaceHtml(v);
+      d.setAttribute('aria-label', String(v));
       if (mine && !state.diceUsed[i]) {
         d.addEventListener('click', () => {
           if (refacePickerIndex != null) {
@@ -3184,7 +3306,7 @@
         const opt = document.createElement('button');
         opt.type = 'button';
         opt.className = 'reface-face' + (face === current ? ' is-current' : '');
-        opt.textContent = String(face);
+        opt.innerHTML = diceFaceHtml(face);
         opt.setAttribute('role', 'option');
         opt.setAttribute('aria-label', t('dice.faceAria', { n: face }));
         opt.addEventListener('click', (e) => {

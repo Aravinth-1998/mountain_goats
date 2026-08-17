@@ -552,6 +552,18 @@
     });
   }
 
+  /**
+   * Inner HTML for a die face. The tutorial is locked to Classic, so it
+   * always renders white dice with black numbers, ignoring the player's
+   * dice customisation from Settings (which the menu still shows).
+   *
+   * @param {number} value Face value 1-6.
+   * @returns {string}
+   */
+  function diceFaceHtml(value) {
+    return '<span class="die-face die-num">' + String(value) + '</span>';
+  }
+
   function renderDice() {
     const area = $('tut-dice-area');
     if (!area || !state) return;
@@ -562,7 +574,7 @@
     if (!state.rolled) {
       for (let i = 0; i < state.numDice; i++) {
         const d = document.createElement('div');
-        d.className = 'die';
+        d.className = 'die die-placeholder';
         d.textContent = '🎲';
         area.appendChild(d);
       }
@@ -586,7 +598,8 @@
       d.className = 'die'
         + (used ? ' used tut-die-used' : '')
         + (selected.has(i) ? ' sel' : '');
-      d.textContent = v;
+      d.innerHTML = diceFaceHtml(v);
+      d.setAttribute('aria-label', String(v));
 
       const dieKey = 'die-' + i;
       if (freePlay && !used) {
@@ -634,7 +647,8 @@
         const opt = document.createElement('button');
         opt.type = 'button';
         opt.className = 'reface-face' + (face === current ? ' is-current' : '');
-        opt.textContent = String(face);
+        opt.innerHTML = diceFaceHtml(face);
+        opt.setAttribute('aria-label', t('tutorial.chooseDieFace') + ': ' + face);
         opt.addEventListener('click', (e) => {
           e.stopPropagation();
           onReface(index, face);
@@ -1166,6 +1180,12 @@
     if (!state) return;
     forceClassicForTutorial();
     render();
+  });
+
+  // Refresh tutorial dice when the player changes dice look in Settings.
+  document.addEventListener('mg:dicechange', () => {
+    if (!state) return;
+    renderDice();
   });
 
   window.MGTutorial = { start, exit };

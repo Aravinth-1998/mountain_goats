@@ -115,7 +115,7 @@
     if (typeof bind !== 'function' || typeof unbind !== 'function') return;
 
     root.querySelectorAll('.die').forEach((die) => {
-      const placeholder = die.textContent === '🎲';
+      const placeholder = die.classList.contains('die-placeholder') || die.textContent === '🎲';
       const interactive = iosOverlaysActive()
         && !placeholder
         && !die.classList.contains('used')

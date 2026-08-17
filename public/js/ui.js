@@ -262,6 +262,22 @@
   }
 
   /**
+   * Bot marker markup for the active theme: a "BOT" pill tag when the theme
+   * enables role tags (Modern), otherwise the classic robot emoji.
+   *
+   * @param {string} [label] Localized tag text (e.g. the lobby bot title).
+   * @returns {string} HTML string (classic returns a bare emoji).
+   */
+  function botTagHtml(label) {
+    if (!hasFeature('roleTags')) return '&#129302;';
+    const text = String(label || 'BOT')
+      .replace(/[&<>"']/g, (c) => (
+        { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+      ));
+    return `<span class="role-tag bot-tag">${text}</span>`;
+  }
+
+  /**
    * Apply a theme to the document without touching the persisted preference.
    *
    * @param {string} [id] Theme id (defaults to the active theme).
@@ -558,6 +574,195 @@
     root.document.addEventListener(THEME_EVENT, sync);
   }
 
+  /* ------------------------------------------------------------------ *
+   * Dice customisation (face style + colour), persisted in localStorage
+   * and mirrored on <html data-dice-style / data-dice-color> so CSS and
+   * render code can scope against them.
+   * ------------------------------------------------------------------ */
+  const DICE_STORAGE_KEY = 'mg_dice';
+  const DICE_EVENT = 'mg:dicechange';
+  const DICE_STYLES = ['numbers', 'classic', 'ancient'];
+  const DICE_COLORS = ['white', 'black', 'red', 'cyan', 'pink'];
+
+  /** Classic pip layouts, indices into a 3x3 grid (row-major). */
+  const DICE_PIPS = {
+    1: [4],
+    2: [2, 6],
+    3: [2, 4, 6],
+    4: [0, 2, 6, 8],
+    5: [0, 2, 4, 6, 8],
+    6: [0, 2, 3, 5, 6, 8],
+  };
+
+  /**
+   * Coerce raw dice preferences to a known { style, color } pair.
+   *
+   * @param {*} raw Parsed localStorage value (may be anything).
+   * @returns {{style: string, color: string}}
+   */
+  function normalizeDicePref(raw) {
+    let style = DICE_STYLES[0];
+    let color = DICE_COLORS[0];
+    if (raw && typeof raw === 'object') {
+      if (DICE_STYLES.indexOf(raw.style) !== -1) style = raw.style;
+      if (DICE_COLORS.indexOf(raw.color) !== -1) color = raw.color;
+    }
+    return { style, color };
+  }
+
+  /**
+   * @returns {{style: string, color: string}} Persisted dice preferences.
+   */
+  function readDicePref() {
+    let parsed = null;
+    try {
+      parsed = JSON.parse(root.localStorage.getItem(DICE_STORAGE_KEY));
+    } catch (e) { /* ignore */ }
+    return normalizeDicePref(parsed);
+  }
+
+  /**
+   * Mirror dice preferences onto the document element.
+   *
+   * @param {{style: string, color: string}} pref
+   * @returns {{style: string, color: string}}
+   */
+  function applyDicePref(pref) {
+    const el = root.document && root.document.documentElement;
+    if (!el) return pref;
+    el.setAttribute('data-dice-style', pref.style);
+    el.setAttribute('data-dice-color', pref.color);
+    return pref;
+  }
+
+  /**
+   * @returns {{style: string, color: string}} Current dice preferences.
+   */
+  function getDicePref() {
+    return applyDicePref(readDicePref());
+  }
+
+  /**
+   * @returns {string} Active dice face style id ('numbers'|'classic'|'ancient').
+   */
+  function getDiceStyle() {
+    return readDicePref().style;
+  }
+
+  /**
+   * @returns {string} Active dice colour id ('white'|'black'|'red'|'cyan'|'pink').
+   */
+  function getDiceColor() {
+    return readDicePref().color;
+  }
+
+  /**
+   * Persist and apply dice preferences, then notify listeners.
+   *
+   * @param {string} style Face style id.
+   * @param {string} color Dice colour id.
+   * @returns {{style: string, color: string}}
+   */
+  function setDice(style, color) {
+    const pref = normalizeDicePref({
+      style: style || undefined,
+      color: color || undefined,
+    });
+    try {
+      root.localStorage.setItem(DICE_STORAGE_KEY, JSON.stringify(pref));
+    } catch (e) { /* ignore */ }
+    applyDicePref(pref);
+    if (root.document && typeof root.CustomEvent === 'function') {
+      root.document.dispatchEvent(new root.CustomEvent(DICE_EVENT, { detail: pref }));
+    }
+    return pref;
+  }
+
+  /**
+   * Apply the persisted dice preferences (used at startup).
+   *
+   * @returns {{style: string, color: string}}
+   */
+  function syncDice() {
+    return applyDicePref(readDicePref());
+  }
+
+  /**
+   * HTML for a die face: digits, Classic pips or the Ancient script digit.
+   *
+   * @param {number|string} value Face value 1-6.
+   * @returns {string} Inner HTML for a .die element.
+   */
+  function diceFaceHtml(value) {
+    const v = String(value);
+    if (getTheme() === UI_CLASSIC) {
+      return '<span class="die-face die-num">' + v + '</span>';
+    }
+    if (getDiceStyle() === 'classic') {
+      const pips = (DICE_PIPS[value] || []).map((idx) => {
+        const r = Math.floor(idx / 3) + 1;
+        const c = (idx % 3) + 1;
+        return '<i class="pip" style="grid-row:' + r + ';grid-column:' + c + '"></i>';
+      }).join('');
+      return '<span class="die-face die-pips">' + pips + '</span>';
+    }
+    if (getDiceStyle() === 'ancient') {
+      return '<span class="die-face die-num ancient">' + v + '</span>';
+    }
+    return '<span class="die-face die-num">' + v + '</span>';
+  }
+
+  /**
+   * Wire the Settings dice style/colour buttons. One button per option,
+   * found by id ('settings-dice-style-<id>' / 'settings-dice-color-<id>').
+   *
+   * @returns {void}
+   */
+  function wireDiceControls() {
+    if (!root.document || !root.document.getElementById) return;
+    const styles = [];
+    DICE_STYLES.forEach((id) => {
+      const btn = root.document.getElementById('settings-dice-style-' + id);
+      if (btn) styles.push({ id, btn });
+    });
+    const colors = [];
+    DICE_COLORS.forEach((id) => {
+      const btn = root.document.getElementById('settings-dice-color-' + id);
+      if (btn) colors.push({ id, btn });
+    });
+    if (!styles.length && !colors.length) return;
+
+    const sync = () => {
+      const pref = readDicePref();
+      styles.forEach((entry) => {
+        const isActive = entry.id === pref.style;
+        entry.btn.classList.toggle('active', isActive);
+        entry.btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+      });
+      colors.forEach((entry) => {
+        const isActive = entry.id === pref.color;
+        entry.btn.classList.toggle('active', isActive);
+        entry.btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+      });
+    };
+
+    styles.forEach((entry) => {
+      entry.btn.addEventListener('click', () => {
+        setDice(entry.id, readDicePref().color);
+        sync();
+      });
+    });
+    colors.forEach((entry) => {
+      entry.btn.addEventListener('click', () => {
+        setDice(readDicePref().style, entry.id);
+        sync();
+      });
+    });
+
+    sync();
+    root.document.addEventListener(DICE_EVENT, sync);
+  }
+
   registerTheme({ id: UI_CLASSIC });
   registerTheme({
     id: UI_MODERN,
@@ -582,6 +787,10 @@
     UI_CLASSIC,
     UI_MODERN,
     THEME_EVENT,
+    DICE_STORAGE_KEY,
+    DICE_EVENT,
+    DICE_STYLES,
+    DICE_COLORS,
     GOAT_COLORS,
     GOAT_INK,
     TEAM_GOAT_FOLDERS,
@@ -597,6 +806,7 @@
     themeFeatures,
     hasFeature,
     icon,
+    botTagHtml,
     applyTheme,
     syncTheme,
     setTheme,
@@ -616,10 +826,19 @@
     isLightColor,
     playerIconHtml,
     applyThemeDom,
+    getDicePref,
+    getDiceStyle,
+    getDiceColor,
+    setDice,
+    syncDice,
+    diceFaceHtml,
   });
 
   // Apply the persisted theme before paint (also set early in index.html).
   syncTheme();
   applyThemeDom();
   wireThemeControls();
+  // Dice look (face style + colour) defaults to Numbers / white.
+  syncDice();
+  wireDiceControls();
 })(window);
