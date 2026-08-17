@@ -166,6 +166,10 @@ app.get('/api/me/stats', async (req, res) => {
 });
 
 app.get('/api/leaderboard', async (req, res) => {
+  // No DATABASE_URL configured: treat as empty rather than an outage.
+  if (!db.isEnabled()) {
+    return res.json({ entries: [] });
+  }
   if (!(await db.ensureConnected())) {
     return res.status(503).json({ errorKey: STATS_UNAVAILABLE_KEY, error: STATS_UNAVAILABLE_MSG });
   }
