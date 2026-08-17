@@ -251,6 +251,7 @@
   window.addEventListener('mg-auth-changed', async (event) => {
     if (!window.MGAuth || !event.detail) return;
     syncThemeAccessFromAuth();
+    invalidateLeaderboardCache();
     if (event.detail.shouldReconnect) {
       scheduleSocketAuthReconnect();
     }
@@ -1354,6 +1355,18 @@
       errorEl.textContent = t('leaderboard.unavailable');
       errorEl.hidden = false;
     }
+  }
+
+  /**
+   * Drop the cached leaderboard after a sign-in or sign-out. The request is
+   * keyed by viewerId, so a stale cache would keep the wrong row highlighted.
+   *
+   * @returns {void}
+   */
+  function invalidateLeaderboardCache() {
+    leaderboardFetchedAt = 0;
+    const overlay = $('leaderboard-overlay');
+    if (overlay && overlay.classList.contains('show')) fetchLeaderboardIfNeeded();
   }
 
   // Clear error styling when user clicks or types in the name field
