@@ -1226,6 +1226,19 @@
   }
 
   /**
+   * Show or hide the leaderboard column header.
+   *
+   * @param {boolean} visible Whether the header should be visible.
+   * @returns {void}
+   */
+  function setLeaderboardHeaderVisible(visible) {
+    const headerEl = $('leaderboard-header');
+    if (!headerEl) return;
+    headerEl.hidden = !visible;
+    headerEl.setAttribute('aria-hidden', visible ? 'false' : 'true');
+  }
+
+  /**
    * Render leaderboard entries in the home panel.
    *
    * @param {Array<object>} entries Leaderboard rows from the API.
@@ -1234,19 +1247,19 @@
     const list = $('leaderboard-list');
     const emptyEl = $('leaderboard-empty');
     const errorEl = $('leaderboard-error');
-    const headerEl = $('leaderboard-header');
     if (!list || !emptyEl || !errorEl) return;
 
     list.innerHTML = '';
     errorEl.hidden = true;
     errorEl.textContent = '';
-    if (headerEl) headerEl.hidden = false;
 
     if (!entries || entries.length === 0) {
+      setLeaderboardHeaderVisible(false);
       emptyEl.hidden = false;
       return;
     }
 
+    setLeaderboardHeaderVisible(true);
     emptyEl.hidden = true;
     entries.forEach((entry) => {
       const row = document.createElement('div');
@@ -1294,7 +1307,6 @@
     const list = $('leaderboard-list');
     const emptyEl = $('leaderboard-empty');
     const errorEl = $('leaderboard-error');
-    const headerEl = $('leaderboard-header');
     if (!list || !emptyEl || !errorEl) return;
 
     const now = Date.now();
@@ -1305,7 +1317,7 @@
     emptyEl.hidden = true;
     errorEl.hidden = true;
     errorEl.textContent = '';
-    if (headerEl) headerEl.hidden = true;
+    setLeaderboardHeaderVisible(false);
     list.innerHTML = '';
     const loader = window.MGUi && typeof window.MGUi.createInlineLoader === 'function' && window.MGUi.createInlineLoader(t('leaderboard.loading'));
     if (loader) {
@@ -1327,7 +1339,7 @@
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         list.innerHTML = '';
-        if (headerEl) headerEl.hidden = false;
+        setLeaderboardHeaderVisible(false);
         errorEl.textContent = (data && (data.errorKey || data.error))
           ? formatServerError(data, 'leaderboard.unavailable')
           : t('leaderboard.unavailable');
@@ -1338,7 +1350,7 @@
       renderLeaderboard(data.entries || []);
     } catch (err) {
       list.innerHTML = '';
-      if (headerEl) headerEl.hidden = false;
+      setLeaderboardHeaderVisible(false);
       errorEl.textContent = t('leaderboard.unavailable');
       errorEl.hidden = false;
     }

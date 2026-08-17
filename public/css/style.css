@@ -918,6 +918,9 @@ input.input-error:focus {
   letter-spacing: 0.04em;
   color: var(--muted);
 }
+.leaderboard-header[hidden] {
+  display: none !important;
+}
 .leaderboard-avatar-spacer {
   width: 28px;
   flex: 0 0 auto;
