@@ -249,6 +249,7 @@
     "styleClassic": "Classique",
     "styleModern": "Moderne",
     "styleAria": "Style",
+    "styleSignInRequired": "Le style Moderne est reserve aux joueurs connectes.",
     "dice": "Des",
     "diceStyle": "Style",
     "diceStyleAria": "Style des des",

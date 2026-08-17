@@ -16,6 +16,16 @@
   const UI_CLASSIC = 'classic';
   const UI_MODERN = 'modern';
   const THEME_EVENT = 'mg:stylechange';
+  const THEME_LOCKED_EVENT = 'mg:themelocked';
+
+  /**
+   * Whether the player may use themes that require an account. Null until auth
+   * has answered, so a signed-in player reloading on a gated theme is not
+   * bounced to Classic before the session is restored.
+   *
+   * @type {boolean|null}
+   */
+  let themeAccessGranted = null;
 
   /**
    * Every theme feature the client can ask about, with the Classic (baseline)
@@ -129,13 +139,13 @@
     '#86efac': 'lime-green.png',
   };
 
-  /** @type {Map<string, {id: string, features: object, icons: object}>} */
+  /** @type {Map<string, {id: string, features: object, icons: object, requiresAuth: boolean}>} */
   const themes = new Map();
 
   /**
    * Add (or replace) a theme in the registry.
    *
-   * @param {{id: string, features?: object, icons?: object}} definition Theme definition.
+   * @param {{id: string, features?: object, icons?: object, requiresAuth?: boolean}} definition Theme definition.
    * @returns {object|null} The stored theme, or null when the definition is unusable.
    */
   function registerTheme(definition) {
@@ -147,6 +157,7 @@
       id,
       features: Object.assign({}, DEFAULT_FEATURES, definition.features || {}),
       icons: Object.assign({}, CLASSIC_ICONS, definition.icons || {}),
+      requiresAuth: !!(definition && definition.requiresAuth),
     };
     themes.set(id, theme);
     // A theme registered after startup can still take over when nothing valid
@@ -278,6 +289,63 @@
   }
 
   /**
+   * Whether a theme is only offered to signed-in players.
+   *
+   * @param {string} [id] Theme id (defaults to the active theme).
+   * @returns {boolean}
+   */
+  function themeRequiresAuth(id) {
+    return !!getThemeConfig(id).requiresAuth;
+  }
+
+  /**
+   * Whether a theme is currently out of reach for this player. Unknown access
+   * (auth still resolving) counts as unlocked so nothing flickers on load.
+   *
+   * @param {string} [id] Theme id (defaults to the active theme).
+   * @returns {boolean}
+   */
+  function isThemeLocked(id) {
+    return themeRequiresAuth(id) && themeAccessGranted === false;
+  }
+
+  /**
+   * Announce that a locked theme was requested so the app can explain why.
+   *
+   * @param {string} id Theme the player tried to pick.
+   * @returns {void}
+   */
+  function emitThemeLocked(id) {
+    if (!root.document || typeof root.CustomEvent !== 'function') return;
+    root.document.dispatchEvent(new root.CustomEvent(THEME_LOCKED_EVENT, {
+      detail: { theme: id, style: id },
+    }));
+  }
+
+  /**
+   * Record whether gated themes are available, and fall back to Classic when
+   * the player is on one they may no longer use (e.g. after signing out).
+   *
+   * @param {boolean} granted True once the player is signed in.
+   * @returns {string} Theme id in force afterwards.
+   */
+  function setThemeAccess(granted) {
+    const next = !!granted;
+    const changed = themeAccessGranted !== next;
+    themeAccessGranted = next;
+    if (isThemeLocked(getTheme())) {
+      // Persist the downgrade so the pre-paint bootstrap in index.html cannot
+      // flash a gated theme on the next load.
+      setTheme(UI_CLASSIC);
+      applyThemeDom();
+      emitThemeChange(UI_CLASSIC);
+      return UI_CLASSIC;
+    }
+    if (changed) emitThemeChange(getTheme());
+    return getTheme();
+  }
+
+  /**
    * Apply a theme to the document without touching the persisted preference.
    *
    * @param {string} [id] Theme id (defaults to the active theme).
@@ -296,7 +364,8 @@
    * @returns {string} Theme id that was applied.
    */
   function syncTheme() {
-    return applyTheme(storedThemeId() || appliedThemeId() || UI_CLASSIC);
+    const preferred = storedThemeId() || appliedThemeId() || UI_CLASSIC;
+    return applyTheme(isThemeLocked(preferred) ? UI_CLASSIC : preferred);
   }
 
   /**
@@ -328,12 +397,18 @@
 
   /**
    * Switch theme: persist, apply, refresh theme-owned DOM and notify listeners.
+   * Themes that need an account are refused while the player is signed out.
    *
    * @param {string} id Theme id.
    * @returns {string} Theme id that was applied.
    */
   function changeTheme(id) {
-    const next = setTheme(id);
+    const wanted = normalizeThemeId(id) || UI_CLASSIC;
+    if (isThemeLocked(wanted)) {
+      emitThemeLocked(wanted);
+      return getTheme();
+    }
+    const next = setTheme(wanted);
     applyThemeDom();
     emitThemeChange(next);
     return next;
@@ -558,8 +633,12 @@
       const active = getTheme();
       buttons.forEach((entry) => {
         const isActive = entry.id === active;
+        const locked = isThemeLocked(entry.id);
         entry.btn.classList.toggle('active', isActive);
         entry.btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+        // Kept clickable on purpose: the tap is what explains the lock.
+        entry.btn.classList.toggle('locked', locked);
+        entry.btn.setAttribute('aria-disabled', locked ? 'true' : 'false');
       });
     };
 
@@ -572,6 +651,7 @@
 
     sync();
     root.document.addEventListener(THEME_EVENT, sync);
+    root.document.addEventListener(THEME_LOCKED_EVENT, sync);
   }
 
   /* ------------------------------------------------------------------ *
@@ -766,6 +846,7 @@
   registerTheme({ id: UI_CLASSIC });
   registerTheme({
     id: UI_MODERN,
+    requiresAuth: true,
     features: {
       goatArtwork: true,
       brandArtwork: true,
@@ -787,6 +868,7 @@
     UI_CLASSIC,
     UI_MODERN,
     THEME_EVENT,
+    THEME_LOCKED_EVENT,
     DICE_STORAGE_KEY,
     DICE_EVENT,
     DICE_STYLES,
@@ -813,6 +895,9 @@
     changeTheme,
     emitThemeChange,
     wireThemeControls,
+    themeRequiresAuth,
+    isThemeLocked,
+    setThemeAccess,
     // Older names kept so existing call sites keep working.
     getUiStyle: getTheme,
     setUiStyle: setTheme,

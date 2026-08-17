@@ -782,7 +782,7 @@
   }
 
   /**
-   * Show profile avatar on the home screen when signed in.
+   * Show profile avatar when signed in, or a Google sign-in shortcut for guests.
    */
   function updateProfileStatsFab() {
     const fab = document.getElementById('profile-stats-fab');
@@ -790,12 +790,26 @@
     const signInG = document.getElementById('profile-stats-signin-g');
     if (!fab || !avatar || !signInG) return;
 
-    if (!configured || !profile.isSignedIn) {
+    if (!configured) {
       fab.hidden = true;
       avatar.hidden = true;
       signInG.hidden = true;
       signInG.setAttribute('aria-hidden', 'true');
       fab.classList.remove('is-guest');
+      return;
+    }
+
+    // Guests still need a way back into Google after dismissing the auth gate.
+    if (!profile.isSignedIn) {
+      fab.hidden = false;
+      fab.classList.add('is-guest');
+      avatar.hidden = true;
+      signInG.hidden = false;
+      signInG.setAttribute('aria-hidden', 'false');
+      fab.setAttribute('aria-label', t('home.signInAria'));
+      // The guest button starts OAuth, it does not open the profile drawer.
+      fab.removeAttribute('aria-controls');
+      fab.removeAttribute('aria-expanded');
       return;
     }
 
@@ -806,6 +820,7 @@
     signInG.setAttribute('aria-hidden', 'true');
     fab.setAttribute('aria-label', t('profile.yourProfileAria'));
     fab.setAttribute('aria-controls', 'profile-stats-drawer');
+    if (!fab.hasAttribute('aria-expanded')) fab.setAttribute('aria-expanded', 'false');
     setAvatarImage(avatar, profile.avatarUrl, profile.displayName);
   }
 
@@ -830,7 +845,9 @@
     fab.addEventListener('click', () => {
       if (profile.isSignedIn) {
         openProfileStatsDrawer().catch((err) => console.error('[auth] open profile drawer failed:', err));
+        return;
       }
+      signInWithGoogle().catch((err) => console.error('[auth] sign in failed:', err));
     });
 
     backdrop.addEventListener('click', closeProfileStatsDrawer);

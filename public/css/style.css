@@ -2945,6 +2945,14 @@ html[data-ui="classic"] .settings-row--dice { display: none; }
 .toggle-btn:hover:not(.active) {
   background: rgba(255,255,255,0.06);
 }
+/* Sign-in gated option: looks unavailable but stays tappable to explain why. */
+.toggle-btn.locked {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.toggle-btn.locked:hover:not(.active) {
+  background: transparent;
+}
 
 /* Player count selector (Max Players) */
 .player-count-selector {

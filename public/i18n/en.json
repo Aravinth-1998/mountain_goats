@@ -249,6 +249,7 @@
     "styleClassic": "Classic",
     "styleModern": "Modern",
     "styleAria": "Style",
+    "styleSignInRequired": "The Modern style is available for signed-in players only.",
     "dice": "Dice",
     "diceStyle": "Style",
     "diceStyleAria": "Dice style",

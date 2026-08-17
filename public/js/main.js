@@ -227,8 +227,30 @@
     }
   });
 
+  /**
+   * Tell the theme registry whether gated themes (Modern) are unlocked. Themes
+   * stay open when auth is not configured, so a build without Supabase keeps
+   * every look available.
+   *
+   * @returns {void}
+   */
+  function syncThemeAccessFromAuth() {
+    if (!window.MGUi || typeof window.MGUi.setThemeAccess !== 'function') return;
+    const authOptional = !window.MGAuth
+      || typeof window.MGAuth.isConfigured !== 'function'
+      || !window.MGAuth.isConfigured();
+    window.MGUi.setThemeAccess(authOptional || isSignedIn());
+  }
+
+  if (window.MGAuthBootstrapped && typeof window.MGAuthBootstrapped.then === 'function') {
+    window.MGAuthBootstrapped.then(syncThemeAccessFromAuth).catch(() => { /* ignore */ });
+  } else {
+    syncThemeAccessFromAuth();
+  }
+
   window.addEventListener('mg-auth-changed', async (event) => {
     if (!window.MGAuth || !event.detail) return;
+    syncThemeAccessFromAuth();
     if (event.detail.shouldReconnect) {
       scheduleSocketAuthReconnect();
     }
@@ -1032,6 +1054,10 @@
       if ($('screen-lobby') && $('screen-lobby').classList.contains('active')) renderLobby();
       if ($('screen-game') && $('screen-game').classList.contains('active')) renderGame();
     } catch (e) { /* ignore refresh glitches */ }
+  });
+  // Explain why a signed-out player cannot pick a gated theme.
+  document.addEventListener('mg:themelocked', () => {
+    toast(t('settings.styleSignInRequired'));
   });
   // Refresh the dice row when the player changes dice look in Settings.
   document.addEventListener('mg:dicechange', () => {
