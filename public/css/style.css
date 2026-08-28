@@ -1887,6 +1887,9 @@ html[data-ui="classic"] .settings-row--dice { display: none; }
   display: flex;
   flex-direction: column;
   gap: 10px;
+  width: 100%;
+  max-width: 300px;
+  align-self: center;
 }
 .home-auth-gate {
   display: flex;
