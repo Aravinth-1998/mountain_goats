@@ -28,9 +28,14 @@ const STATS_UNAVAILABLE_KEY = 'errors.statsUnavailable';
 const http = require('http');
 const express = require('express');
 const { Server } = require('socket.io');
-require('dotenv').config({ override: true });
+require('dotenv').config({ path: path.join(__dirname, '.env'), override: true });
 const db = require('./db');
 const auth = require('./auth');
+const store = require('./store');
+const {
+  getRoom, setRoom, deleteRoom, hasRoom, allRooms, genRoomCode,
+  registerSocket, unregisterSocket, findRoomBySocket, swapSocket,
+} = store;
 
 const core = require('./game/core');
 const scoringPkg = require('./game/scoring');
@@ -111,6 +116,11 @@ app.get('/api/public-config', (req, res) => {
   res.json({
     supabaseUrl: process.env.SUPABASE_URL || '',
     supabaseAnonKey: process.env.SUPABASE_ANON_KEY || '',
+    hubUrl: process.env.HUB_URL || 'http://localhost:3000',
+    peerUrls: [
+      process.env.HUB_URL  || 'http://localhost:3000',
+      process.env.FLIP7_URL || 'http://localhost:3002',
+    ],
   });
 });
 
@@ -204,7 +214,17 @@ app.get('/api/leaderboard', async (req, res) => {
   }
 });
 
+// Serve shared Venomon platform assets (CSS, JS, images)
+app.use('/shared', express.static(path.join(__dirname, '..', 'shared')));
+
 app.use(express.static(path.join(__dirname, 'public')));
+
+// Legal / info pages (shared across all Venomon services)
+const SHARED_PAGES_DIR = path.join(__dirname, '..', 'shared', 'pages');
+app.get('/terms',    (req, res) => res.sendFile(path.join(SHARED_PAGES_DIR, 'terms.html')));
+app.get('/privacy',  (req, res) => res.sendFile(path.join(SHARED_PAGES_DIR, 'privacy.html')));
+app.get('/about',    (req, res) => res.sendFile(path.join(SHARED_PAGES_DIR, 'about.html')));
+app.get('/feedback', (req, res) => res.sendFile(path.join(SHARED_PAGES_DIR, 'feedback.html')));
 
 // Admin secret key - set via environment variable or defaults to a random key
 const ADMIN_KEY = process.env.ADMIN_KEY || 'goat-admin-' + Math.random().toString(36).slice(2, 8);
@@ -214,8 +234,7 @@ console.log(`Admin key: ${ADMIN_KEY}`);
 app.get('/api/admin/rooms', (req, res) => {
   if (req.query.key !== ADMIN_KEY) return res.status(403).json({ error: 'Invalid admin key' });
   const data = [];
-  for (const code in rooms) {
-    const room = rooms[code];
+  for (const room of allRooms()) {
     const host = room.players.find((p) => p.id === room.hostId);
     data.push({
       code: room.code,
@@ -272,7 +291,8 @@ app.get('/admin', (req, res) => {
     .badge-private { background: rgba(147,160,191,0.2); color: #93a0bf; }
     .badge-started { background: rgba(79,124,255,0.2); color: #4f7cff; }
     .badge-lobby { background: rgba(255,209,102,0.2); color: #ffd166; }
-    .badge-team { background: rgba(111,92,255,0.2); color: #b9aaff; }
+    .badge-team { background: rgba(74,222,128,0.15); color: #4ade80; }
+    .badge-standard { background: rgba(79,124,255,0.2); color: #7eb0ff; }
     .player-row { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-top: 1px solid rgba(255,255,255,0.05); font-size: 14px; }
     .player-row:first-child { border-top: none; }
     .dot { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 auto; }
@@ -303,7 +323,7 @@ app.get('/admin', (req, res) => {
   </style>
 </head>
 <body>
-  <h1>🐐 Mountain Goats Admin</h1>
+  <h1>Mountain Goats Admin</h1>
   <p class="meta">Live server dashboard <button class="refresh-btn" onclick="load()">Refresh</button><span class="auto-refresh">Auto-refreshes every 5s</span></p>
   <div class="stats">
     <div class="stat-card"><div class="stat-num" id="s-conn">-</div><div class="stat-label">Connections</div></div>
@@ -374,7 +394,7 @@ app.get('/admin', (req, res) => {
       list.innerHTML = games.map((g) => {
         const isTeam = isTeamEntry(g);
         const badges = [
-          isTeam ? '<span class="badge-team">TEAMS</span>' : '',
+          isTeam ? '<span class="badge-team">TEAM</span>' : '<span class="badge-standard">STANDARD</span>',
           g.abandoned ? '<span class="badge-abandoned">ABANDONED</span>' : '<span class="badge-finished">FINISHED</span>',
         ].join('');
         let winnerLabel, winnerIcon;
@@ -405,10 +425,10 @@ app.get('/admin', (req, res) => {
         return '<div class="history-game">' +
           '<div class="history-head">' +
             '<div>' +
-              '<div class="history-title">Room ' + esc(g.code) + ' · ' + (g.playerCount || 0) + ' players</div>' +
+              '<div style="margin-bottom:4px"><span class="history-title">Room ' + esc(g.code) + '</span> <span class="history-sub">' + (g.playerCount || 0) + 'p</span> ' + badges + '</div>' +
               '<div class="history-sub">' + fmtDate(g.endedAt) + ' · ' + fmtDuration(g.durationMs) + ' · ' + esc(fmtEndReason(g.endReason)) + '</div>' +
             '</div>' +
-            '<div><div class="history-winner' + (g.abandoned ? ' abandoned' : '') + '">' + winnerIcon + ' ' + winnerLabel + '</div><div class="history-badges">' + badges + '</div></div>' +
+            '<div><div class="history-winner' + (g.abandoned ? ' abandoned' : '') + '">' + winnerIcon + ' ' + winnerLabel + '</div></div>' +
           '</div>' + stats + '</div>';
       }).join('');
     }
@@ -430,7 +450,7 @@ app.get('/admin', (req, res) => {
           const badges = [
             r.isPublic ? '<span class="badge-public">PUBLIC</span>' : '<span class="badge-private">PRIVATE</span>',
             r.started ? (r.finished ? '<span class="badge-lobby">FINISHED</span>' : '<span class="badge-started">IN GAME</span>') : '<span class="badge-lobby">LOBBY</span>',
-            isTeamEntry(r) ? '<span class="badge-team">TEAMS</span>' : '',
+            isTeamEntry(r) ? '<span class="badge-team">TEAM</span>' : '<span class="badge-standard">STANDARD</span>',
           ].join('');
           const players = r.players.map(p =>
             '<div class="player-row">' +
@@ -455,20 +475,11 @@ app.get('/admin', (req, res) => {
 </html>`);
 });
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3001;
 
 // ----------------------------------------------------------------------------
-// Room state
+// Room state  (rooms + socket mapping live in store.js)
 // ----------------------------------------------------------------------------
-function genRoomCode() {
-  let code = '';
-  do {
-    code = String(Math.floor(1000 + Math.random() * 9000)); // 1000–9999
-  } while (rooms[code]);
-  return code;
-}
-
-const rooms = {}; // code -> room
 const gameHistory = []; // completed games from the last 2 days
 let historyStorage = 'file'; // 'postgresql' | 'file'
 const HISTORY_RETENTION_MS = 2 * 24 * 60 * 60 * 1000;
@@ -612,7 +623,7 @@ function createRoom(options = {}) {
     startGraceUntil: null,
     startGraceTimer: null,
   };
-  rooms[code] = room;
+  setRoom(code, room);
   return room;
 }
 
@@ -703,7 +714,7 @@ async function enrichSignedInPlayerContext(socket, room, name, accessToken) {
     }
     await persistGamingName(socket, name);
     await refreshRoomPlayerWins(room);
-    if (rooms[room.code]) broadcast(room);
+    if (hasRoom(room.code)) broadcast(room);
   } catch (err) {
     console.warn(`${auth.LOG_PREFIX} enrichSignedInPlayerContext failed:`, err.message);
   }
@@ -922,7 +933,7 @@ function pushLog(room, text) {
   room.log.push({ t: Date.now(), text });
 }
 
-const TURN_TIME_OPTIONS = new Set([0, 10, 15, 20, 30, 45, 60]);
+const TURN_TIME_OPTIONS = new Set([0, 5, 10, 15, 20, 30, 45, 60]);
 
 /**
  * Clear the per-turn countdown timeout and deadline.
@@ -954,7 +965,7 @@ function armTurnTimer(room) {
   const deadline = Date.now() + sec * 1000;
   room.turnDeadline = deadline;
   room.turnTimer = setTimeout(() => {
-    if (!rooms[room.code] || room.finished || !room.started) return;
+    if (!hasRoom(room.code) || room.finished || !room.started) return;
     if (room.turnDeadline !== deadline) return;
     room.turnTimer = null;
     room.turnDeadline = null;
@@ -986,13 +997,7 @@ function advanceTurn(room) {
   }
 }
 
-function findRoomBySocket(socketId) {
-  for (const code in rooms) {
-    const room = rooms[code];
-    if (room.players.some((p) => p.id === socketId)) return room;
-  }
-  return null;
-}
+// findRoomBySocket is provided by store.js (O(1) via socket→room Map)
 
 /**
  * Record a completed or abandoned game into the in-memory history buffer.
@@ -1080,7 +1085,7 @@ async function recordMatchStatsForRoom(room) {
     const stats = statsByUserId.get(player.authUserId);
     if (stats) player.totalWins = stats.won;
   }
-  if (rooms[room.code]) {
+  if (hasRoom(room.code)) {
     broadcast(room);
   }
   for (const [, socket] of io.sockets.sockets) {
@@ -1123,7 +1128,7 @@ async function endGame(room) {
 function startWatchdog(room) {
   if (room.watchdog) clearInterval(room.watchdog);
   room.watchdog = setInterval(() => {
-    if (!rooms[room.code] || room.finished || !room.started) {
+    if (!hasRoom(room.code) || room.finished || !room.started) {
       clearInterval(room.watchdog);
       room.watchdog = null;
       return;
@@ -1339,6 +1344,36 @@ async function persistGamingName(socket, name) {
   }
 }
 
+/**
+ * Per-socket event rate limiter.
+ * Allows up to RATE_LIMIT_MAX events per RATE_LIMIT_WINDOW_MS.
+ * Sockets that exceed the limit are disconnected.
+ */
+const RATE_LIMIT_MAX = 30;
+const RATE_LIMIT_WINDOW_MS = 1000;
+
+io.use((socket, next) => {
+  let windowStart = Date.now();
+  let count = 0;
+
+  socket.use((_packet, next) => {
+    const now = Date.now();
+    if (now - windowStart > RATE_LIMIT_WINDOW_MS) {
+      windowStart = now;
+      count = 0;
+    }
+    count += 1;
+    if (count > RATE_LIMIT_MAX) {
+      console.warn(`[rate-limit] Socket ${socket.id} exceeded ${RATE_LIMIT_MAX} events/s — disconnecting.`);
+      socket.disconnect(true);
+      return;
+    }
+    next();
+  });
+
+  next();
+});
+
 io.use(async (socket, next) => {
   socket.authUserId = null;
   socket.authGoogleName = null;
@@ -1360,6 +1395,7 @@ io.use(async (socket, next) => {
 io.on('connection', (socket) => {
   takeOverPresenceSocket(socket);
   scheduleBroadcastOnlineCount();
+
   socket.on('disconnect', () => {
     releasePresenceSocket(socket);
     scheduleBroadcastOnlineCount();
@@ -1372,6 +1408,7 @@ io.on('connection', (socket) => {
     if (!name) return cb && cb({ errorKey: 'errors.nameRequired', error: 'Please enter your name.' });
     const room = createRoom({ isPublic, maxPlayers });
     socket.join(room.code);
+    registerSocket(socket.id, room.code);
     const ui = socket.handshake.auth && socket.handshake.auth.ui;
     const player = addPlayer(room, socket.id, name, false, socket.authUserId, ui);
     pushLog(room, `${name} created the room.`);
@@ -1389,7 +1426,7 @@ io.on('connection', (socket) => {
     await ensureSocketAuthLight(socket, token);
     name = auth.resolvePlayerName(socket, name);
     code = String(code || '').trim().slice(0, 4);
-    const room = rooms[code];
+    const room = getRoom(code);
     if (!room) return cb && cb({ errorKey: 'errors.roomNotFound', error: 'Room not found.' });
     if (!name) return cb && cb({ errorKey: 'errors.nameRequired', error: 'Please enter your name.' });
 
@@ -1427,6 +1464,11 @@ io.on('connection', (socket) => {
         room.hostId = socket.id;
       }
       socket.join(room.code);
+      swapSocket(oldId, socket.id);
+      // swapSocket is a no-op when the old socket was already unregistered (e.g.
+      // player disconnected for >3 s, handleDisconnect fired and called
+      // unregisterSocket).  Ensure the new socket is always in the map.
+      registerSocket(socket.id, room.code);
       // Cancel any pending bot-substitution timer for this player.
       if (room.started && wasDisconnected) {
         if (room.botTimer) {
@@ -1469,6 +1511,7 @@ io.on('connection', (socket) => {
       return cb && cb({ errorKey: 'errors.nameTaken', error: 'Name already taken in this room.' });
     }
     socket.join(room.code);
+    registerSocket(socket.id, room.code);
     const ui = socket.handshake.auth && socket.handshake.auth.ui;
     const player = addPlayer(room, socket.id, name, false, socket.authUserId, ui);
     getModeForRoom(room).onPlayerJoined(room, player);
@@ -1585,8 +1628,7 @@ io.on('connection', (socket) => {
   // Get list of public rooms (for the join screen)
   socket.on('getPublicRooms', safeHandler('getPublicRooms', (_payload, cb) => {
     const publicRooms = [];
-    for (const code in rooms) {
-      const room = rooms[code];
+    for (const room of allRooms()) {
       if (room.isPublic && !room.started && !room.finished) {
         const host = room.players.find((p) => p.id === room.hostId);
         // Count only connected players (and bots) for accurate display
@@ -1713,7 +1755,7 @@ io.on('connection', (socket) => {
       room.startGraceUntil = Date.now() + START_GRACE_MS;
       room.startGraceTimer = setTimeout(() => {
         room.startGraceTimer = null;
-        if (!rooms[room.code] || rooms[room.code] !== room || !room.started || room.finished) return;
+        if (!hasRoom(room.code) || getRoom(room.code) !== room || !room.started || room.finished) return;
         room.startGraceUntil = null;
         beginTurnFlow(room);
       }, START_GRACE_MS);
@@ -1802,7 +1844,7 @@ io.on('connection', (socket) => {
     clearStartGrace(room);
     clearTurnTimer(room);
     room.autoPlayTurn = false;
-    pushLog(room, 'Back to lobby — start when ready! 🐐');
+    pushLog(room, 'Back to lobby — start when ready!');
     broadcast(room);
   }));
 
@@ -1817,6 +1859,7 @@ io.on('connection', (socket) => {
 function handleDisconnect(socket, immediate = false) {
   const room = findRoomBySocket(socket.id);
   if (!room) return;
+  unregisterSocket(socket.id);
   const player = room.players.find((p) => p.id === socket.id);
   if (!player) return;
 
@@ -1836,7 +1879,7 @@ function handleDisconnect(socket, immediate = false) {
         if (room.botTimer) clearTimeout(room.botTimer);
         if (room.watchdog) clearInterval(room.watchdog);
         clearTurnTimer(room);
-        delete rooms[room.code];
+        deleteRoom(room.code);
         return;
       }
     } else {
@@ -1852,13 +1895,13 @@ function handleDisconnect(socket, immediate = false) {
         if (room.botTimer) clearTimeout(room.botTimer);
         if (room.watchdog) clearInterval(room.watchdog);
         clearTurnTimer(room);
-        delete rooms[room.code];
+        deleteRoom(room.code);
         return;
       }
       // Schedule cleanup: remove from lobby after 30s if still disconnected.
       player._lobbyCleanup = setTimeout(() => {
         player._lobbyCleanup = null;
-        if (!rooms[room.code]) return;
+        if (!hasRoom(room.code)) return;
         if (player.connected || room.started) return; // reconnected or game started
         if (!removePlayerFromLobby(room, player.id)) return; // already removed (kicked, etc.)
         pushLog(room, `${player.name} timed out.`);
@@ -1866,7 +1909,7 @@ function handleDisconnect(socket, immediate = false) {
           if (room.botTimer) clearTimeout(room.botTimer);
           if (room.watchdog) clearInterval(room.watchdog);
           clearTurnTimer(room);
-          delete rooms[room.code];
+          deleteRoom(room.code);
           return;
         }
         if (room.currentIndex >= room.players.length) room.currentIndex = 0;
@@ -1896,10 +1939,10 @@ function handleDisconnect(socket, immediate = false) {
         if (!room._finishedCleanup) {
           room._finishedCleanup = setTimeout(() => {
             room._finishedCleanup = null;
-            if (!rooms[room.code]) return;
+            if (!hasRoom(room.code)) return;
             if (hasHuman(room)) return;
             clearTurnTimer(room);
-            delete rooms[room.code];
+            deleteRoom(room.code);
           }, 10 * 60 * 1000);
         }
         broadcast(room);
@@ -1912,7 +1955,7 @@ function handleDisconnect(socket, immediate = false) {
       if (!room._abandonCleanup) {
         room._abandonCleanup = setTimeout(() => {
           room._abandonCleanup = null;
-          if (!rooms[room.code]) return;
+          if (!hasRoom(room.code)) return;
           if (hasHuman(room)) return; // someone rejoined in time
           if (room.started) {
             recordGameHistory(room, { abandoned: true });
@@ -1920,7 +1963,7 @@ function handleDisconnect(socket, immediate = false) {
           if (room.botTimer) clearTimeout(room.botTimer);
           if (room.watchdog) clearInterval(room.watchdog);
           clearTurnTimer(room);
-          delete rooms[room.code];
+          deleteRoom(room.code);
         }, 30000);
       }
       broadcast(room);
@@ -1981,15 +2024,19 @@ function shutdown(signal) {
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT', () => shutdown('SIGINT'));
 
-loadGameHistory()
-  .then(() => {
-    server.listen(PORT, () => {
-      const storage = historyStorage === 'postgresql' ? 'PostgreSQL' : 'local JSON file';
-      console.log(`Mountain Goats running on http://localhost:${PORT} (history: ${storage})`);
+if (require.main === module) {
+  loadGameHistory()
+    .then(() => {
+      server.listen(PORT, () => {
+        const storage = historyStorage === 'postgresql' ? 'PostgreSQL' : 'local JSON file';
+        console.log(`Mountain Goats running on http://localhost:${PORT} (history: ${storage})`);
+      });
+    })
+    .catch((err) => {
+      console.error('[startup] Failed to load game history:', err.message);
+      process.exit(1);
     });
-  })
-  .catch((err) => {
-    console.error('[startup] Failed to load game history:', err.message);
-    process.exit(1);
-  });
+}
+
+module.exports = { app, server, io };
 
