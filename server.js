@@ -1464,11 +1464,7 @@ io.on('connection', (socket) => {
         room.hostId = socket.id;
       }
       socket.join(room.code);
-      swapSocket(oldId, socket.id);
-      // swapSocket is a no-op when the old socket was already unregistered (e.g.
-      // player disconnected for >3 s, handleDisconnect fired and called
-      // unregisterSocket).  Ensure the new socket is always in the map.
-      registerSocket(socket.id, room.code);
+      swapSocket(oldId, socket.id, room.code);
       // Cancel any pending bot-substitution timer for this player.
       if (room.started && wasDisconnected) {
         if (room.botTimer) {

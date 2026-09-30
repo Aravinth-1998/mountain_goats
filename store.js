@@ -35,11 +35,8 @@ module.exports = {
     const code = socketToRoom.get(socketId);
     return code !== undefined ? rooms[code] : undefined;
   },
-  swapSocket: (oldId, newId) => {
-    const code = socketToRoom.get(oldId);
-    if (code !== undefined) {
-      socketToRoom.delete(oldId);
-      socketToRoom.set(newId, code);
-    }
+  swapSocket: (oldId, newId, roomCode) => {
+    socketToRoom.delete(oldId);
+    socketToRoom.set(newId, roomCode);
   },
 };

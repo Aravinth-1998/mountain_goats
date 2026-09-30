@@ -38,7 +38,7 @@ test('swapSocket updates the mapping from old to new socket', () => {
   const store = freshStore();
   store.setRoom('1234', { code: '1234' });
   store.registerSocket('old', '1234');
-  store.swapSocket('old', 'new');
+  store.swapSocket('old', 'new', '1234');
   assert.equal(store.findRoomBySocket('old'), undefined);
   assert.deepEqual(store.findRoomBySocket('new'), { code: '1234' });
 });
@@ -66,27 +66,21 @@ test('reconnect after handleDisconnect: new socket must be findable', () => {
   store.unregisterSocket('old');
   assert.equal(store.findRoomBySocket('old'), undefined, 'old socket removed');
 
-  // Step 3-4: player reconnects; swapSocket is a no-op because old is gone
-  store.swapSocket('old', 'new');
-  // Without the fix, "new" is not in the map:
-  // assert.equal(store.findRoomBySocket('new'), undefined);  // ← was the bug
-
-  // Step 5 (the fix): joinRoom explicitly registers the new socket
-  store.registerSocket('new', '9999');
+  // Step 3-4: player reconnects; swapSocket always registers newId regardless
+  // of whether oldId was still in the map.
+  store.swapSocket('old', 'new', '9999');
 
   // New socket is now findable — rollDice and other handlers will work
   assert.deepEqual(store.findRoomBySocket('new'), { code: '9999' }, 'new socket registered after reconnect');
   assert.equal(store.findRoomBySocket('old'), undefined, 'old socket still absent');
 });
 
-test('swapSocket followed by registerSocket is idempotent when old socket IS present', () => {
+test('swapSocket works whether or not old socket is present', () => {
   const store = freshStore();
   store.setRoom('5555', { code: '5555' });
   store.registerSocket('old', '5555');
 
-  // Normal reconnect (<3 s): swapSocket succeeds, then registerSocket is called
-  store.swapSocket('old', 'new');
-  store.registerSocket('new', '5555'); // redundant but harmless
+  store.swapSocket('old', 'new', '5555');
 
   assert.deepEqual(store.findRoomBySocket('new'), { code: '5555' });
   assert.equal(store.findRoomBySocket('old'), undefined);
